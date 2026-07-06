@@ -5,7 +5,6 @@ import { IntegrationSettings } from '../models/IntegrationSettings';
 import { User } from '../models/User';
 import { WorkDay } from '../models/WorkDay';
 import { calcWorkDay } from './timeCalcService';
-import { isInternalHost } from './storageService';
 
 /**
  * UrlaubsFeed-Kopplung: importiert genehmigte Abwesenheiten (vacation/sick) aus
@@ -40,12 +39,23 @@ interface RemoteAbsence {
   endDate: string;
 }
 
-/** Basis-URL normalisieren (Schema erzwingen, trailing slash entfernen) + SSRF-Schutz. */
+/**
+ * Basis-URL normalisieren (Schema erzwingen, trailing slash entfernen).
+ * Bewusst KEIN pauschaler Privatnetz-Block wie bei S3-Endpoints: UrlaubsFeed läuft
+ * in typischen Selfhost-Setups im selben LAN/auf demselben Host (nur Admins können
+ * die URL setzen). Cloud-Metadata/Link-Local bleibt gesperrt.
+ */
 export function normalizeBaseUrl(rawUrl: string): string {
   let url = String(rawUrl || '').trim().replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-  if (isInternalHost(url)) {
-    throw new Error('Interne/private UrlaubsFeed-URL ist nicht erlaubt');
+  let host = '';
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    throw new Error('Ungültige UrlaubsFeed-URL');
+  }
+  if (/^169\.254\./.test(host) || host === 'metadata.google.internal' || host === '[fe80::1]' || /^fe80:/i.test(host.replace(/^\[|\]$/g, ''))) {
+    throw new Error('Link-Local-/Metadata-Adressen sind nicht erlaubt');
   }
   return url;
 }
