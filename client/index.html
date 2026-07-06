@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f97316" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="TimeFeed" />
+    <title>TimeFeed - Zeiterfassung</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <!-- Animierter Splash-Screen (Feed-Familie). Wird in main.tsx entfernt,
+         sobald die App gemountet ist. CSP-konform: nur Inline-<style>, kein Inline-<script>. -->
+    <div id="tf-splash" aria-hidden="true">
+      <style>
+        #tf-splash {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          color: #fff; overflow: hidden;
+          background:
+            radial-gradient(ellipse at top, rgba(255,255,255,.18) 0%, transparent 60%),
+            linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%);
+          transition: opacity .35s ease-out;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        }
+        #tf-splash.tf-splash-hide { opacity: 0; pointer-events: none; }
+        #tf-splash::before, #tf-splash::after {
+          content: ''; position: absolute; border-radius: 50%;
+          background: rgba(255,255,255,.08); filter: blur(40px); pointer-events: none;
+        }
+        #tf-splash::before { width: 320px; height: 320px; top: -80px; right: -60px; }
+        #tf-splash::after  { width: 260px; height: 260px; bottom: -60px; left: -40px; }
+        #tf-splash .tf-splash-icon {
+          width: 104px; height: 104px;
+          animation: tf-splash-float 2.4s ease-in-out infinite;
+          filter: drop-shadow(0 16px 32px rgba(0,0,0,.25));
+        }
+        #tf-splash .tf-splash-icon svg { width: 100%; height: 100%; display: block; }
+        #tf-splash h1 {
+          margin: 26px 0 4px; font-weight: 700; font-size: 32px; color: #fff;
+          letter-spacing: -0.5px; text-shadow: 0 2px 12px rgba(0,0,0,.18);
+          animation: tf-splash-fade .6s ease-out .15s both;
+        }
+        #tf-splash .tf-splash-tag {
+          font-size: 14px; color: rgba(255,255,255,.85); margin-bottom: 34px;
+          animation: tf-splash-fade .6s ease-out .3s both;
+        }
+        #tf-splash .tf-splash-bar {
+          position: absolute; bottom: 22%; width: min(240px, 56vw); height: 3px;
+          background: rgba(255,255,255,.25); border-radius: 999px; overflow: hidden;
+        }
+        #tf-splash .tf-splash-bar::after {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,.95), transparent);
+          animation: tf-splash-bar 1.4s ease-in-out infinite;
+        }
+        #tf-splash .tf-splash-foot {
+          position: absolute; bottom: 32px; color: rgba(255,255,255,.7);
+          font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+          animation: tf-splash-fade .6s ease-out .45s both;
+        }
+        @keyframes tf-splash-float { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-14px) scale(1.04); } }
+        @keyframes tf-splash-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        @keyframes tf-splash-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      </style>
+      <div class="tf-splash-icon">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="60" cy="60" r="34" fill="#fff"/>
+          <circle cx="60" cy="30" r="4" fill="#fdba74"/>
+          <circle cx="90" cy="60" r="4" fill="#fdba74"/>
+          <circle cx="60" cy="90" r="4" fill="#fdba74"/>
+          <circle cx="30" cy="60" r="4" fill="#fdba74"/>
+          <path d="M60 62 L60 40" fill="none" stroke="#ea580c" stroke-width="7" stroke-linecap="round"/>
+          <path d="M60 60 L75 69" fill="none" stroke="#ea580c" stroke-width="7" stroke-linecap="round"/>
+          <circle cx="60" cy="60" r="5" fill="#ea580c"/>
+        </svg>
+      </div>
+      <h1>TimeFeed</h1>
+      <div class="tf-splash-tag">Kommen. Gehen. Erfasst.</div>
+      <div class="tf-splash-bar"></div>
+      <div class="tf-splash-foot">Lädt …</div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

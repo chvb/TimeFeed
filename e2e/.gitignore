@@ -1,0 +1,12 @@
+# Test-User-Credentials (pro Dev-Box) — nicht committen
+.env.test
+
+# Laufzeit-State des E-Mail-Toggles (Setup/Teardown)
+.email-state.json
+
+# Playwright-Outputs
+test-results/
+playwright-report/
+
+# Dependencies
+node_modules/

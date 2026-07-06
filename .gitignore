@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+.env.test
+server/.env
+client/.env
+
+# Build output (wird von update.sh / start.sh erzeugt)
+server/dist/
+server/public/
+client/dist/
+
+# Logs
+*.log
+*.log.*
+logs/
+update.log
+update-check.log
+
+# PID files
+*.pid
+
+# Datenbank (SQLite) — niemals committen
+*.sqlite
+*.sqlite3
+*.db
+server/database.sqlite
+
+# Uploads (Nutzerdaten)
+server/uploads/
+
+# Prod-only State-Dateien (niemals committen)
+.last-update-check
+.changelog-last-hash
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cache
+.cache/
+.parcel-cache/
+
+# npm config (lokale prefix-Einstellung soll nicht ins Repo)
+.npmrc

@@ -1,0 +1,22 @@
+{
+  "name": "timefeed",
+  "version": "0.5.0",
+  "description": "Zeiterfassung Web-App (Stempeluhr)",
+  "private": true,
+  "scripts": {
+    "dev": "npm run build:client && npm run server:dev",
+    "server:dev": "cd server && npm run dev",
+    "client:dev": "cd client && npm run dev",
+    "build": "npm run build:client && npm run build:server",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build",
+    "start": "npm run build && cd server && npm start",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,107 @@
+# Continuous Integration für TimeFeed.
+#
+# Läuft bei jedem Push auf master und bei Pull Requests. Schützt vor
+# Build-Fehlern auf prod (TypeScript-Fehler im Client oder Server) und
+# meldet kritische npm-Vulnerabilities.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  client:
+    name: Client Build & Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Production build (tsc && vite build)
+        run: npm run build
+        env:
+          CI: 'true'
+      - name: Audit (high+critical only)
+        run: npm audit --audit-level=high || echo "::warning::npm audit found high/critical vulnerabilities"
+
+  server:
+    name: Server Build & Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+      - name: Lint (ESLint)
+        run: npm run lint
+      - name: TypeScript build (tsc)
+        run: npm run build
+      - name: Unit tests (Jest)
+        run: npm test
+      - name: Audit (high+critical only)
+        run: npm audit --audit-level=high --omit=dev || echo "::warning::npm audit found high/critical vulnerabilities"
+
+  e2e:
+    name: E2E (Playwright API-Tests)
+    runs-on: ubuntu-latest
+    needs: [server]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install & build server
+        working-directory: server
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm run build
+      - name: Server-Env für CI erzeugen
+        working-directory: server
+        run: |
+          cat > .env <<'EOF'
+          NODE_ENV=development
+          PORT=3030
+          JWT_SECRET=ci-e2e-secret-do-not-use-in-prod-1234567890
+          JWT_EXPIRE_TIME=7d
+          DATABASE_URL=sqlite:./database.sqlite
+          DISABLE_AUTH_RATE_LIMIT=true
+          EOF
+      - name: Server starten + auf Health warten
+        working-directory: server
+        run: |
+          node dist/index.js > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3030/health > /dev/null 2>&1; then
+              echo "Server bereit"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Server nicht gestartet"; cat server.log; exit 1
+      - name: E2E-Tests ausführen (globalSetup legt Test-User an, globalTeardown räumt restlos auf)
+        working-directory: e2e
+        env:
+          E2E_BASE_URL: http://localhost:3030
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+      - name: Server-Log bei Fehler
+        if: failure()
+        run: cat server/server.log || true

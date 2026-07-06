@@ -1,0 +1,71 @@
+import { Fragment } from 'react';
+import { Link } from 'react-router-dom';
+import { BookOpenIcon, InformationCircleIcon, ShieldCheckIcon, IdentificationIcon } from '@heroicons/react/24/outline';
+import { APP_VERSION } from '../../constants/version';
+import { copyrightYears } from '../../lib/dateUtils';
+import OnlineStatusBadge from './OnlineStatusBadge';
+import type { LegalKey } from '../legal/LegalModal';
+import { useT } from '../../i18n';
+
+interface AppFooterProps {
+  className?: string;
+  /** Wenn gesetzt: Links öffnen In-App-Modal statt zu navigieren. */
+  onOpenLegal?: (key: LegalKey) => void;
+  /** Wenn gesetzt: Version ist klickbar und öffnet den Changelog („Was ist neu"). */
+  onOpenChangelog?: () => void;
+  /** Helle Variante für dunkle/orangefarbene Hintergründe (z. B. Sidebar). */
+  tone?: 'default' | 'onPrimary';
+}
+
+const LINKS: { key: LegalKey; href: string; labelKey: string; icon: any }[] = [
+  { key: 'dokumentation', href: '/dokumentation', labelKey: 'ui.footerDocs', icon: BookOpenIcon },
+  { key: 'info', href: '/info', labelKey: 'ui.footerInfo', icon: InformationCircleIcon },
+  { key: 'datenschutz', href: '/datenschutz', labelKey: 'ui.footerPrivacy', icon: ShieldCheckIcon },
+  { key: 'impressum', href: '/impressum', labelKey: 'ui.footerImprint', icon: IdentificationIcon },
+];
+
+/**
+ * Gemeinsamer Footer (Feed-Familie): Rechts-/Info-Links, Copyright, Version,
+ * Online-Status. In der App (onOpenLegal) öffnen die Links Modals; auf
+ * öffentlichen Seiten (ohne Prop) navigieren sie zu den Routen.
+ */
+export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog, tone = 'default' }: AppFooterProps) {
+  const t = useT();
+  const onP = tone === 'onPrimary';
+  const textCls = onP ? 'text-white/70' : 'text-slate-400';
+  const linkCls = onP ? 'text-white/80 hover:text-white transition-colors' : 'hover:text-primary-500 transition-colors';
+  const sepCls = onP ? 'text-white/40' : 'text-slate-300';
+
+  return (
+    <footer className={`text-center ${className}`}>
+      <div className={`flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[11px] ${textCls}`}>
+        {LINKS.map((l, i) => (
+          <Fragment key={l.key}>
+            {i > 0 && <span className={sepCls}>·</span>}
+            {onOpenLegal ? (
+              <button type="button" onClick={() => onOpenLegal(l.key)} className={`inline-flex items-center gap-1 ${linkCls}`}>
+                <l.icon className="h-3.5 w-3.5" /> {t(l.labelKey)}
+              </button>
+            ) : (
+              <Link to={l.href} className={`inline-flex items-center gap-1 ${linkCls}`}>
+                <l.icon className="h-3.5 w-3.5" /> {t(l.labelKey)}
+              </Link>
+            )}
+          </Fragment>
+        ))}
+      </div>
+      <div className={`flex items-center justify-center flex-wrap gap-x-2 gap-y-1 mt-2 text-[11px] ${textCls}`}>
+        <span>© {copyrightYears()} TimeFeed</span>
+        <span className={sepCls}>·</span>
+        <span className="inline-flex items-center gap-1.5">
+          {onOpenChangelog ? (
+            <button type="button" onClick={onOpenChangelog} className={linkCls} title={t('ui.whatsNew')}>v{APP_VERSION}</button>
+          ) : (
+            <span>v{APP_VERSION}</span>
+          )}
+          <OnlineStatusBadge />
+        </span>
+      </div>
+    </footer>
+  );
+}

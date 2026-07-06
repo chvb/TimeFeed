@@ -1,0 +1,203 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-slate-50 text-slate-800;
+  }
+  
+  /* Removed global transitions to prevent page load animations */
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md;
+  }
+  
+  .btn-secondary {
+    @apply bg-white text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 border border-slate-300 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md;
+  }
+  
+  .btn-danger {
+    @apply bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md;
+  }
+  
+  .btn-success {
+    @apply bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-slate-300 bg-white text-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-sm border border-slate-200 p-6;
+  }
+  
+  .card:hover {
+    @apply shadow-md;
+    transition: box-shadow 0.2s ease-in-out;
+  }
+  
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-all duration-200;
+  }
+  
+  .status-pending {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .status-approved {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .status-rejected {
+    @apply bg-red-100 text-red-800;
+  }
+}
+
+/* ===== Dark Mode (klassenbasiert: .dark auf <html>) =====
+   Zentrale Overrides der gängigen Flächen-/Text-/Rahmen-Utilities, damit der
+   Dark-Mode ohne dark:-Varianten in jeder Komponente greift. Farbige Klassen
+   (primary/red/green/yellow) und text-white bleiben unverändert. */
+.dark body { background-color: #0b1220; color: #e2e8f0; }
+
+.dark .bg-white { background-color: #131c2e !important; }
+.dark .bg-slate-50, .dark .bg-gray-50 { background-color: #0f1729 !important; }
+.dark .bg-slate-100, .dark .bg-gray-100 { background-color: #1e293b !important; }
+
+.dark .text-slate-900, .dark .text-gray-900,
+.dark .text-slate-800, .dark .text-gray-800 { color: #f1f5f9 !important; }
+.dark .text-slate-700, .dark .text-gray-700,
+.dark .text-slate-600, .dark .text-gray-600 { color: #cbd5e1 !important; }
+.dark .text-slate-500, .dark .text-gray-500,
+.dark .text-slate-400, .dark .text-gray-400 { color: #94a3b8 !important; }
+
+.dark .border-slate-200, .dark .border-slate-300,
+.dark .border-gray-200, .dark .border-gray-300 { border-color: #334155 !important; }
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155 !important; }
+
+.dark .card { background-color: #131c2e !important; border-color: #1e293b !important; }
+.dark .input-field { background-color: #0f1729 !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+.dark .btn-secondary { background-color: #1e293b !important; border-color: #334155 !important; color: #e2e8f0 !important; }
+
+/* Hover-Flächen im Dark-Mode */
+.dark .hover\:bg-slate-50:hover, .dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-slate-100:hover, .dark .hover\:bg-gray-100:hover { background-color: #1e293b !important; }
+
+/* Tabellenraster (border-collapse Zellen) */
+.dark table .border-gray-300 { border-color: #334155 !important; }
+
+/* Native Formularelemente ohne eigene Klasse im Dark-Mode lesbar machen
+   (sie würden sonst helle Schrift auf weißem UA-Hintergrund erben). */
+.dark select,
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark textarea {
+  background-color: #0f1729;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+.dark select option { background-color: #131c2e; color: #e2e8f0; }
+.dark input::placeholder,
+.dark textarea::placeholder { color: #94a3b8; }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 0.5cm;
+  }
+  
+  /* Hide everything except the printable content */
+  body * {
+    visibility: hidden;
+  }
+  
+  .print-container,
+  .print-container * {
+    visibility: visible;
+  }
+  
+  .print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Hide navigation, buttons, and other UI elements */
+  nav,
+  .no-print,
+  button,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .btn-success,
+  .filter-controls,
+  .navigation-controls,
+  .sidebar,
+  .menu,
+  .header-actions,
+  .print-button {
+    display: none !important;
+  }
+  
+  /* Optimize table layout for A4 */
+  .print-table {
+    width: 100% !important;
+    max-width: none !important;
+    font-size: 10px !important;
+    line-height: 1.2 !important;
+    border-collapse: collapse !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .print-table th,
+  .print-table td {
+    border: 1px solid #000 !important;
+    padding: 2px 4px !important;
+    text-align: left !important;
+    vertical-align: top !important;
+    background: white !important;
+    color: black !important;
+  }
+  
+  .print-table th {
+    background: #f5f5f5 !important;
+    font-weight: bold !important;
+  }
+  
+  /* Print title */
+  .print-title {
+    font-size: 16px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    margin-bottom: 10px !important;
+    color: black !important;
+  }
+  
+  /* Page break control */
+  .print-page-break {
+    page-break-before: always !important;
+  }
+  
+  /* Remove shadows, rounded corners, and colors for print */
+  * {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background-color: white !important;
+  }
+  
+  /* Status indicators for print */
+  .print-status-approved::before { content: "✓ "; }
+  .print-status-pending::before { content: "? "; }
+  .print-status-rejected::before { content: "✗ "; }
+}
