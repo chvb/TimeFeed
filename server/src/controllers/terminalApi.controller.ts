@@ -104,6 +104,8 @@ export class TerminalApiController {
         companyName: company?.name ?? null,
         config: terminal.getConfig(),
         breakMode: settings.breakMode,
+        // Heartbeat-Intervall (Sekunden) — pro Firma konfigurierbar.
+        pingSeconds: settings.terminalPingSeconds || 20,
         // Zahnrad/Einstellungen am Kiosk passwortgeschützt? (nie der Hash selbst)
         settingsProtected: !!terminal.settingsPasswordHash,
         branding: {
@@ -121,8 +123,14 @@ export class TerminalApiController {
    * GET /api/terminal/ping — leichter Heartbeat für die Verbindungsanzeige des Kiosks.
    * lastSeenAt wird bereits (gedrosselt) von der terminalAuth-Middleware gepflegt.
    */
-  async ping(_req: Request, res: Response) {
-    res.json({ ok: true, time: new Date().toISOString() });
+  async ping(req: Request, res: Response) {
+    // pingSeconds mitliefern: Terminals übernehmen Intervall-Änderungen live.
+    let pingSeconds = 20;
+    try {
+      const settings = await settingsController.getOrCreateSettings(req.terminal!.companyId);
+      pingSeconds = settings.terminalPingSeconds || 20;
+    } catch { /* Default behalten */ }
+    res.json({ ok: true, time: new Date().toISOString(), pingSeconds });
   }
 
   /**

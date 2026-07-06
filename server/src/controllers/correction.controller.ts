@@ -8,7 +8,8 @@ import { AppError } from '../middleware/errorHandler';
 import { canActorAccessUser, getAccessibleUserIds } from '../services/accessScope';
 import { AuditService } from '../services/auditService';
 import { AuditAction, AuditCategory } from '../models/AuditLog';
-import emailService, { escapeHtml } from '../services/emailService';
+import emailService, { escapeHtml, renderBrandedEmail } from '../services/emailService';
+import { getPublicBaseUrl } from '../utils/baseUrl';
 import { addDays, calcWorkDay, localDayStart, ymdLocal } from '../services/timeCalcService';
 import { isDayLocked, MONTH_LOCKED_RESPONSE } from '../services/monthLockService';
 import { notifyUser } from '../services/pushService';
@@ -77,15 +78,15 @@ async function notifyManagersOfNewRequest(cr: CorrectionRequest, employee: User)
   });
   const emails = managers.map((m) => m.email).filter(Boolean);
   if (emails.length === 0) return;
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color:#10B981;">Neuer Korrekturantrag</h2>
+  const html = await renderBrandedEmail({
+    title: 'Neuer Korrekturantrag',
+    bodyHtml: `
       <p><strong>${escapeHtml(employee.firstName)} ${escapeHtml(employee.lastName)}</strong> hat einen Korrekturantrag für den <strong>${escapeHtml(cr.date)}</strong> gestellt.</p>
       <p>${escapeHtml(cr.message)}</p>
       <p>Vorgeschlagene Stempelungen:</p>
-      <ul>${entriesHtml(cr.proposedEntries)}</ul>
-      <p>Bitte prüfen Sie den Antrag in TimeFeed.</p>
-    </div>`;
+      <ul>${entriesHtml(cr.proposedEntries)}</ul>`,
+    button: { text: 'Antrag prüfen', url: `${await getPublicBaseUrl()}/manage-times` },
+  });
   await sendMailSafe(emails, `TimeFeed: Neuer Korrekturantrag von ${employee.firstName} ${employee.lastName} (${cr.date})`, html);
 }
 
@@ -93,15 +94,19 @@ async function notifyManagersOfNewRequest(cr: CorrectionRequest, employee: User)
 async function notifyEmployeeOfDecision(cr: CorrectionRequest, employee: User, approved: boolean): Promise<void> {
   if (!employee.email) return;
   const verdict = approved ? 'genehmigt' : 'abgelehnt';
-  const color = approved ? '#10B981' : '#DC2626';
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color:${color};">Korrekturantrag ${verdict}</h2>
+  const badge = approved
+    ? '<span style="display:inline-block;background-color:#dcfce7;color:#166534;padding:4px 14px;border-radius:999px;font-weight:bold;">genehmigt</span>'
+    : '<span style="display:inline-block;background-color:#fee2e2;color:#991b1b;padding:4px 14px;border-radius:999px;font-weight:bold;">abgelehnt</span>';
+  const html = await renderBrandedEmail({
+    title: `Korrekturantrag ${verdict}`,
+    bodyHtml: `
+      <p style="text-align:center;">${badge}</p>
       <p>Ihr Korrekturantrag für den <strong>${escapeHtml(cr.date)}</strong> wurde <strong>${verdict}</strong>.</p>
       ${cr.decisionNote ? `<p>Anmerkung: ${escapeHtml(cr.decisionNote)}</p>` : ''}
       <p>Vorgeschlagene Stempelungen:</p>
-      <ul>${entriesHtml(cr.proposedEntries)}</ul>
-    </div>`;
+      <ul>${entriesHtml(cr.proposedEntries)}</ul>`,
+    button: { text: 'Meine Zeiten öffnen', url: `${await getPublicBaseUrl()}/times` },
+  });
   await sendMailSafe(employee.email, `TimeFeed: Korrekturantrag für ${cr.date} ${verdict}`, html);
 }
 

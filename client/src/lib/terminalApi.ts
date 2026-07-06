@@ -129,11 +129,12 @@ export async function fetchTerminalInfo(token: string): Promise<TerminalInfo> {
 
 /**
  * GET /api/terminal/ping — Heartbeat für die Verbindungsanzeige.
- * Kurzer Timeout (5s): Der Kiosk pingt alle 10s; ein hängender Request darf
- * nicht in den nächsten Zyklus hineinlaufen.
+ * Kurzer Timeout (5s): ein hängender Request darf nicht in den nächsten
+ * Zyklus hineinlaufen. Liefert das serverseitig konfigurierte Intervall
+ * (pingSeconds) mit — Terminals übernehmen Änderungen live.
  */
-export async function terminalPing(token: string): Promise<void> {
-  await request('GET', '/api/terminal/ping', token, undefined, 5000);
+export async function terminalPing(token: string): Promise<{ pingSeconds?: number }> {
+  return (await request('GET', '/api/terminal/ping', token, undefined, 5000)) as { pingSeconds?: number };
 }
 
 /**

@@ -89,6 +89,11 @@ export class SettingsController {
       // Aufbewahrung/Löschkonzept
       retentionMonthsEntries: settings.retentionMonthsEntries,
       retentionMonthsGps: settings.retentionMonthsGps,
+      // Terminal-Überwachung (Störungs-Mail)
+      terminalAlertEnabled: settings.terminalAlertEnabled,
+      terminalAlertMinutes: settings.terminalAlertMinutes,
+      terminalAlertEmails: settings.terminalAlertEmails,
+      terminalPingSeconds: settings.terminalPingSeconds,
     };
   }
 
@@ -149,6 +154,8 @@ export class SettingsController {
         'gpsRequired',
         // Aufbewahrung/Löschkonzept
         'retentionMonthsEntries', 'retentionMonthsGps',
+        // Terminal-Überwachung
+        'terminalAlertEnabled', 'terminalAlertMinutes', 'terminalAlertEmails', 'terminalPingSeconds',
       ];
       const updateData: any = {};
       for (const key of ALLOWED_FIELDS) {
@@ -169,6 +176,35 @@ export class SettingsController {
           throw new AppError(400, 'retentionMonthsGps muss eine ganze Zahl ≥ 1 sein');
         }
         updateData.retentionMonthsGps = v;
+      }
+      // Terminal-Überwachung validieren
+      if ('terminalAlertEnabled' in updateData) updateData.terminalAlertEnabled = Boolean(updateData.terminalAlertEnabled);
+      if ('terminalAlertMinutes' in updateData) {
+        const v = Number(updateData.terminalAlertMinutes);
+        if (!Number.isInteger(v) || v < 2 || v > 1440) {
+          throw new AppError(400, 'terminalAlertMinutes muss eine ganze Zahl zwischen 2 und 1440 sein');
+        }
+        updateData.terminalAlertMinutes = v;
+      }
+      if ('terminalPingSeconds' in updateData) {
+        const v = Number(updateData.terminalPingSeconds);
+        if (!Number.isInteger(v) || v < 5 || v > 600) {
+          throw new AppError(400, 'terminalPingSeconds muss eine ganze Zahl zwischen 5 und 600 sein');
+        }
+        updateData.terminalPingSeconds = v;
+      }
+      if ('terminalAlertEmails' in updateData) {
+        const raw = updateData.terminalAlertEmails;
+        if (raw === null || raw === '') {
+          updateData.terminalAlertEmails = null;
+        } else {
+          const list = String(raw).split(',').map((e: string) => e.trim()).filter(Boolean);
+          const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (list.length === 0 || list.some((e: string) => !emailRe.test(e))) {
+            throw new AppError(400, 'terminalAlertEmails muss eine Komma-Liste gültiger E-Mail-Adressen sein');
+          }
+          updateData.terminalAlertEmails = list.join(', ');
+        }
       }
       if (Array.isArray(updateData.workingDays)) {
         updateData.workingDays = JSON.stringify(updateData.workingDays);

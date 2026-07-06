@@ -51,13 +51,15 @@ interface TerminalDeviceAttributes {
   lastSeenAt?: Date | null;
   // bcrypt-Hash des Kiosk-Einstellungs-Passworts (null = Zahnrad ungeschützt).
   settingsPasswordHash?: string | null;
+  /** Zeitpunkt der letzten gesendeten Störungs-Mail (null = keine offene Störung). */
+  alertedAt?: Date | null;
   config: TerminalConfig;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface TerminalDeviceCreationAttributes extends Optional<TerminalDeviceAttributes,
-  'id' | 'locationLabel' | 'lat' | 'lng' | 'isActive' | 'lastSeenAt' | 'settingsPasswordHash' | 'config' | 'createdAt' | 'updatedAt'> {}
+  'id' | 'locationLabel' | 'lat' | 'lng' | 'isActive' | 'lastSeenAt' | 'settingsPasswordHash' | 'alertedAt' | 'config' | 'createdAt' | 'updatedAt'> {}
 
 export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDeviceCreationAttributes> implements TerminalDeviceAttributes {
   public id!: number;
@@ -71,6 +73,7 @@ export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDevi
   public isActive!: boolean;
   public lastSeenAt?: Date | null;
   public settingsPasswordHash?: string | null;
+  public alertedAt?: Date | null;
   public config!: TerminalConfig;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -109,7 +112,7 @@ export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDevi
   // ------------------------------------------------------------------
   private static schemaEnsured = false;
 
-  /** Idempotent: fehlende Spalte settings_password_hash ergänzen (Modul-Flag verhindert Mehrfachlauf). */
+  /** Idempotent: fehlende Spalten ergänzen (Modul-Flag verhindert Mehrfachlauf). */
   public static async ensureSchema(): Promise<void> {
     if (TerminalDevice.schemaEnsured) return;
     try {
@@ -121,6 +124,13 @@ export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDevi
           allowNull: true,
         });
         console.log('Migration: Spalte terminal_devices.settings_password_hash ergänzt.');
+      }
+      if (!desc['alerted_at']) {
+        await qi.addColumn('terminal_devices', 'alerted_at', {
+          type: DataTypes.DATE,
+          allowNull: true,
+        });
+        console.log('Migration: Spalte terminal_devices.alerted_at ergänzt.');
       }
       TerminalDevice.schemaEnsured = true;
     } catch {
@@ -164,6 +174,10 @@ TerminalDevice.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+    },
+    alertedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     lastSeenAt: {
       type: DataTypes.DATE,

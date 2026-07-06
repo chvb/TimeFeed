@@ -58,6 +58,10 @@ interface SystemSettings {
   arbzgMaxDailyMinutes: number;
   arbzgMinRestMinutes: number;
   gpsRequired: boolean;
+  terminalAlertEnabled?: boolean;
+  terminalAlertMinutes?: number;
+  terminalAlertEmails?: string | null;
+  terminalPingSeconds?: number;
 }
 
 interface EmailSettings {
@@ -137,7 +141,11 @@ const Settings: React.FC = () => {
     arbzgWarningsEnabled: true,
     arbzgMaxDailyMinutes: 600,
     arbzgMinRestMinutes: 660,
-    gpsRequired: false
+    gpsRequired: false,
+    terminalAlertEnabled: false,
+    terminalAlertMinutes: 15,
+    terminalAlertEmails: '',
+    terminalPingSeconds: 20
   });
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     smtpHost: '',
@@ -701,6 +709,60 @@ const Settings: React.FC = () => {
                 <span className="text-sm text-slate-700">{t('settings.time.gpsRequired')}</span>
               </label>
               <p className="text-xs text-slate-500 mt-2">{t('settings.time.gpsHint')}</p>
+            </div>
+
+            {/* Terminal-Überwachung */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200">
+              <h4 className="text-lg font-medium text-slate-900 mb-2">{t('settings.time.terminalHeading')}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.time.terminalPingSeconds')}</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={600}
+                    value={settings.terminalPingSeconds ?? 20}
+                    onChange={(e) => setSettings({ ...settings, terminalPingSeconds: parseInt(e.target.value) || 20 })}
+                    className="input-field"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">{t('settings.time.terminalPingHint')}</p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={settings.terminalAlertEnabled ?? false}
+                  onChange={(e) => setSettings({ ...settings, terminalAlertEnabled: e.target.checked })}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-slate-700">{t('settings.time.terminalAlertEnabled')}</span>
+              </label>
+              {settings.terminalAlertEnabled && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.time.terminalAlertMinutes')}</label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={1440}
+                      value={settings.terminalAlertMinutes ?? 15}
+                      onChange={(e) => setSettings({ ...settings, terminalAlertMinutes: parseInt(e.target.value) || 15 })}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.time.terminalAlertEmails')}</label>
+                    <input
+                      type="text"
+                      value={settings.terminalAlertEmails ?? ''}
+                      onChange={(e) => setSettings({ ...settings, terminalAlertEmails: e.target.value })}
+                      placeholder={t('settings.time.terminalAlertEmailsPlaceholder')}
+                      className="input-field"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 md:col-span-2">{t('settings.time.terminalAlertHint')}</p>
+                </div>
+              )}
             </div>
           </div>
         );

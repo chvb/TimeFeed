@@ -261,6 +261,10 @@ const startServer = async () => {
     // Täglicher UrlaubsFeed-Abwesenheits-Sync, 03:00 Uhr.
     const { startAbsenceSyncJob } = await import('./services/absenceSyncService');
     startAbsenceSyncJob();
+
+    // Terminal-Überwachung: Störungs-/Entwarnungs-Mails (pro Firma konfigurierbar).
+    const { startTerminalAlertService } = await import('./services/terminalAlertService');
+    startTerminalAlertService();
     
     const { seedDatabase } = await import('./db/seedData');
     const userCount = await import('./models/User').then(m => m.User.count());

@@ -57,6 +57,15 @@ export const settings = {
         gpsHeading: 'Standort (GPS)',
         gpsRequired: 'Standortfreigabe beim Stempeln verpflichtend',
         gpsHint: 'Wenn deaktiviert, ist Stempeln ohne Standort erlaubt, wird aber als „ohne Standort" markiert.',
+        terminalHeading: 'Terminal-Überwachung',
+        terminalPingSeconds: 'Ping-Intervall der Terminals (Sekunden)',
+        terminalPingHint: 'Wie oft sich die Stempel-Terminals beim Server melden. Terminals übernehmen Änderungen automatisch.',
+        terminalAlertEnabled: 'Störungsmeldung per E-Mail, wenn sich ein Terminal nicht mehr meldet',
+        terminalAlertMinutes: 'Störung melden nach (Minuten ohne Meldung)',
+        terminalAlertEmails: 'Empfänger (Komma-getrennt)',
+        terminalAlertEmailsPlaceholder: 'leer = alle Admins der Firma',
+        terminalAlertHint: 'Pro Ausfall wird genau eine Störungs-Mail gesendet; meldet sich das Terminal wieder, folgt eine Entwarnung.',
+
       },
       weekDays: {
         monday: 'Montag',
@@ -402,6 +411,15 @@ export const settings = {
         gpsHeading: 'Location (GPS)',
         gpsRequired: 'Location access mandatory for stamping',
         gpsHint: 'If disabled, stamping without location is allowed but flagged as "without location".',
+        terminalHeading: 'Terminal monitoring',
+        terminalPingSeconds: 'Terminal ping interval (seconds)',
+        terminalPingHint: 'How often kiosk terminals report to the server. Terminals adopt changes automatically.',
+        terminalAlertEnabled: 'Send outage email when a terminal stops reporting',
+        terminalAlertMinutes: 'Report outage after (minutes without contact)',
+        terminalAlertEmails: 'Recipients (comma-separated)',
+        terminalAlertEmailsPlaceholder: 'empty = all company admins',
+        terminalAlertHint: 'Exactly one outage email per incident; a recovery email follows once the terminal reports again.',
+
       },
       weekDays: {
         monday: 'Monday',

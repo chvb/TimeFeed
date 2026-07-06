@@ -124,8 +124,8 @@ export default function Terminals() {
   // + Ticker für die relative „Zuletzt gemeldet"-Anzeige.
   const [nowTs, setNowTs] = useState(() => Date.now());
   useEffect(() => {
-    const tick = window.setInterval(() => setNowTs(Date.now()), 10_000);
-    const refresh = window.setInterval(() => { load(true); }, 30_000);
+    const tick = window.setInterval(() => setNowTs(Date.now()), 5_000);
+    const refresh = window.setInterval(() => { load(true); }, 5_000);
     return () => { window.clearInterval(tick); window.clearInterval(refresh); };
   }, [load]);
 

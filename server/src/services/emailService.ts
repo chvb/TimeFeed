@@ -1,6 +1,7 @@
 import * as nodemailer from 'nodemailer';
 import { EmailSettings } from '../models/EmailSettings';
 import { copyrightYears } from '../utils/copyright';
+import { getPublicBaseUrl } from '../utils/baseUrl';
 
 // HTML-Escaping für in E-Mail-Templates interpolierte Nutzerdaten (Namen etc.).
 export function escapeHtml(value: unknown): string {
@@ -11,6 +12,68 @@ export function escapeHtml(value: unknown): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// ---------------------------------------------------------------------------
+// Einheitliches Marken-Layout für ALLE ausgehenden Mails (Feed-Familie):
+// Orange-Kopf mit Logo, gebrandeter Button, einheitlicher Footer.
+// Logo als absolute URL über publicUrl — SVG/Data-URLs blocken viele Clients.
+// Tabellen-Layout + bgcolor-Fallback für Outlook (kein Gradient-Support).
+// ---------------------------------------------------------------------------
+export const MAIL_PRIMARY = '#ea580c';
+const MAIL_GRADIENT = 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)';
+
+export interface BrandedEmailOptions {
+  /** Überschrift im Inhaltsbereich. */
+  title: string;
+  /** Fertiges (bereits escaptes) HTML für den Inhalt. */
+  bodyHtml: string;
+  /** Optionaler Call-to-Action-Button. */
+  button?: { text: string; url: string };
+  /** Kleingedruckter Hinweis über dem Footer. */
+  footerNote?: string;
+}
+
+export async function renderBrandedEmail(opts: BrandedEmailOptions): Promise<string> {
+  const base = await getPublicBaseUrl();
+  const button = opts.button
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:28px auto;">
+        <tr><td align="center" bgcolor="${MAIL_PRIMARY}" style="border-radius:10px;">
+          <a href="${opts.button.url}" style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-weight:bold;font-size:16px;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(opts.button.text)}</a>
+        </td></tr>
+      </table>`
+    : '';
+  const note = opts.footerNote
+    ? `<p style="color:#6B7280;font-size:13px;text-align:center;margin:24px 0 0;">${escapeHtml(opts.footerNote)}</p>`
+    : '';
+  return `<!doctype html>
+  <html><body style="margin:0;padding:0;background-color:#f1f5f9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:24px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+        <tr>
+          <td align="center" bgcolor="${MAIL_PRIMARY}" style="background:${MAIL_GRADIENT};padding:28px 20px;border-radius:14px 14px 0 0;">
+            <img src="${base}/icons/icon-192.png" width="52" height="52" alt="TimeFeed" style="display:inline-block;vertical-align:middle;border-radius:12px;border:0;" />
+            <span style="display:inline-block;vertical-align:middle;margin-left:14px;color:#ffffff;font-size:28px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;letter-spacing:-0.5px;">TimeFeed</span>
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="#ffffff" style="background-color:#ffffff;padding:32px 28px;border-radius:0 0 14px 14px;font-family:Arial,Helvetica,sans-serif;">
+            <h2 style="color:${MAIL_PRIMARY};text-align:center;margin:0 0 20px;font-size:22px;">${escapeHtml(opts.title)}</h2>
+            <div style="color:#374151;line-height:1.6;font-size:16px;">${opts.bodyHtml}</div>
+            ${button}
+            ${note}
+            <hr style="border:none;border-top:1px solid #E5E7EB;margin:28px 0 16px;" />
+            <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">
+              Diese E-Mail wurde von TimeFeed gesendet · <a href="${base}" style="color:#9CA3AF;">${base.replace(/^https?:\/\//, '')}</a><br />
+              © ${copyrightYears()} TimeFeed
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+  </body></html>`;
 }
 
 class EmailService {
@@ -84,115 +147,34 @@ class EmailService {
   }
 
   async sendPasswordReset(email: string, resetToken: string): Promise<any> {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3031'}/reset-password?token=${resetToken}`;
-    
-    const subject = 'Passwort zurücksetzen - TimeFeed';
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px;">
-        <!-- Header with Logo -->
-        <div style="text-align: center; margin-bottom: 30px; background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 30px; border-radius: 12px;">
-          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-            <!-- TimeFeed Logo SVG -->
-            <svg width="60" height="60" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 15px;">
-              <rect x="8" y="8" width="48" height="48" rx="8" fill="white"/>
-              <rect x="14" y="16" width="36" height="32" rx="3" fill="#10B981"/>
-              <rect x="14" y="16" width="36" height="8" rx="3" fill="#059669"/>
-              <circle cx="22" cy="12" r="2" fill="#6B7280"/>
-              <circle cx="32" cy="12" r="2" fill="#6B7280"/>
-              <circle cx="42" cy="12" r="2" fill="#6B7280"/>
-              <text x="32" y="22" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="5" font-weight="bold">U</text>
-            </svg>
-            <div style="color: white; font-size: 32px; font-weight: bold; font-family: Arial, sans-serif;">
-              <div>Time</div>
-              <div style="margin-top: -8px; opacity: 0.9;">Feed</div>
-            </div>
-          </div>
-        </div>
-        
-        <h2 style="color: #10B981; text-align: center; margin-bottom: 20px;">Passwort zurücksetzen</h2>
-        
-        <p style="color: #374151; line-height: 1.6; font-size: 16px;">Sie haben eine Passwort-Zurücksetzung für Ihr TimeFeed-Konto angefordert.</p>
-        
-        <p style="color: #374151; line-height: 1.6; font-size: 16px;">Klicken Sie auf den folgenden Link, um Ihr Passwort zurückzusetzen:</p>
-        
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetUrl}" 
-             style="display: inline-block; background-color: #10B981; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
-            🔑 Passwort zurücksetzen
-          </a>
-        </div>
-        
-        <p style="color: #374151; line-height: 1.6; font-size: 14px;">Oder kopieren Sie diesen Link in Ihren Browser:</p>
-        <p style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; word-break: break-all; font-family: monospace; font-size: 12px; border-left: 4px solid #10B981;">
-          ${resetUrl}
-        </p>
-        
-        <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 30px 0;">
-        
-        <p style="color: #6B7280; font-size: 14px; text-align: center;">
-          Dieser Link ist 1 Stunde gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.
-        </p>
-        
-        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
-          <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-            Diese E-Mail wurde von TimeFeed gesendet.<br>
-            © ${copyrightYears()} TimeFeed
-          </p>
-        </div>
-      </div>
-    `;
+    const base = await getPublicBaseUrl();
+    const resetUrl = `${base}/reset-password?token=${resetToken}`;
 
+    const subject = 'Passwort zurücksetzen - TimeFeed';
+    const html = await renderBrandedEmail({
+      title: 'Passwort zurücksetzen',
+      bodyHtml: `
+        <p>Sie haben eine Passwort-Zurücksetzung für Ihr TimeFeed-Konto angefordert.</p>
+        <p>Klicken Sie auf den Button, um ein neues Passwort zu vergeben — oder kopieren Sie diesen Link in Ihren Browser:</p>
+        <p style="background-color:#FFF7ED;padding:14px;border-radius:8px;word-break:break-all;font-family:monospace;font-size:12px;border-left:4px solid ${MAIL_PRIMARY};">${resetUrl}</p>`,
+      button: { text: 'Passwort zurücksetzen', url: resetUrl },
+      footerNote: 'Dieser Link ist 1 Stunde gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.',
+    });
     return await this.sendEmail(email, subject, html);
   }
 
   async sendTestEmail(email: string): Promise<any> {
     const subject = 'TimeFeed Test-E-Mail';
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px;">
-        <!-- Header with Logo -->
-        <div style="text-align: center; margin-bottom: 30px; background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 30px; border-radius: 12px;">
-          <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-            <!-- TimeFeed Logo SVG -->
-            <svg width="60" height="60" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 15px;">
-              <rect x="8" y="8" width="48" height="48" rx="8" fill="white"/>
-              <rect x="14" y="16" width="36" height="32" rx="3" fill="#10B981"/>
-              <rect x="14" y="16" width="36" height="8" rx="3" fill="#059669"/>
-              <circle cx="22" cy="12" r="2" fill="#6B7280"/>
-              <circle cx="32" cy="12" r="2" fill="#6B7280"/>
-              <circle cx="42" cy="12" r="2" fill="#6B7280"/>
-              <text x="32" y="22" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="5" font-weight="bold">U</text>
-            </svg>
-            <div style="color: white; font-size: 32px; font-weight: bold; font-family: Arial, sans-serif;">
-              <div>Time</div>
-              <div style="margin-top: -8px; opacity: 0.9;">Feed</div>
-            </div>
-          </div>
-        </div>
-        
-        <h2 style="color: #10B981; text-align: center; margin-bottom: 20px;">Test-E-Mail erfolgreich!</h2>
-        
-        <p style="color: #374151; line-height: 1.6; font-size: 16px; text-align: center;">Ihre E-Mail-Konfiguration funktioniert korrekt.</p>
-        
-        <div style="background-color: #F0FDF4; border-left: 4px solid #10B981; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-          <p style="color: #10B981; margin: 0; font-weight: bold;">✅ SMTP-Verbindung erfolgreich</p>
-          <p style="color: #10B981; margin: 10px 0 0 0; font-weight: bold;">✅ E-Mail-Versand funktioniert</p>
-        </div>
-        
-        <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 30px 0;">
-        
-        <p style="color: #6B7280; font-size: 14px; text-align: center;">
-          Gesendet am: ${new Date().toLocaleString('de-DE')}
-        </p>
-        
-        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #E5E7EB;">
-          <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-            Diese Test-E-Mail wurde von TimeFeed gesendet.<br>
-            © ${copyrightYears()} TimeFeed
-          </p>
-        </div>
-      </div>
-    `;
-
+    const html = await renderBrandedEmail({
+      title: 'Test-E-Mail erfolgreich!',
+      bodyHtml: `
+        <p style="text-align:center;">Ihre E-Mail-Konfiguration funktioniert korrekt.</p>
+        <div style="background-color:#FFF7ED;border-left:4px solid ${MAIL_PRIMARY};padding:18px;margin:20px 0;border-radius:0 8px 8px 0;">
+          <p style="color:#9a3412;margin:0;font-weight:bold;">&#10004; SMTP-Verbindung erfolgreich</p>
+          <p style="color:#9a3412;margin:10px 0 0;font-weight:bold;">&#10004; E-Mail-Versand funktioniert</p>
+        </div>`,
+      footerNote: `Gesendet am: ${new Date().toLocaleString('de-DE')}`,
+    });
     return await this.sendEmail(email, subject, html);
   }
 

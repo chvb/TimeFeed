@@ -17,7 +17,7 @@ declare global {
   }
 }
 
-const LAST_SEEN_THROTTLE_MS = 60 * 1000;
+const LAST_SEEN_THROTTLE_MS = 10 * 1000; // passend zum 10s-Heartbeat der Terminals
 
 export const terminalAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {

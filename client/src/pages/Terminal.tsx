@@ -37,8 +37,9 @@ type Screen = 'setup' | 'settingsGate' | 'idle' | 'pin' | 'action' | 'offlineAct
 
 // Zahnrad-Schutz: nach so vielen Fehlversuchen zurück zum Idle-Screen.
 const SETTINGS_MAX_ATTEMPTS = 3;
-// Heartbeat-Intervall der Verbindungsanzeige (GET /api/terminal/ping).
-const PING_INTERVAL_MS = 10_000;
+// Heartbeat-Fallback (Sekunden) — das echte Intervall kommt vom Server
+// (SystemSettings.terminalPingSeconds) über die Info-/Ping-Antwort.
+const DEFAULT_PING_SECONDS = 20;
 
 interface ConfirmData {
   name: string;
@@ -262,6 +263,7 @@ export default function Terminal() {
      HTTP-Antwort (auch 401 bei ungültigem Token) heißt: Server lebt.
      Fehler bleiben still (kein Toast-Spam); kommt die Verbindung zurück,
      verschwindet der Banner und die Offline-Queue wird sofort geleert. */
+  const [pingSeconds, setPingSeconds] = useState(DEFAULT_PING_SECONDS);
   useEffect(() => {
     if (!token) return;
     let stopped = false;
@@ -269,8 +271,11 @@ export default function Terminal() {
       const tok = tokenRef.current;
       if (!tok) return;
       try {
-        await terminalPing(tok);
+        const r = await terminalPing(tok);
         if (stopped) return;
+        // Serverseitig konfiguriertes Intervall live übernehmen.
+        const s = Number(r?.pingSeconds);
+        if (Number.isFinite(s) && s >= 5 && s <= 600) setPingSeconds(s);
         if (!reachableRef.current) flushQueue(); // Verbindung wieder da → sofort nachreichen
         reachableRef.current = true;
         setServerReachable(true);
@@ -282,9 +287,13 @@ export default function Terminal() {
       }
     };
     doPing();
-    const id = window.setInterval(doPing, PING_INTERVAL_MS);
-    return () => { stopped = true; window.clearInterval(id); };
-  }, [token, flushQueue]);
+    const id = window.setInterval(doPing, pingSeconds * 1000);
+    // Browser drosseln Timer in Hintergrund-Tabs stark — beim Sichtbarwerden
+    // sofort pingen, damit sich das Terminal direkt wieder meldet.
+    const onVisible = () => { if (document.visibilityState === 'visible') doPing(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { stopped = true; window.clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
+  }, [token, flushQueue, pingSeconds]);
 
   /* ---------- Live-Uhr ---------- */
   useEffect(() => {

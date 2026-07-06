@@ -38,4 +38,10 @@ export async function ensureSecondaryAndRetentionColumns(): Promise<void> {
   // system_settings — Aufbewahrung (§ 16 Abs. 2 ArbZG: min. 2 Jahre → Default/Minimum 24 Monate)
   await addIfMissing(SystemSettings, 'retention_months_entries', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 24 });
   await addIfMissing(SystemSettings, 'retention_months_gps', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 3 });
+
+  // system_settings — Terminal-Überwachung (Störungs-Mail bei Funkstille)
+  await addIfMissing(SystemSettings, 'terminal_alert_enabled', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+  await addIfMissing(SystemSettings, 'terminal_alert_minutes', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 15 });
+  await addIfMissing(SystemSettings, 'terminal_alert_emails', { type: DataTypes.STRING, allowNull: true });
+  await addIfMissing(SystemSettings, 'terminal_ping_seconds', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 20 });
 }

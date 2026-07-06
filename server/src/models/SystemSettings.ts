@@ -50,6 +50,15 @@ interface SystemSettingsAttributes {
   // retentionMonthsGps — GPS-Daten (lat/lng/accuracy) sind nach kurzer Zeit
   // nicht mehr erforderlich (Datenminimierung, Art. 5 DSGVO) und werden früher genullt.
   retentionMonthsGps: number;
+  // Terminal-Überwachung: Störungs-E-Mail, wenn ein aktives Terminal länger als
+  // terminalAlertMinutes nichts gemeldet hat. Empfänger: terminalAlertEmails
+  // (Komma-Liste) oder — wenn leer — alle aktiven Admins der Firma.
+  terminalAlertEnabled: boolean;
+  terminalAlertMinutes: number;
+  terminalAlertEmails?: string | null;
+  // Heartbeat-Intervall der Kiosk-Terminals in Sekunden (Terminals übernehmen
+  // Änderungen live über die Ping-/Info-Antwort).
+  terminalPingSeconds: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -57,7 +66,8 @@ interface SystemSettingsAttributes {
 interface SystemSettingsCreationAttributes extends Optional<SystemSettingsAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId'
   | 'breakMode' | 'breakAfter6hMinutes' | 'breakAfter9hMinutes' | 'autoCapEnabled' | 'autoCapTime'
   | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired'
-  | 'retentionMonthsEntries' | 'retentionMonthsGps'> {}
+  | 'retentionMonthsEntries' | 'retentionMonthsGps'
+  | 'terminalAlertEnabled' | 'terminalAlertMinutes' | 'terminalAlertEmails' | 'terminalPingSeconds'> {}
 
 export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettingsCreationAttributes> implements SystemSettingsAttributes {
   public id!: number;
@@ -95,6 +105,10 @@ export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettin
   public gpsRequired!: boolean;
   public retentionMonthsEntries!: number;
   public retentionMonthsGps!: number;
+  public terminalAlertEnabled!: boolean;
+  public terminalAlertMinutes!: number;
+  public terminalAlertEmails?: string | null;
+  public terminalPingSeconds!: number;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -280,6 +294,28 @@ SystemSettings.init(
       allowNull: false,
       defaultValue: 3,
       validate: { min: 1 },
+    },
+    // Terminal-Überwachung: Störungs-Mail nach X Minuten Funkstille.
+    terminalAlertEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    terminalAlertMinutes: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 15,
+      validate: { min: 2, max: 1440 },
+    },
+    terminalAlertEmails: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    terminalPingSeconds: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 20,
+      validate: { min: 5, max: 600 },
     },
   },
   {
