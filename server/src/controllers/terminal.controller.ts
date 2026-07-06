@@ -166,6 +166,45 @@ export class TerminalController {
     }
   }
 
+  /**
+   * POST /api/terminals/:id/regenerate-token — neues Geräte-Token erzeugen (admin).
+   * Das alte Token wird sofort ungültig; der Neuwert wird EINMALIG zurückgegeben
+   * (z. B. wenn das Token verloren ging oder ein Gerät getauscht wird).
+   */
+  async regenerateToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const terminal = await TerminalDevice.findByPk(req.params.id);
+      if (!terminal || !(await canManageCompanyRecord(req.user!, terminal.companyId))) {
+        return next(new AppError(404, 'Terminal nicht gefunden'));
+      }
+
+      const oldPrefix = terminal.tokenPrefix;
+      const token = generateTerminalToken();
+      await terminal.update({
+        tokenHash: hashTerminalToken(token),
+        tokenPrefix: token.slice(0, 8),
+      });
+
+      await AuditService.log({
+        userId: req.user!.id,
+        action: AuditAction.UPDATE,
+        category: AuditCategory.SECURITY,
+        entity: 'TerminalDevice',
+        entityId: terminal.id,
+        oldValues: { tokenPrefix: oldPrefix },
+        newValues: { tokenPrefix: terminal.tokenPrefix, tokenRegenerated: true },
+      }, req);
+
+      res.json({
+        message: 'Neues Token erzeugt. Es wird nur dieses eine Mal angezeigt — das alte Token ist ab sofort ungültig!',
+        terminal: terminal.toSafeJSON(),
+        token, // Vollwert NUR hier
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /** DELETE /api/terminals/:id — Terminal entfernen (admin). Stempelungen bleiben erhalten. */
   async remove(req: Request, res: Response, next: NextFunction) {
     try {

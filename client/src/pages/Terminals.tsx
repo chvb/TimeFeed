@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import {
+  ArrowPathIcon,
   ClipboardDocumentIcon,
   DeviceTabletIcon,
   PencilIcon,
@@ -208,6 +209,19 @@ export default function Terminals() {
     }
   };
 
+  const handleRegenerateToken = async (term: TerminalDto) => {
+    if (!(await confirm({ title: t('terminals.regenerateTitle'), message: t('terminals.regenerateMessage', { name: term.name }), confirmText: t('terminals.regenerate'), danger: true }))) return;
+    try {
+      const r = await api.post(`/terminals/${term.id}/regenerate-token`);
+      setCreatedToken(r.data?.token || null);
+      toast.success(t('terminals.regenerated'));
+      load();
+    } catch (error: any) {
+      console.error('Error regenerating terminal token:', error);
+      toast.error(error?.response?.data?.message || error?.response?.data?.error || t('terminals.regenerateError'));
+    }
+  };
+
   const copyToken = async () => {
     if (!createdToken) return;
     try {
@@ -301,6 +315,9 @@ export default function Terminals() {
                           <button onClick={() => openEdit(term)} className="text-primary-600 hover:text-primary-900 dark:text-primary-400" title={t('terminals.editTitle')}>
                             <PencilIcon className="h-4 w-4" />
                           </button>
+                          <button onClick={() => handleRegenerateToken(term)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400" title={t('terminals.regenerateTitle')}>
+                            <ArrowPathIcon className="h-4 w-4" />
+                          </button>
                           <button
                             onClick={() => handleToggleActive(term)}
                             className={clsx(term.isActive ? 'text-amber-600 hover:text-amber-800' : 'text-emerald-600 hover:text-emerald-800')}
@@ -339,6 +356,9 @@ export default function Terminals() {
                 <div className="mt-3 flex justify-end gap-3">
                   <button onClick={() => openEdit(term)} className="text-primary-600 flex items-center gap-1 text-sm">
                     <PencilIcon className="h-4 w-4" /> {t('terminals.editTitle')}
+                  </button>
+                  <button onClick={() => handleRegenerateToken(term)} className="text-indigo-600 flex items-center gap-1 text-sm">
+                    <ArrowPathIcon className="h-4 w-4" /> {t('terminals.regenerate')}
                   </button>
                   <button onClick={() => handleToggleActive(term)} className="text-amber-600 flex items-center gap-1 text-sm">
                     <PowerIcon className="h-4 w-4" /> {term.isActive ? t('terminals.deactivate') : t('terminals.activate')}

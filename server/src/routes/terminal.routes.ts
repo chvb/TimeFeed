@@ -38,6 +38,13 @@ router.put(
   controller.update.bind(controller)
 );
 
+router.post(
+  '/:id/regenerate-token',
+  authenticate,
+  authorize(UserRole.ADMIN),
+  controller.regenerateToken.bind(controller)
+);
+
 router.delete(
   '/:id',
   authenticate,

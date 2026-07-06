@@ -103,6 +103,10 @@ export default function Terminal() {
   // Verbindung / Queue
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(0);
+  // Token vom Server abgelehnt (widerrufen/neu erzeugt/Terminal deaktiviert).
+  // Ein angemeldetes Terminal wird NIE automatisch abgemeldet: Token bleibt
+  // gespeichert, das Terminal zeigt einen Hinweis und prüft periodisch neu.
+  const [tokenInvalid, setTokenInvalid] = useState(false);
 
   // Scanner-Status
   const [nfcState, setNfcState] = useState<'idle' | 'ready' | 'error'>('idle');
@@ -202,19 +206,36 @@ export default function Terminal() {
       })
       .catch((e) => {
         if (e instanceof TerminalApiError && (e.status === 401 || e.status === 403)) {
-          // Token widerrufen/Terminal deaktiviert → zurück ins Setup.
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(INFO_KEY);
-          tokenRef.current = null;
-          setToken(null);
-          setInfo(null);
-          setSetupError(t('terminal.setupInvalid'));
-          setScreen('setup');
+          // Token widerrufen/neu erzeugt/Terminal deaktiviert: NICHT abmelden —
+          // Hinweis anzeigen, Token behalten, periodische Neuprüfung (unten).
+          setTokenInvalid(true);
         }
         // Netzwerkfehler: Idle bleibt nutzbar (Offline-Queue).
       });
+    // Persistenten Speicher anfordern, damit der Browser das Geräte-Token
+    // (localStorage) bei Speicherdruck nicht wegräumen darf.
+    try { (navigator as any).storage?.persist?.(); } catch { /* optional */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ---------- Ungültiges Token: alle 60s neu prüfen (z. B. nach Re-Aktivierung
+     des Terminals oder wenn ein Admin das alte Token wieder einspielt) ---------- */
+  useEffect(() => {
+    if (!tokenInvalid) return;
+    const id = window.setInterval(() => {
+      const tok = tokenRef.current;
+      if (!tok) return;
+      fetchTerminalInfo(tok)
+        .then((inf) => {
+          setInfo(inf);
+          localStorage.setItem(INFO_KEY, JSON.stringify(inf));
+          setTokenInvalid(false);
+          flushQueue();
+        })
+        .catch(() => { /* weiter warten */ });
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [tokenInvalid, flushQueue]);
 
   /* ---------- Live-Uhr ---------- */
   useEffect(() => {
@@ -274,13 +295,9 @@ export default function Terminal() {
         setPinError(t('terminal.pinWrong'));
         setScreen('pin');
       } else if (e instanceof TerminalApiError && e.code.startsWith('TERMINAL_TOKEN')) {
-        // Geräte-Token widerrufen/Terminal deaktiviert → zurück ins Setup.
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(INFO_KEY);
-        tokenRef.current = null;
-        setToken(null);
-        setSetupError(t('terminal.setupInvalid'));
-        setScreen('setup');
+        // Geräte-Token abgelehnt: NICHT abmelden — Hinweis, Token bleibt gespeichert.
+        setTokenInvalid(true);
+        showError(t('terminal.tokenInvalidBanner'));
       } else if (e instanceof TerminalApiError && e.status === 404) {
         showError(t('terminal.unknownCode'));
       } else {
@@ -551,6 +568,12 @@ export default function Terminal() {
           )}
         </div>
       </header>
+
+      {tokenInvalid && (
+        <div className="bg-red-600/90 text-white text-center text-sm font-semibold px-4 py-2.5">
+          {t('terminal.tokenInvalidBanner')}
+        </div>
+      )}
 
       <main className="flex-1 overflow-y-auto flex flex-col">
         {/* ---------- Setup ---------- */}
