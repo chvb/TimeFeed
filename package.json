@@ -1,6 +1,6 @@
 {
   "name": "timefeed",
-  "version": "0.6.0",
+  "version": "1.0.1",
   "description": "Zeiterfassung Web-App (Stempeluhr)",
   "private": true,
   "scripts": {

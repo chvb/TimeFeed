@@ -20,3 +20,9 @@
 - Branding pro Mandant (Logo, Farbe, Name) mit dynamischem PWA-Manifest, auch am Terminal
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
+
+## [1.0.1] - 2026-07-06
+
+### Improved
+- TimeFeed 0.6.0 — Phase 6: S3-Sekundär, Branding, API/Kopplung, Push, E2E
+- TimeFeed 0.5.0 — Zeiterfassungs-App (Phasen 1–5)
