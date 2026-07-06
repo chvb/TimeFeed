@@ -33,13 +33,15 @@
 - Terminal: Token-Neuerzeugung mit Einmal-Anzeige, passwortgeschützte Kiosk-Einstellungen (pro Gerät), Heartbeat mit einstellbarem Ping-Intervall (Standard 20 s), Live-Status „Zuletzt gemeldet" mit Ampel in der Geräteliste, Tastatur-/Scanner-Eingabe für Stempel-Code und PIN
 - Terminal-Störungsmeldung per E-Mail (Schwelle und Empfänger pro Firma einstellbar, mit Entwarnung)
 
+### Fixed
+- Service Worker lieferte bei Serverausfall eine ungültige Antwort (Konsolen-Fehler) — jetzt saubere Offline-Seite
+
 ### Improved
 - Einheitliches E-Mail-Design für alle Mails: TimeFeed-Logo, Orange, gebrandete Buttons
 - Terminal meldet sich nie mehr automatisch ab (Token bleibt erhalten, automatische Neuprüfung)
 - API-Schlüssel: nur noch für Super-Admins, im Menü unter den Einstellungen; Dashboard wieder oben im Menü
-
-### Fixed
-- Service Worker lieferte bei Serverausfall eine ungültige Antwort (Konsolen-Fehler) — jetzt saubere Offline-Seite
+- v1.1.0 — Feed-Ausbau, Stundenzettel-Mail, Sammel-Abschluss, GPS-Modus, Terminal-Details
+- Mail-Design vereinheitlicht, Terminal-Störungsmails + konfigurierbares Ping-Intervall
 
 ## [1.0.1] - 2026-07-06
 
