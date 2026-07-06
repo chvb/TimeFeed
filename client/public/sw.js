@@ -6,7 +6,7 @@
  *  - /assets/ (hash) → Cache zuerst (unveränderliche Build-Artefakte)
  * Die Offline-Stempel-Queue (Terminal) lebt NICHT hier, sondern in der App (IndexedDB).
  */
-const CACHE = 'tf-shell-v1';
+const CACHE = 'tf-shell-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -37,7 +37,18 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE).then((c) => c.put('/', copy)).catch(() => {});
           return res;
         })
-        .catch(() => caches.match('/'))
+        // Fallback MUSS eine echte Response sein — caches.match kann undefined
+        // liefern (sonst: "Failed to convert value to 'Response'").
+        .catch(() =>
+          caches.match('/').then(
+            (hit) =>
+              hit ||
+              new Response('<!doctype html><meta charset="utf-8"><title>Offline</title><body style="font-family:sans-serif;text-align:center;padding-top:20vh"><h1>Offline</h1><p>Keine Verbindung zum Server.</p>', {
+                status: 503,
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              })
+          )
+        )
     );
     return;
   }
@@ -58,7 +69,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    fetch(req).catch(() => caches.match(req))
+    fetch(req).catch(() =>
+      caches.match(req).then((hit) => hit || Response.error())
+    )
   );
 });
 

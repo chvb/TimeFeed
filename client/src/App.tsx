@@ -17,6 +17,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // Seiten per Code-Splitting laden → kleineres Initial-Bundle, schnellerer Start.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Feed = lazy(() => import('./pages/Feed'));
 const Terminal = lazy(() => import('./pages/Terminal'));
 const Terminals = lazy(() => import('./pages/Terminals'));
 const MyTimes = lazy(() => import('./pages/MyTimes'));
@@ -65,6 +66,7 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
+            <Route path="/feed" element={<Feed />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/times" element={<MyTimes />} />
             <Route path="/manage-times" element={<ManageTimes />} />

@@ -104,6 +104,8 @@ export class TerminalApiController {
         companyName: company?.name ?? null,
         config: terminal.getConfig(),
         breakMode: settings.breakMode,
+        // Zahnrad/Einstellungen am Kiosk passwortgeschützt? (nie der Hash selbst)
+        settingsProtected: !!terminal.settingsPasswordHash,
         branding: {
           brandName: tenant?.brandName ?? null,
           brandColor: tenant?.brandColor ?? null,
@@ -112,6 +114,43 @@ export class TerminalApiController {
       });
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * GET /api/terminal/ping — leichter Heartbeat für die Verbindungsanzeige des Kiosks.
+   * lastSeenAt wird bereits (gedrosselt) von der terminalAuth-Middleware gepflegt.
+   */
+  async ping(_req: Request, res: Response) {
+    res.json({ ok: true, time: new Date().toISOString() });
+  }
+
+  /**
+   * POST /api/terminal/verify-settings — body { password }
+   * Prüft das Einstellungs-Passwort des Terminals (Zahnrad-Schutz im Kiosk).
+   * 200 { ok:true } bei Treffer ODER wenn kein Schutz gesetzt ist,
+   * sonst 401 SETTINGS_PASSWORD_INVALID. Wie beim PIN-Muster wird in jedem
+   * Pfad genau EIN bcrypt-Vergleich ausgeführt (konstante Antwortzeit).
+   */
+  async verifySettings(req: Request, res: Response, next: NextFunction) {
+    try {
+      const terminal = req.terminal!;
+      const password = req.body?.password != null ? String(req.body.password) : '';
+      const hash = terminal.settingsPasswordHash;
+      if (!hash) {
+        await bcrypt.compare(password, DUMMY_PIN_HASH); // Timing angleichen
+        return res.json({ ok: true });
+      }
+      if (!(await bcrypt.compare(password, hash))) {
+        return res.status(401).json({
+          error: 'SETTINGS_PASSWORD_INVALID',
+          code: 'SETTINGS_PASSWORD_INVALID',
+          message: 'Einstellungs-Passwort ungültig.',
+        });
+      }
+      return res.json({ ok: true });
+    } catch (error) {
+      return next(error);
     }
   }
 

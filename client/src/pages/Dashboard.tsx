@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ClockIcon,
   PlayIcon,
@@ -7,12 +8,16 @@ import {
   ScaleIcon,
   CalendarDaysIcon,
   MapPinIcon,
+  NewspaperIcon,
+  ArrowRightIcon,
+  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import { useT, useI18n } from '../i18n';
 import { formatMinutes, formatSignedMinutes, timeHHMM } from '../lib/timeFormat';
+import { FeedCard, FeedItem } from './Feed';
 import clsx from 'clsx';
 
 type StampState = 'out' | 'in' | 'break';
@@ -34,6 +39,55 @@ interface WorkDayDto {
 }
 
 const KNOWN_ERROR_CODES = ['ALREADY_IN', 'NOT_IN', 'BREAK_OPEN', 'NO_BREAK', 'GPS_REQUIRED'];
+
+/**
+ * Kompakte „Neuestes aus dem Feed"-Card: Top 3 actionRequired-/high-Items
+ * + Link zum vollständigen Feed.
+ */
+function FeedTeaser() {
+  const t = useT();
+  const [items, setItems] = useState<FeedItem[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api.get('/feed')
+      .then((r) => {
+        if (!active) return;
+        const all: FeedItem[] = r.data.items || [];
+        setItems(all.filter((i) => i.actionRequired || i.priority === 'high').slice(0, 3));
+      })
+      .catch(() => { if (active) setItems([]); });
+    return () => { active = false; };
+  }, []);
+
+  if (items === null) return null; // still laden, kein Flackern
+
+  return (
+    <div className="card">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center">
+          <NewspaperIcon className="h-6 w-6 text-primary-600 mr-3" />
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t('feed.dashboardCard.title')}</h2>
+        </div>
+        <Link
+          to="/feed"
+          className="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+        >
+          {t('feed.dashboardCard.toFeed')} <ArrowRightIcon className="h-4 w-4" />
+        </Link>
+      </div>
+      {items.length === 0 ? (
+        <p className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-gray-400">
+          <CheckCircleIcon className="h-5 w-5 text-green-500" /> {t('feed.dashboardCard.empty')}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item) => <FeedCard key={item.id} item={item} compact />)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** GPS best-effort holen: Timeout 3s, bei Ablehnung/Fehler null (kein Blocker). */
 function getPosition(): Promise<GeolocationPosition | null> {
@@ -248,6 +302,9 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Neuestes aus dem Feed (Top-Aufgaben/Warnungen) */}
+      <FeedTeaser />
 
       {/* Tages- und Saldo-Karten */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

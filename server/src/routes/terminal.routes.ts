@@ -10,6 +10,9 @@ const controller = new TerminalController();
 
 const terminalValidators = [
   body('locationLabel').optional({ nullable: true }).isString(),
+  // Kiosk-Einstellungs-Passwort: ''/null entfernt den Schutz, sonst min. 4 Zeichen
+  // (Feinprüfung inkl. Hashing im Controller).
+  body('settingsPassword').optional({ nullable: true }).isString(),
   body('lat').optional({ nullable: true }).isFloat({ min: -90, max: 90 }).withMessage('lat muss zwischen -90 und 90 liegen'),
   body('lng').optional({ nullable: true }).isFloat({ min: -180, max: 180 }).withMessage('lng muss zwischen -180 und 180 liegen'),
   body('isActive').optional().isBoolean(),

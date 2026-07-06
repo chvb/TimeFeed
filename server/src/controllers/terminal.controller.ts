@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
+import bcrypt from 'bcryptjs';
 import {
   TerminalDevice,
   TerminalConfig,
@@ -50,10 +51,28 @@ function parseCoord(value: any, field: string): number | null {
   return n;
 }
 
+/**
+ * settingsPassword aus dem Body → bcrypt-Hash für settingsPasswordHash.
+ * - undefined  → Feld nicht angefasst (unverändert)
+ * - null / ''  → Schutz entfernen (Hash = null)
+ * - String ≥ 4 → neuer Hash
+ */
+async function parseSettingsPassword(value: any): Promise<string | null | undefined> {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  if (typeof value !== 'string' || value.length < 4) {
+    throw new AppError(400, 'settingsPassword muss mindestens 4 Zeichen haben');
+  }
+  return bcrypt.hash(value, 10);
+}
+
 export class TerminalController {
   /** GET /api/terminals — Terminals im Firmen-Scope (ohne tokenHash, mit tokenPrefix/lastSeenAt). */
   async list(req: Request, res: Response, next: NextFunction) {
     try {
+      // Pragmatische Schema-Nachrüstung (Bestands-DB): Spalte settings_password_hash
+      // idempotent ergänzen; internes Modul-Flag verhindert wiederholte Läufe.
+      await TerminalDevice.ensureSchema();
       const actor = getEffectiveActor(req.user!, req.query.companyId, req.query.tenantId);
       const terminals = await TerminalDevice.findAll({
         where: getCompanyScopeWhere(actor),
@@ -91,6 +110,8 @@ export class TerminalController {
       const company = await Company.findByPk(companyId, { attributes: ['id'] });
       if (!company) return next(new AppError(404, 'Firma nicht gefunden'));
 
+      await TerminalDevice.ensureSchema(); // Bestands-DB: Spalte sicherstellen (idempotent)
+
       const token = generateTerminalToken();
       const terminal = await TerminalDevice.create({
         companyId,
@@ -101,6 +122,7 @@ export class TerminalController {
         lat: parseCoord(req.body.lat, 'lat'),
         lng: parseCoord(req.body.lng, 'lng'),
         isActive: req.body.isActive !== undefined ? Boolean(req.body.isActive) : true,
+        settingsPasswordHash: (await parseSettingsPassword(req.body.settingsPassword)) ?? null,
         config: sanitizeConfig(req.body.config, { methods: ['nfc', 'code', 'qr'], requirePin: false }),
       });
 
@@ -132,6 +154,8 @@ export class TerminalController {
         return;
       }
 
+      await TerminalDevice.ensureSchema(); // Bestands-DB: Spalte sicherstellen (idempotent)
+
       const terminal = await TerminalDevice.findByPk(req.params.id);
       if (!terminal || !(await canManageCompanyRecord(req.user!, terminal.companyId))) {
         return next(new AppError(404, 'Terminal nicht gefunden'));
@@ -147,6 +171,9 @@ export class TerminalController {
       if (req.body.lng !== undefined) data.lng = parseCoord(req.body.lng, 'lng');
       if (req.body.isActive !== undefined) data.isActive = Boolean(req.body.isActive);
       if (req.body.config !== undefined) data.config = sanitizeConfig(req.body.config, terminal.getConfig());
+      // settingsPassword: undefined = unverändert, ''/null = Schutz entfernen, sonst neuer Hash.
+      const spHash = await parseSettingsPassword(req.body.settingsPassword);
+      if (spHash !== undefined) data.settingsPasswordHash = spHash;
 
       await terminal.update(data);
 

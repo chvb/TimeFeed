@@ -71,6 +71,17 @@ export const terminal = {
       // Offline-Modus (identify nicht möglich)
       offlineTitle: 'Offline-Modus',
       offlineText: 'Keine Verbindung zum Server. Stempelung ohne Namensprüfung — sie wird später synchronisiert.',
+
+      // Verbindungsanzeige (Heartbeat-Ping)
+      serverUnreachableBanner: 'Keine Verbindung zum Server — Stempelungen werden zwischengespeichert.',
+
+      // Zahnrad-Schutz (Einstellungs-Passwort)
+      settingsGateTitle: 'Einstellungen geschützt',
+      settingsGateSubtitle: 'Bitte das Einstellungs-Passwort dieses Terminals eingeben.',
+      settingsPasswordLabel: 'Einstellungs-Passwort',
+      settingsPasswordPlaceholder: 'Passwort',
+      settingsGateUnlock: 'Entsperren',
+      settingsGateWrong: 'Passwort falsch — noch {{count}} Versuch(e).',
     },
     terminals: {
       title: 'Terminals',
@@ -83,10 +94,19 @@ export const terminal = {
       colLocation: 'Standort',
       colToken: 'Token',
       colMethods: 'Methoden',
-      colLastSeen: 'Zuletzt gesehen',
+      colLastSeen: 'Zuletzt gemeldet',
       colStatus: 'Status',
       colActions: 'Aktionen',
       never: 'Nie',
+      // Relative „Zuletzt gemeldet"-Anzeige + Status-Punkt
+      secondsAgo: 'vor {{count}} s',
+      minutesAgo: 'vor {{count}} min',
+      seen: {
+        online: 'Online (zuletzt vor unter 90 s gemeldet)',
+        recent: 'Zuletzt vor unter 10 min gemeldet',
+        offline: 'Länger nicht gemeldet',
+        never: 'Noch nie gemeldet',
+      },
       active: 'Aktiv',
       inactive: 'Deaktiviert',
       editTitle: 'Terminal bearbeiten',
@@ -109,6 +129,14 @@ export const terminal = {
       methodRequired: 'Mindestens eine Identifikationsart wählen.',
       requirePin: 'PIN-Abfrage erforderlich',
       requirePinHint: 'Mitarbeiter müssen zusätzlich ihre persönliche PIN eingeben.',
+      // Einstellungs-Passwort (Zahnrad-Schutz am Kiosk)
+      settingsPassword: 'Einstellungs-Passwort (Kiosk)',
+      settingsPasswordHint: 'Schützt das Zahnrad-Menü am Terminal (Trennen/Token ändern). Mindestens 4 Zeichen; leer lassen = kein Schutz.',
+      settingsPasswordPlaceholder: 'Leer = kein Schutz',
+      settingsPasswordUnchanged: 'unverändert',
+      settingsPasswordRemove: 'Schutz entfernen',
+      settingsPasswordTooShort: 'Einstellungs-Passwort: mindestens 4 Zeichen.',
+      settingsPasswordBadge: 'Kiosk-Einstellungen passwortgeschützt',
       isActive: 'Terminal aktiv',
       isActiveHint: 'Deaktivierte Terminals können nicht mehr stempeln.',
       cancel: 'Abbrechen',
@@ -214,6 +242,17 @@ export const terminal = {
 
       offlineTitle: 'Offline mode',
       offlineText: 'No connection to the server. Stamping without name check — it will be synchronised later.',
+
+      // Connection indicator (heartbeat ping)
+      serverUnreachableBanner: 'No connection to the server — stamps are being cached.',
+
+      // Settings gate (settings password)
+      settingsGateTitle: 'Settings protected',
+      settingsGateSubtitle: 'Please enter the settings password of this terminal.',
+      settingsPasswordLabel: 'Settings password',
+      settingsPasswordPlaceholder: 'Password',
+      settingsGateUnlock: 'Unlock',
+      settingsGateWrong: 'Wrong password — {{count}} attempt(s) left.',
     },
     terminals: {
       title: 'Terminals',
@@ -226,10 +265,19 @@ export const terminal = {
       colLocation: 'Location',
       colToken: 'Token',
       colMethods: 'Methods',
-      colLastSeen: 'Last seen',
+      colLastSeen: 'Last reported',
       colStatus: 'Status',
       colActions: 'Actions',
       never: 'Never',
+      // Relative "last reported" display + status dot
+      secondsAgo: '{{count}} s ago',
+      minutesAgo: '{{count}} min ago',
+      seen: {
+        online: 'Online (reported less than 90 s ago)',
+        recent: 'Reported less than 10 min ago',
+        offline: 'Not reported for a while',
+        never: 'Never reported',
+      },
       active: 'Active',
       inactive: 'Deactivated',
       editTitle: 'Edit terminal',
@@ -252,6 +300,14 @@ export const terminal = {
       methodRequired: 'Select at least one identification method.',
       requirePin: 'PIN required',
       requirePinHint: 'Employees must additionally enter their personal PIN.',
+      // Settings password (kiosk gear protection)
+      settingsPassword: 'Settings password (kiosk)',
+      settingsPasswordHint: 'Protects the gear menu on the terminal (disconnect/change token). At least 4 characters; leave empty = no protection.',
+      settingsPasswordPlaceholder: 'Empty = no protection',
+      settingsPasswordUnchanged: 'unchanged',
+      settingsPasswordRemove: 'Remove protection',
+      settingsPasswordTooShort: 'Settings password: at least 4 characters.',
+      settingsPasswordBadge: 'Kiosk settings password-protected',
       isActive: 'Terminal active',
       isActiveHint: 'Deactivated terminals can no longer stamp.',
       cancel: 'Cancel',

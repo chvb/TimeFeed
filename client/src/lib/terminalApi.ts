@@ -17,6 +17,8 @@ export interface TerminalInfo {
   companyName: string;
   methods: TerminalMethod[];
   requirePin: boolean;
+  /** Zahnrad/Einstellungen am Kiosk sind passwortgeschützt (verify-settings nötig). */
+  settingsProtected: boolean;
   /** Mandanten-Branding (Feld `branding` aus GET /api/terminal/info), falls gesetzt. */
   branding?: TerminalBranding | null;
 }
@@ -59,10 +61,10 @@ export class TerminalNetworkError extends Error {
   }
 }
 
-async function request(method: 'GET' | 'POST', path: string, token: string, body?: unknown): Promise<any> {
+async function request(method: 'GET' | 'POST', path: string, token: string, body?: unknown, timeoutMs = 10000): Promise<any> {
   let res: Response;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 10000);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     res = await fetch(path, {
       method,
@@ -120,8 +122,26 @@ export async function fetchTerminalInfo(token: string): Promise<TerminalInfo> {
     // Ohne explizite Konfiguration alle Methoden anbieten (Gerätefähigkeit filtert ohnehin).
     methods: methods.length ? methods : [...VALID_METHODS],
     requirePin: !!(cfg.requirePin ?? raw.requirePin ?? d.requirePin),
+    settingsProtected: !!(d.settingsProtected ?? raw.settingsProtected),
     branding,
   };
+}
+
+/**
+ * GET /api/terminal/ping — Heartbeat für die Verbindungsanzeige.
+ * Kurzer Timeout (5s): Der Kiosk pingt alle 10s; ein hängender Request darf
+ * nicht in den nächsten Zyklus hineinlaufen.
+ */
+export async function terminalPing(token: string): Promise<void> {
+  await request('GET', '/api/terminal/ping', token, undefined, 5000);
+}
+
+/**
+ * POST /api/terminal/verify-settings — Einstellungs-Passwort prüfen.
+ * Löst bei falschem Passwort einen TerminalApiError (401, SETTINGS_PASSWORD_INVALID) aus.
+ */
+export async function verifyTerminalSettings(token: string, password: string): Promise<void> {
+  await request('POST', '/api/terminal/verify-settings', token, { password });
 }
 
 /** POST /api/terminal/identify — Mitarbeiter anhand Code/NFC (+ optional PIN) erkennen. */

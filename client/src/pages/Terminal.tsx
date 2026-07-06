@@ -6,6 +6,7 @@ import {
   Cog6ToothIcon,
   CloudArrowUpIcon,
   ExclamationTriangleIcon,
+  LockClosedIcon,
   QrCodeIcon,
   SignalSlashIcon,
   WifiIcon,
@@ -17,7 +18,9 @@ import { useI18n } from '../i18n';
 import {
   fetchTerminalInfo,
   terminalIdentify,
+  terminalPing,
   terminalStamp,
+  verifyTerminalSettings,
   TerminalApiError,
   TerminalNetworkError,
   type IdentifyResult,
@@ -30,7 +33,12 @@ import { addPendingStamp, countPendingStamps, getPendingStamps, removePendingSta
 const TOKEN_KEY = 'tf-terminal-token';
 const INFO_KEY = 'tf-terminal-info';
 
-type Screen = 'setup' | 'idle' | 'pin' | 'action' | 'offlineAction' | 'confirm' | 'error';
+type Screen = 'setup' | 'settingsGate' | 'idle' | 'pin' | 'action' | 'offlineAction' | 'confirm' | 'error';
+
+// Zahnrad-Schutz: nach so vielen Fehlversuchen zurück zum Idle-Screen.
+const SETTINGS_MAX_ATTEMPTS = 3;
+// Heartbeat-Intervall der Verbindungsanzeige (GET /api/terminal/ping).
+const PING_INTERVAL_MS = 10_000;
 
 interface ConfirmData {
   name: string;
@@ -102,11 +110,19 @@ export default function Terminal() {
 
   // Verbindung / Queue
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // Server per Heartbeat erreichbar? navigator.onLine allein reicht nicht —
+  // das WLAN kann stehen, während der Server down ist.
+  const [serverReachable, setServerReachable] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   // Token vom Server abgelehnt (widerrufen/neu erzeugt/Terminal deaktiviert).
   // Ein angemeldetes Terminal wird NIE automatisch abgemeldet: Token bleibt
   // gespeichert, das Terminal zeigt einen Hinweis und prüft periodisch neu.
   const [tokenInvalid, setTokenInvalid] = useState(false);
+
+  // Zahnrad-Schutz (Einstellungs-Passwort)
+  const [settingsPassInput, setSettingsPassInput] = useState('');
+  const [settingsGateError, setSettingsGateError] = useState('');
+  const settingsAttemptsRef = useRef(0);
 
   // Scanner-Status
   const [nfcState, setNfcState] = useState<'idle' | 'ready' | 'error'>('idle');
@@ -116,6 +132,7 @@ export default function Terminal() {
   const tokenRef = useRef<string | null>(null);
   const busyRef = useRef(false);
   const flushingRef = useRef(false);
+  const reachableRef = useRef(true);
   const lastScanRef = useRef<{ v: string; ts: number }>({ v: '', ts: 0 });
 
   const nfcSupported = 'NDEFReader' in window;
@@ -138,6 +155,9 @@ export default function Terminal() {
     setPendingPin(undefined);
     setConfirmData(null);
     setErrorMsg('');
+    setSettingsPassInput('');
+    setSettingsGateError('');
+    settingsAttemptsRef.current = 0;
     setScreen(tokenRef.current ? 'idle' : 'setup');
   }, []);
 
@@ -236,6 +256,35 @@ export default function Terminal() {
     }, 60_000);
     return () => window.clearInterval(id);
   }, [tokenInvalid, flushQueue]);
+
+  /* ---------- Heartbeat: alle 10s /api/terminal/ping (Verbindungsanzeige) ----------
+     Nur ein TerminalNetworkError bedeutet „Server nicht erreichbar" — jede
+     HTTP-Antwort (auch 401 bei ungültigem Token) heißt: Server lebt.
+     Fehler bleiben still (kein Toast-Spam); kommt die Verbindung zurück,
+     verschwindet der Banner und die Offline-Queue wird sofort geleert. */
+  useEffect(() => {
+    if (!token) return;
+    let stopped = false;
+    const doPing = async () => {
+      const tok = tokenRef.current;
+      if (!tok) return;
+      try {
+        await terminalPing(tok);
+        if (stopped) return;
+        if (!reachableRef.current) flushQueue(); // Verbindung wieder da → sofort nachreichen
+        reachableRef.current = true;
+        setServerReachable(true);
+      } catch (e) {
+        if (stopped) return;
+        const unreachable = e instanceof TerminalNetworkError;
+        reachableRef.current = !unreachable;
+        setServerReachable(!unreachable);
+      }
+    };
+    doPing();
+    const id = window.setInterval(doPing, PING_INTERVAL_MS);
+    return () => { stopped = true; window.clearInterval(id); };
+  }, [token, flushQueue]);
 
   /* ---------- Live-Uhr ---------- */
   useEffect(() => {
@@ -466,6 +515,51 @@ export default function Terminal() {
     }
   };
 
+  /* ---------- Zahnrad-Schutz: Einstellungs-Passwort ---------- */
+  const openSettings = () => {
+    if (info?.settingsProtected) {
+      // Geschützt: erst Passwort-Screen, Setup erst nach erfolgreicher Prüfung.
+      setSettingsPassInput('');
+      setSettingsGateError('');
+      settingsAttemptsRef.current = 0;
+      setScreen('settingsGate');
+    } else {
+      setSetupError('');
+      setScreen('setup');
+    }
+  };
+
+  const handleVerifySettings = async () => {
+    const tok = tokenRef.current;
+    if (!tok || !settingsPassInput || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await verifyTerminalSettings(tok, settingsPassInput);
+      setSettingsPassInput('');
+      setSettingsGateError('');
+      settingsAttemptsRef.current = 0;
+      setSetupError('');
+      setScreen('setup');
+    } catch (e) {
+      if (e instanceof TerminalNetworkError) {
+        // Ohne Server keine Prüfung möglich → Schutz bleibt bestehen.
+        setSettingsGateError(t('terminal.setupNetwork'));
+      } else {
+        settingsAttemptsRef.current += 1;
+        if (settingsAttemptsRef.current >= SETTINGS_MAX_ATTEMPTS) {
+          resetToIdle(); // 3 Fehlversuche → zurück zu Idle
+        } else {
+          setSettingsPassInput('');
+          setSettingsGateError(t('terminal.settingsGateWrong', { count: SETTINGS_MAX_ATTEMPTS - settingsAttemptsRef.current }));
+        }
+      }
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
   const handleDisconnect = () => {
     if (!window.confirm(t('terminal.disconnectConfirmText'))) return;
     localStorage.removeItem(TOKEN_KEY);
@@ -487,12 +581,12 @@ export default function Terminal() {
       const id = window.setTimeout(resetToIdle, 3000);
       return () => window.clearTimeout(id);
     }
-    if (screen === 'pin' || screen === 'action' || screen === 'offlineAction') {
+    if (screen === 'pin' || screen === 'action' || screen === 'offlineAction' || screen === 'settingsGate') {
       const id = window.setTimeout(resetToIdle, 20000);
       return () => window.clearTimeout(id);
     }
     return undefined;
-  }, [screen, pinInput, resetToIdle]);
+  }, [screen, pinInput, settingsPassInput, resetToIdle]);
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -548,7 +642,7 @@ export default function Terminal() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!isOnline && (
+          {(!isOnline || !serverReachable) && (
             <span className="flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1.5 text-xs font-semibold">
               <SignalSlashIcon className="h-4 w-4" /> {t('terminal.offline')}
             </span>
@@ -562,7 +656,7 @@ export default function Terminal() {
             <ArrowsPointingOutIcon className="h-6 w-6" />
           </button>
           {token && screen === 'idle' && (
-            <button type="button" onClick={() => { setSetupError(''); setScreen('setup'); }} title={t('terminal.setupTitle')} aria-label={t('terminal.setupTitle')} className="p-2.5 rounded-xl hover:bg-white/15 transition-colors">
+            <button type="button" onClick={openSettings} title={t('terminal.setupTitle')} aria-label={t('terminal.setupTitle')} className="p-2.5 rounded-xl hover:bg-white/15 transition-colors">
               <Cog6ToothIcon className="h-6 w-6" />
             </button>
           )}
@@ -572,6 +666,15 @@ export default function Terminal() {
       {tokenInvalid && (
         <div className="bg-red-600/90 text-white text-center text-sm font-semibold px-4 py-2.5">
           {t('terminal.tokenInvalidBanner')}
+        </div>
+      )}
+
+      {/* Keine Verbindung (Netz weg ODER Server down): deutlich, aber nicht blockierend —
+          Stempeln bleibt über die Offline-Queue möglich. */}
+      {token && !tokenInvalid && (!isOnline || !serverReachable) && (
+        <div className="flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-center text-sm font-semibold px-4 py-2.5">
+          <SignalSlashIcon className="h-5 w-5 flex-shrink-0" />
+          {t('terminal.serverUnreachableBanner')}
         </div>
       )}
 
@@ -619,6 +722,46 @@ export default function Terminal() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ---------- Zahnrad-Schutz: Einstellungs-Passwort ---------- */}
+        {screen === 'settingsGate' && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
+            <LockClosedIcon className="h-16 w-16 text-white/60" />
+            <div className="text-center">
+              <h2 className="text-3xl font-bold">{t('terminal.settingsGateTitle')}</h2>
+              <p className="mt-2 text-white/70 max-w-md">{t('terminal.settingsGateSubtitle')}</p>
+            </div>
+            <input
+              type="password"
+              value={settingsPassInput}
+              onChange={(e) => setSettingsPassInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleVerifySettings(); }}
+              placeholder={t('terminal.settingsPasswordPlaceholder')}
+              aria-label={t('terminal.settingsPasswordLabel')}
+              autoFocus
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full max-w-md rounded-2xl bg-white/10 border border-white/20 px-5 py-4 text-2xl text-center tracking-widest text-white placeholder-white/40 placeholder:tracking-normal placeholder:text-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+            />
+            {settingsGateError && (
+              <p className="flex items-center gap-2 text-amber-300 font-medium">
+                <ExclamationTriangleIcon className="h-5 w-5" /> {settingsGateError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleVerifySettings}
+              disabled={!settingsPassInput || busy}
+              className="w-full max-w-md rounded-2xl bg-gradient-to-r from-primary-400 to-primary-600 px-8 py-4 text-xl font-bold shadow-lg hover:opacity-90 disabled:opacity-50 transition-opacity touch-manipulation"
+            >
+              {busy ? t('terminal.checking') : t('terminal.settingsGateUnlock')}
+            </button>
+            <button type="button" onClick={resetToIdle} className="text-white/60 hover:text-white text-lg underline underline-offset-4">
+              {t('terminal.cancel')}
+            </button>
           </div>
         )}
 

@@ -4,6 +4,7 @@ import {
   ArrowPathIcon,
   ClipboardDocumentIcon,
   DeviceTabletIcon,
+  LockClosedIcon,
   PencilIcon,
   PlusIcon,
   PowerIcon,
@@ -31,6 +32,8 @@ interface TerminalDto {
   isActive: boolean;
   lastSeenAt?: string | null;
   tokenPrefix?: string | null;
+  /** Kiosk-Einstellungen (Zahnrad) sind per Passwort geschützt. */
+  hasSettingsPassword: boolean;
   config?: { methods?: Method[]; requirePin?: boolean } | null;
 }
 
@@ -42,6 +45,10 @@ interface FormState {
   methods: Method[];
   requirePin: boolean;
   isActive: boolean;
+  /** Neues Einstellungs-Passwort ('' = unverändert bzw. kein Schutz beim Anlegen). */
+  settingsPassword: string;
+  /** Beim Bearbeiten: vorhandenen Schutz entfernen. */
+  removeSettingsPassword: boolean;
 }
 
 const emptyForm = (): FormState => ({
@@ -52,6 +59,8 @@ const emptyForm = (): FormState => ({
   methods: ['nfc', 'code', 'qr'],
   requirePin: false,
   isActive: true,
+  settingsPassword: '',
+  removeSettingsPassword: false,
 });
 
 /** Server-Antworten tolerant normalisieren (config kann JSON-String sein). */
@@ -67,6 +76,7 @@ function normalizeTerminal(raw: any): TerminalDto {
     isActive: raw.isActive !== false,
     lastSeenAt: raw.lastSeenAt ?? raw.lastSeen ?? null,
     tokenPrefix: raw.tokenPrefix ?? raw.tokenHint ?? null,
+    hasSettingsPassword: !!raw.hasSettingsPassword,
     config: {
       methods: Array.isArray(config.methods) ? config.methods.filter((m: string) => (ALL_METHODS as string[]).includes(m)) : undefined,
       requirePin: !!config.requirePin,
@@ -92,22 +102,32 @@ export default function Terminals() {
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [createdName, setCreatedName] = useState('');
 
-  const load = useCallback(async () => {
+  // silent = Hintergrund-Refresh (kein Spinner-Flackern der Liste).
+  const load = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const r = await api.get('/terminals');
       const list = r.data.terminals || r.data.devices || (Array.isArray(r.data) ? r.data : []);
       setTerminals(list.map(normalizeTerminal));
       setLoadError('');
     } catch (error) {
       console.error('Error loading terminals:', error);
-      setLoadError(t('terminals.loadError'));
+      if (!silent) setLoadError(t('terminals.loadError'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [t]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Liste alle 30s still aktualisieren (lastSeenAt/Status-Punkt aktuell halten)
+  // + Ticker für die relative „Zuletzt gemeldet"-Anzeige.
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = window.setInterval(() => setNowTs(Date.now()), 10_000);
+    const refresh = window.setInterval(() => { load(true); }, 30_000);
+    return () => { window.clearInterval(tick); window.clearInterval(refresh); };
+  }, [load]);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm()); setShowModal(true); };
 
@@ -121,6 +141,8 @@ export default function Terminals() {
       methods: term.config?.methods?.length ? term.config.methods : ['nfc', 'code', 'qr'],
       requirePin: !!term.config?.requirePin,
       isActive: term.isActive,
+      settingsPassword: '',
+      removeSettingsPassword: false,
     });
     setShowModal(true);
   };
@@ -144,6 +166,10 @@ export default function Terminals() {
       toast.error(t('terminals.invalidCoords'));
       return;
     }
+    if (!form.removeSettingsPassword && form.settingsPassword && form.settingsPassword.length < 4) {
+      toast.error(t('terminals.settingsPasswordTooShort'));
+      return;
+    }
     const payload: Record<string, unknown> = {
       name: form.name.trim(),
       locationLabel: form.locationLabel.trim() || null,
@@ -152,6 +178,10 @@ export default function Terminals() {
       isActive: form.isActive,
       config: { methods: form.methods, requirePin: form.requirePin },
     };
+    // Einstellungs-Passwort: nur mitsenden, wenn es gesetzt/entfernt werden soll
+    // (weglassen = unverändert; null = Schutz entfernen).
+    if (form.removeSettingsPassword) payload.settingsPassword = null;
+    else if (form.settingsPassword) payload.settingsPassword = form.settingsPassword;
     setSaving(true);
     try {
       if (editing) {
@@ -232,8 +262,48 @@ export default function Terminals() {
     }
   };
 
-  const fmtLastSeen = (v?: string | null) =>
-    v ? new Date(v).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : t('terminals.never');
+  /* ---------- „Zuletzt gemeldet": relative Anzeige + Status-Punkt ----------
+     grün < 90s (Kiosk pingt alle 10s, lastSeenAt ist serverseitig 60s gedrosselt),
+     amber < 10 min, grau/rot älter oder nie. */
+  type SeenStatus = 'online' | 'recent' | 'offline' | 'never';
+
+  const seenStatus = (v?: string | null): SeenStatus => {
+    if (!v) return 'never';
+    const diff = nowTs - new Date(v).getTime();
+    if (diff < 90_000) return 'online';
+    if (diff < 600_000) return 'recent';
+    return 'offline';
+  };
+
+  const SEEN_DOT: Record<SeenStatus, string> = {
+    online: 'bg-emerald-500',
+    recent: 'bg-amber-500',
+    offline: 'bg-red-400',
+    never: 'bg-slate-400',
+  };
+
+  const fmtLastSeen = (v?: string | null) => {
+    if (!v) return t('terminals.never');
+    const diff = Math.max(0, nowTs - new Date(v).getTime());
+    if (diff < 90_000) return t('terminals.secondsAgo', { count: Math.max(1, Math.round(diff / 1000)) });
+    if (diff < 3_600_000) return t('terminals.minutesAgo', { count: Math.max(1, Math.round(diff / 60_000)) });
+    return new Date(v).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' });
+  };
+
+  /** Status-Punkt + relative Zeit (Tabelle und Mobile-Cards). */
+  const lastSeenCell = (term: TerminalDto) => {
+    const status = seenStatus(term.lastSeenAt);
+    return (
+      <span className="inline-flex items-center gap-2">
+        <span
+          className={clsx('h-2.5 w-2.5 rounded-full flex-shrink-0', SEEN_DOT[status])}
+          title={t(`terminals.seen.${status}`)}
+          aria-label={t(`terminals.seen.${status}`)}
+        />
+        {fmtLastSeen(term.lastSeenAt)}
+      </span>
+    );
+  };
 
   const methodsLabel = (term: TerminalDto) =>
     (term.config?.methods?.length ? term.config.methods : ALL_METHODS).map((m) => t(`terminals.method.${m}`)).join(', ');
@@ -253,7 +323,7 @@ export default function Terminals() {
 
   return (
     <div>
-      <ErrorBanner message={loadError} onRetry={load} />
+      <ErrorBanner message={loadError} onRetry={() => load()} />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-1">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{t('terminals.title')}</h1>
         <button onClick={openCreate} className="btn-primary flex items-center space-x-2">
@@ -297,14 +367,23 @@ export default function Terminals() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {terminals.map((term) => (
                     <tr key={term.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-gray-100">{term.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-gray-100">
+                        <span className="inline-flex items-center gap-1.5">
+                          {term.name}
+                          {term.hasSettingsPassword && (
+                            <span title={t('terminals.settingsPasswordBadge')}>
+                              <LockClosedIcon className="h-4 w-4 text-slate-400" aria-label={t('terminals.settingsPasswordBadge')} />
+                            </span>
+                          )}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-gray-300">{term.locationLabel || '–'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-700 dark:text-gray-300">{term.tokenPrefix ? `${term.tokenPrefix}…` : '–'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-gray-300">
                         {methodsLabel(term)}
                         {term.config?.requirePin && <span className="ml-2 status-badge status-pending">PIN</span>}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-gray-300">{fmtLastSeen(term.lastSeenAt)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 dark:text-gray-300">{lastSeenCell(term)}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={clsx('status-badge', term.isActive ? 'status-approved' : 'status-rejected')}>
                           {term.isActive ? t('terminals.active') : t('terminals.inactive')}
@@ -343,11 +422,18 @@ export default function Terminals() {
               <div key={term.id} className="card">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-900 dark:text-gray-100">{term.name}</p>
+                    <p className="font-semibold text-slate-900 dark:text-gray-100 flex items-center gap-1.5">
+                      {term.name}
+                      {term.hasSettingsPassword && (
+                        <span title={t('terminals.settingsPasswordBadge')}>
+                          <LockClosedIcon className="h-4 w-4 text-slate-400 flex-shrink-0" aria-label={t('terminals.settingsPasswordBadge')} />
+                        </span>
+                      )}
+                    </p>
                     <p className="text-sm text-slate-600 dark:text-gray-400">{term.locationLabel || '–'}</p>
                     <p className="text-sm font-mono text-slate-600 dark:text-gray-400">{term.tokenPrefix ? `${term.tokenPrefix}…` : '–'}</p>
                     <p className="text-sm text-slate-600 dark:text-gray-400">{methodsLabel(term)}{term.config?.requirePin ? ' · PIN' : ''}</p>
-                    <p className="text-xs text-slate-500 dark:text-gray-500">{t('terminals.colLastSeen')}: {fmtLastSeen(term.lastSeenAt)}</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-500">{t('terminals.colLastSeen')}: {lastSeenCell(term)}</p>
                   </div>
                   <span className={clsx('status-badge', term.isActive ? 'status-approved' : 'status-rejected')}>
                     {term.isActive ? t('terminals.active') : t('terminals.inactive')}
@@ -469,6 +555,36 @@ export default function Terminals() {
                         <span className="text-sm font-medium text-slate-700">{t('terminals.requirePin')}</span>
                       </label>
                       <p className="text-xs text-slate-400 mt-1">{t('terminals.requirePinHint')}</p>
+                    </div>
+
+                    {/* Einstellungs-Passwort (Kiosk): schützt das Zahnrad-Menü am Terminal */}
+                    <div className="rounded-lg border border-slate-200 p-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">{t('terminals.settingsPassword')}</label>
+                      <input
+                        type="password"
+                        value={form.settingsPassword}
+                        onChange={(e) => setForm({ ...form, settingsPassword: e.target.value })}
+                        disabled={form.removeSettingsPassword}
+                        autoComplete="new-password"
+                        className="input-field disabled:opacity-50"
+                        placeholder={
+                          editing?.hasSettingsPassword
+                            ? t('terminals.settingsPasswordUnchanged')
+                            : t('terminals.settingsPasswordPlaceholder')
+                        }
+                      />
+                      <p className="text-xs text-slate-400 mt-1">{t('terminals.settingsPasswordHint')}</p>
+                      {editing?.hasSettingsPassword && (
+                        <label className="flex items-center gap-2 mt-3">
+                          <input
+                            type="checkbox"
+                            checked={form.removeSettingsPassword}
+                            onChange={(e) => setForm({ ...form, removeSettingsPassword: e.target.checked, settingsPassword: e.target.checked ? '' : form.settingsPassword })}
+                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                          />
+                          <span className="text-sm font-medium text-slate-700">{t('terminals.settingsPasswordRemove')}</span>
+                        </label>
+                      )}
                     </div>
 
                     {editing && (

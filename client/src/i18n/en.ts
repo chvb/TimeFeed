@@ -1,5 +1,6 @@
 export const en = {
   nav: {
+    feed: 'Feed',
     dashboard: 'Dashboard',
     myTimes: 'My times',
     manageTimes: 'Manage times',

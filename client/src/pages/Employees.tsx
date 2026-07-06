@@ -386,6 +386,10 @@ const Employees: React.FC = () => {
 
   // Stempel-Code neu generieren (nur Admin; Server erzeugt und liefert den neuen Code).
   const [regeneratingCode, setRegeneratingCode] = useState(false);
+  // QR-Badge-Modal (Vorschau + Drucken, Muster UrlaubsFeed)
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrData, setQrData] = useState<string | null>(null);
+  const [qrEmployee, setQrEmployee] = useState<Employee | null>(null);
   const handleRegenerateStampCode = async () => {
     if (!editingEmployee || regeneratingCode) return;
     setRegeneratingCode(true);
@@ -400,6 +404,53 @@ const Employees: React.FC = () => {
     } finally {
       setRegeneratingCode(false);
     }
+  };
+
+  // QR-Badge-Dialog (Muster UrlaubsFeed): Vorschau-Modal mit Drucken (öffnet
+  // gebrandetes Druckfenster inkl. Browser-Druckdialog → als PDF speicherbar)
+  // und Download des PNGs.
+  const openQrBadge = async (employee: Employee) => {
+    setQrOpen(true);
+    setQrData(null);
+    setQrEmployee(employee);
+    try {
+      const r = await api.get(`/users/${employee.id}/stamp-qr`, { responseType: 'blob' });
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result));
+        fr.onerror = reject;
+        fr.readAsDataURL(r.data);
+      });
+      setQrData(dataUrl);
+    } catch (error) {
+      console.error('Error loading QR badge:', error);
+      toast.error(t('employees.qrBadgeError'));
+      setQrOpen(false);
+    }
+  };
+
+  const printQrBadge = () => {
+    if (!qrData || !qrEmployee) return;
+    const name = `${qrEmployee.firstName} ${qrEmployee.lastName}`;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(t('employees.qrPrintDocTitle', { name }))}</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;text-align:center;padding:40px;color:#0f172a}
+      .name{font-size:30px;font-weight:bold;margin:28px 0 6px}
+      .hint{color:#475569;margin-bottom:20px;font-size:14px}
+      img{width:360px;height:360px}
+      .code{margin-top:14px;font-family:monospace;font-size:20px;letter-spacing:.2em;color:#334155}
+      .copy{margin-top:32px;color:#94a3b8;font-size:12px}</style></head>
+      <body>${printHeaderHtml(t('employees.qrPrintTitle'))}
+      <div class="name">${escapeHtml(name)}</div>
+      <div class="hint">${escapeHtml(t('employees.qrPrintHint'))}</div>
+      <img src="${qrData}" alt="QR-Code" />
+      ${qrEmployee.stampCode ? `<div class="code">${escapeHtml(qrEmployee.stampCode)}</div>` : ''}
+      <div class="copy">${copyrightText()}</div>
+      </body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 300);
   };
 
   // QR-Badge (Stempel-Code als QR) für einen Mitarbeiter herunterladen (nur Admin).
@@ -1244,7 +1295,7 @@ const Employees: React.FC = () => {
                       <div className="flex justify-end space-x-2">
                         {user?.role === 'admin' && employee.stampCode && (
                           <button
-                            onClick={() => handleDownloadQrBadge(employee)}
+                            onClick={() => openQrBadge(employee)}
                             className="text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-gray-200"
                             title={t('employees.qrBadge')}
                           >
@@ -1768,7 +1819,7 @@ const Employees: React.FC = () => {
                           {user?.role === 'admin' && editingEmployee.stampCode && (
                             <button
                               type="button"
-                              onClick={() => handleDownloadQrBadge(editingEmployee)}
+                              onClick={() => openQrBadge(editingEmployee)}
                               className="btn-secondary text-sm flex items-center gap-1.5"
                             >
                               <QrCodeIcon className="h-4 w-4" /> {t('employees.qrBadge')}
@@ -2052,6 +2103,39 @@ const Employees: React.FC = () => {
           </div>
         </Dialog>
       </Transition>
+
+      {/* QR-Badge-Vorschau + Druck (Muster UrlaubsFeed) */}
+      {qrOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setQrOpen(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t('employees.qrTitle')}</h3>
+              <button onClick={() => setQrOpen(false)} className="text-slate-400 hover:text-slate-600"><XMarkIcon className="h-5 w-5" /></button>
+            </div>
+            {!qrData || !qrEmployee ? (
+              <p className="text-center text-slate-500 py-12">{t('employees.qrLoading')}</p>
+            ) : (
+              <div className="text-center">
+                <p className="text-sm text-slate-600 dark:text-gray-400 mb-3">
+                  <span className="font-medium text-slate-900 dark:text-white">{qrEmployee.firstName} {qrEmployee.lastName}</span>
+                </p>
+                <img src={qrData} alt="QR-Code" className="mx-auto w-56 h-56 border border-slate-200 dark:border-gray-600 rounded-lg bg-white" />
+                {qrEmployee.stampCode && (
+                  <p className="font-mono tracking-widest text-slate-600 dark:text-gray-300 mt-2">{qrEmployee.stampCode}</p>
+                )}
+                <div className="flex gap-2 mt-5">
+                  <button onClick={printQrBadge} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                    <PrinterIcon className="h-5 w-5" /> {t('employees.qrPrint')}
+                  </button>
+                  <button onClick={() => handleDownloadQrBadge(qrEmployee)} className="btn-secondary flex items-center justify-center gap-2" title={t('employees.qrDownload')}>
+                    <ArrowDownTrayIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <EmployeeDetailModal employee={detailEmployee} onClose={() => setDetailEmployee(null)} />
     </div>

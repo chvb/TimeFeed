@@ -49,13 +49,15 @@ interface TerminalDeviceAttributes {
   lng?: number | null;
   isActive: boolean;
   lastSeenAt?: Date | null;
+  // bcrypt-Hash des Kiosk-Einstellungs-Passworts (null = Zahnrad ungeschützt).
+  settingsPasswordHash?: string | null;
   config: TerminalConfig;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface TerminalDeviceCreationAttributes extends Optional<TerminalDeviceAttributes,
-  'id' | 'locationLabel' | 'lat' | 'lng' | 'isActive' | 'lastSeenAt' | 'config' | 'createdAt' | 'updatedAt'> {}
+  'id' | 'locationLabel' | 'lat' | 'lng' | 'isActive' | 'lastSeenAt' | 'settingsPasswordHash' | 'config' | 'createdAt' | 'updatedAt'> {}
 
 export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDeviceCreationAttributes> implements TerminalDeviceAttributes {
   public id!: number;
@@ -68,6 +70,7 @@ export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDevi
   public lng?: number | null;
   public isActive!: boolean;
   public lastSeenAt?: Date | null;
+  public settingsPasswordHash?: string | null;
   public config!: TerminalConfig;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -87,11 +90,43 @@ export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDevi
     };
   }
 
-  /** Darstellung ohne Geheimnis (tokenHash wird NIE ausgeliefert). */
+  /** Darstellung ohne Geheimnisse (tokenHash/settingsPasswordHash werden NIE ausgeliefert). */
   public toSafeJSON(): Record<string, any> {
-    const { tokenHash: _tokenHash, ...rest } = this.toJSON() as any;
+    const { tokenHash: _tokenHash, settingsPasswordHash: _spHash, ...rest } = this.toJSON() as any;
     rest.config = this.getConfig();
+    // Nur die Information OB ein Einstellungs-Passwort gesetzt ist (nie der Hash).
+    rest.hasSettingsPassword = !!this.settingsPasswordHash;
     return rest;
+  }
+
+  // ------------------------------------------------------------------
+  // Schema-Nachrüstung: sequelize.sync({ force:false }) ergänzt auf einer
+  // Bestands-DB KEINE neuen Spalten. Da das Modell `settingsPasswordHash`
+  // deklariert, würde jedes SELECT (auch terminalAuth.findOne!) auf einer
+  // alten DB scheitern. Deshalb wird die Spalte hier idempotent per
+  // ALTER TABLE ADD COLUMN nachgezogen (Muster wie db/ensureFeatureColumns.ts,
+  // aber bewusst lokal am Modell, um die zentrale Datei nicht zu berühren).
+  // ------------------------------------------------------------------
+  private static schemaEnsured = false;
+
+  /** Idempotent: fehlende Spalte settings_password_hash ergänzen (Modul-Flag verhindert Mehrfachlauf). */
+  public static async ensureSchema(): Promise<void> {
+    if (TerminalDevice.schemaEnsured) return;
+    try {
+      const qi = sequelize.getQueryInterface();
+      const desc = await qi.describeTable('terminal_devices');
+      if (!desc['settings_password_hash']) {
+        await qi.addColumn('terminal_devices', 'settings_password_hash', {
+          type: DataTypes.STRING,
+          allowNull: true,
+        });
+        console.log('Migration: Spalte terminal_devices.settings_password_hash ergänzt.');
+      }
+      TerminalDevice.schemaEnsured = true;
+    } catch {
+      // Tabelle existiert (noch) nicht (frische DB → sync legt sie komplett an)
+      // oder DB kurzzeitig gesperrt — nächster Aufruf versucht es erneut.
+    }
   }
 }
 
@@ -134,6 +169,10 @@ TerminalDevice.init(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    settingsPasswordHash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     config: {
       type: DataTypes.JSON,
       allowNull: false,
@@ -150,3 +189,10 @@ TerminalDevice.init(
     ],
   }
 );
+
+// Fire-and-forget beim Modul-Load: Auf Bestands-DBs muss die neue Spalte VOR dem
+// ersten Request existieren (terminalAuth.findOne selektiert alle Attribute).
+// Der Server ruft listen() erst nach sequelize.sync() auf, dieser Lauf ist bis
+// dahin längst durch; auf frischen DBs greift der try/catch in ensureSchema()
+// (sync legt die Tabelle dann komplett inkl. Spalte an).
+void TerminalDevice.ensureSchema();

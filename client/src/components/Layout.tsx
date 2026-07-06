@@ -21,6 +21,7 @@ import {
   ClipboardDocumentListIcon,
   ArrowDownTrayIcon,
   KeyIcon,
+  NewspaperIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore, isTenantAdmin as isTenantAdminFn } from '../store/authStore';
 import { useT, useI18n } from '../i18n';
@@ -40,6 +41,7 @@ interface NavChild { name: string; href: string }
 interface NavItem { name: string; tKey?: string; href?: string; icon: any; roles?: string[]; superAdmin?: boolean; companyManager?: boolean; children?: NavChild[] }
 
 const navigation: NavItem[] = [
+  { name: 'Feed', tKey: 'nav.feed', href: '/feed', icon: NewspaperIcon },
   { name: 'Dashboard', tKey: 'nav.dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Meine Zeiten', tKey: 'nav.myTimes', href: '/times', icon: ClockIcon },
   { name: 'Zeiten verwalten', tKey: 'nav.manageTimes', href: '/manage-times', icon: ClipboardDocumentListIcon, roles: ['admin', 'buchhaltung', 'verwaltung'] },
