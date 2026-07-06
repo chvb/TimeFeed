@@ -2,15 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
+  ArrowRightStartOnRectangleIcon,
+  BuildingOfficeIcon,
+  CakeIcon,
   CalendarDaysIcon,
+  ChartBarIcon,
   ClockIcon,
   DeviceTabletIcon,
   DocumentArrowUpIcon,
   ExclamationTriangleIcon,
   LockClosedIcon,
+  MapPinIcon,
   NewspaperIcon,
   PencilSquareIcon,
   ScaleIcon,
+  ServerStackIcon,
   StarIcon,
   UserGroupIcon,
   UserPlusIcon,
@@ -34,15 +40,28 @@ export interface FeedItem {
   link?: string;
 }
 
-type Tab = 'all' | 'tasks' | 'team' | 'personal';
+type Tab = 'all' | 'tasks' | 'company' | 'team' | 'personal';
 
-// Persönliche Item-Typen (Chip „Persönlich"); 'absence' zählt nur mit data.self.
+// Persönliche Item-Typen (Chip „Persönlich"); 'absence'/'birthday_upcoming'
+// zählen nur mit data.self.
 const PERSONAL_TYPES = new Set([
   'stamp_status', 'balance', 'correction_own_pending', 'correction_own_decided', 'day_warning',
+  'my_week_summary', 'my_month_summary',
+]);
+
+// Unternehmens-Ebene (Chip „Unternehmen", nur Verwalter-Rollen): Digest-Karten
+// mit Mini-Kennzahlen. Bestehende Typen bleiben bewusst im Chip „Team".
+const COMPANY_TYPES = new Set([
+  'company_week_digest', 'month_progress', 'balance_outlier', 'absence_rate_today',
+  'auto_capped_last_night', 'backup_status', 'upcoming_exit', 'gps_missing',
 ]);
 
 const isPersonal = (item: FeedItem): boolean =>
-  PERSONAL_TYPES.has(item.type) || (item.type === 'absence' && !!item.data.self);
+  PERSONAL_TYPES.has(item.type)
+  || (item.type === 'absence' && !!item.data.self)
+  || (item.type === 'birthday_upcoming' && !!item.data.self);
+
+const isCompany = (item: FeedItem): boolean => COMPANY_TYPES.has(item.type);
 
 /** Lokales YYYY-MM-DD. */
 function ymd(d: Date): string {
@@ -54,6 +73,13 @@ function fmtDate(value: string | null | undefined, locale: string): string {
   const d = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
   if (isNaN(d.getTime())) return '–';
   return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/** 'YYYY-MM' als lokalisierten Monatsnamen (z. B. „Juni 2026") formatieren. */
+function fmtMonth(monthKey: string | null | undefined, locale: string): string {
+  if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey || '–';
+  const [y, m] = monthKey.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 }
 
 /** Abwesenheits-Label: bekannte Keys via i18n, unbekannte roh anzeigen. */
@@ -167,8 +193,158 @@ export function feedItemText(item: FeedItem, t: TFunc, locale: string): { title:
         title: t('feed.item.new_colleague.title', { name: d.name }),
         desc: t('feed.item.new_colleague.desc', { date: fmtDate(d.date, locale) }),
       };
+    case 'my_week_summary':
+      return {
+        title: t('feed.item.my_week_summary.title', { balance: formatSignedMinutes(d.balanceMinutes || 0) }),
+        desc: t('feed.item.my_week_summary.desc', { start: fmtDate(d.weekStart, locale) }),
+      };
+    case 'my_month_summary':
+      return {
+        title: t('feed.item.my_month_summary.title', { month: fmtMonth(d.month, locale) }),
+        desc: t(d.closed ? 'feed.item.my_month_summary.desc_closed' : 'feed.item.my_month_summary.desc_open'),
+      };
+    case 'company_week_digest':
+      return {
+        title: t('feed.item.company_week_digest.title'),
+        desc: t('feed.item.company_week_digest.desc', { start: fmtDate(d.weekStart, locale), count: d.employeeCount ?? 0 }),
+      };
+    case 'month_progress': {
+      const done = (d.closed ?? 0) >= (d.total ?? 0);
+      return {
+        title: t('feed.item.month_progress.title', { month: fmtMonth(d.month, locale) }),
+        desc: done
+          ? t('feed.item.month_progress.desc_done', { total: d.total ?? 0 })
+          : t('feed.item.month_progress.desc', { closed: d.closed ?? 0, total: d.total ?? 0 }),
+      };
+    }
+    case 'balance_outlier':
+      return {
+        title: t(`feed.item.balance_outlier.title_${d.direction === 'over' ? 'over' : 'under'}`, {
+          threshold: formatSignedMinutes(d.thresholdMinutes || 0),
+        }),
+        desc: t((d.count ?? 0) === 1 ? 'feed.item.balance_outlier.desc_one' : 'feed.item.balance_outlier.desc', { count: d.count ?? 0 }),
+      };
+    case 'absence_rate_today':
+      return {
+        title: t('feed.item.absence_rate_today.title', { absent: d.absent ?? 0, total: d.total ?? 0 }),
+        desc: t('feed.item.absence_rate_today.desc'),
+      };
+    case 'auto_capped_last_night': {
+      const names = (Array.isArray(d.names) ? d.names : []).join(', ')
+        + ((d.moreCount ?? 0) > 0 ? ' ' + t('feed.item.auto_capped_last_night.more', { count: d.moreCount }) : '');
+      return {
+        title: t((d.count ?? 0) === 1 ? 'feed.item.auto_capped_last_night.title_one' : 'feed.item.auto_capped_last_night.title', { count: d.count ?? 0 }),
+        desc: t('feed.item.auto_capped_last_night.desc', { date: fmtDate(d.date, locale), names }),
+      };
+    }
+    case 'gps_missing':
+      return {
+        title: t('feed.item.gps_missing.title'),
+        desc: t((d.count ?? 0) === 1 ? 'feed.item.gps_missing.desc_one' : 'feed.item.gps_missing.desc', { count: d.count ?? 0 }),
+      };
+    case 'backup_status':
+      return d.reason === 'never'
+        ? { title: t('feed.item.backup_status.title_never'), desc: t('feed.item.backup_status.desc_never') }
+        : {
+          title: t('feed.item.backup_status.title_stale', { days: d.ageDays ?? 0 }),
+          desc: t('feed.item.backup_status.desc_stale', { date: fmtDate(d.lastBackupAt, locale) }),
+        };
+    case 'upcoming_exit':
+      return {
+        title: t('feed.item.upcoming_exit.title', { name: d.name }),
+        desc: t('feed.item.upcoming_exit.desc', { date: fmtDate(d.date, locale) }),
+      };
+    case 'birthday_upcoming':
+      return {
+        title: d.self ? t('feed.item.birthday_upcoming.title_self') : t('feed.item.birthday_upcoming.title_other', { name: d.name }),
+        desc: t('feed.item.birthday_upcoming.desc', { date: fmtDate(d.date, locale) }),
+      };
     default:
       return { title: item.type, desc: '' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Digest-Optik: kleine Kennzahlen-Zeilen / Fortschrittsbalken / Namenslisten
+// in der Karte (Unternehmens- und persönliche Zusammenfassungs-Items).
+// ---------------------------------------------------------------------------
+
+interface FeedExtras {
+  /** Zweispaltige Mini-Kennzahlen (Label + Wert). */
+  stats?: Array<{ label: string; value: string; accent?: string }>;
+  /** Fortschrittsbalken-Rohdaten (month_progress). */
+  progress?: { value: number; total: number };
+  /** Zeilen „Name — Wert" (balance_outlier, gps_missing). */
+  rows?: Array<{ label: string; value: string; accent?: string }>;
+  /** Fußnote (z. B. „+ 3 weitere"). */
+  note?: string;
+}
+
+const signedAccent = (min: number): string =>
+  min < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
+
+/** Zusatz-Kennzahlen eines Items (null = normale Karte ohne Digest-Optik). */
+export function feedItemExtras(item: FeedItem, t: TFunc, locale: string): FeedExtras | null {
+  const d = item.data || {};
+  switch (item.type) {
+    case 'my_week_summary':
+      return {
+        stats: [
+          { label: t('feed.item.my_week_summary.statWorked'), value: formatMinutes(d.workedMinutes || 0) },
+          { label: t('feed.item.my_week_summary.statTarget'), value: formatMinutes(d.targetMinutes || 0) },
+          { label: t('feed.item.my_week_summary.statBalance'), value: formatSignedMinutes(d.balanceMinutes || 0), accent: signedAccent(d.balanceMinutes || 0) },
+        ],
+      };
+    case 'my_month_summary':
+      return {
+        stats: [
+          { label: t('feed.item.my_month_summary.statWorked'), value: formatMinutes(d.workedMinutes || 0) },
+          { label: t('feed.item.my_month_summary.statTarget'), value: formatMinutes(d.targetMinutes || 0) },
+          { label: t('feed.item.my_month_summary.statBalance'), value: formatSignedMinutes(d.balanceMinutes || 0), accent: signedAccent(d.balanceMinutes || 0) },
+        ],
+      };
+    case 'company_week_digest':
+      return {
+        stats: [
+          { label: t('feed.item.company_week_digest.statWorked'), value: formatMinutes(d.workedMinutes || 0) },
+          { label: t('feed.item.company_week_digest.statTarget'), value: formatMinutes(d.targetMinutes || 0) },
+          {
+            label: t('feed.item.company_week_digest.statBehind'),
+            value: String(d.behindCount ?? 0),
+            accent: (d.behindCount ?? 0) > 0 ? 'text-amber-600 dark:text-amber-400' : undefined,
+          },
+          { label: t('feed.item.company_week_digest.statAvg'), value: formatSignedMinutes(d.avgBalanceMinutes || 0), accent: signedAccent(d.avgBalanceMinutes || 0) },
+        ],
+      };
+    case 'month_progress':
+      return { progress: { value: d.closed ?? 0, total: d.total ?? 0 } };
+    case 'balance_outlier':
+      return {
+        rows: (Array.isArray(d.entries) ? d.entries : []).map((e: any) => ({
+          label: e.name,
+          value: formatSignedMinutes(e.balanceMinutes || 0),
+          accent: signedAccent(e.balanceMinutes || 0),
+        })),
+        note: (d.moreCount ?? 0) > 0 ? t('feed.item.balance_outlier.more', { count: d.moreCount }) : undefined,
+      };
+    case 'gps_missing':
+      return {
+        rows: (Array.isArray(d.entries) ? d.entries : []).map((e: any) => ({
+          label: e.name,
+          value: fmtDate(e.date, locale),
+        })),
+        note: (d.moreCount ?? 0) > 0 ? t('feed.item.gps_missing.more', { count: d.moreCount }) : undefined,
+      };
+    case 'absence_rate_today': {
+      const byKind = d.byKind && typeof d.byKind === 'object' ? d.byKind : {};
+      const stats = Object.entries(byKind).map(([kind, count]) => ({
+        label: absenceLabel(kind, t),
+        value: String(count),
+      }));
+      return stats.length > 0 ? { stats } : null;
+    }
+    default:
+      return null;
   }
 }
 
@@ -224,6 +400,27 @@ export function feedItemIcon(item: FeedItem) {
       return badge(StarIcon, 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/40 dark:text-yellow-400');
     case 'new_colleague':
       return badge(UserPlusIcon, 'bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400');
+    case 'my_week_summary':
+    case 'my_month_summary':
+      return badge(ChartBarIcon, 'bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-400');
+    case 'company_week_digest':
+      return badge(BuildingOfficeIcon, 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400');
+    case 'month_progress':
+      return badge(ChartBarIcon, 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400');
+    case 'balance_outlier':
+      return badge(ScaleIcon, 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400');
+    case 'absence_rate_today':
+      return badge(UserGroupIcon, 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-400');
+    case 'auto_capped_last_night':
+      return badge(ExclamationTriangleIcon, 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400');
+    case 'gps_missing':
+      return badge(MapPinIcon, 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400');
+    case 'backup_status':
+      return badge(ServerStackIcon, 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400');
+    case 'upcoming_exit':
+      return badge(ArrowRightStartOnRectangleIcon, 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400');
+    case 'birthday_upcoming':
+      return badge(CakeIcon, 'bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400');
     default:
       return badge(NewspaperIcon, 'bg-slate-100 text-slate-600 dark:bg-gray-700 dark:text-gray-300');
   }
@@ -236,6 +433,10 @@ export function FeedCard({ item, compact = false }: { item: FeedItem; compact?: 
   const navigate = useNavigate();
   const locale = lang === 'en' ? 'en-GB' : 'de-DE';
   const { title, desc } = feedItemText(item, t, locale);
+  const extras = feedItemExtras(item, t, locale);
+  const progressPct = extras?.progress && extras.progress.total > 0
+    ? Math.round((extras.progress.value / extras.progress.total) * 100)
+    : 0;
   const ts = new Date(item.timestamp);
   const timeLabel = ymd(ts) === ymd(new Date())
     ? timeHHMM(ts, locale)
@@ -264,6 +465,47 @@ export function FeedCard({ item, compact = false }: { item: FeedItem; compact?: 
           <span className="flex-shrink-0 text-xs tabular-nums text-slate-400 dark:text-gray-500">{timeLabel}</span>
         </div>
         {desc && <p className="mt-0.5 text-sm text-slate-600 dark:text-gray-400 break-words">{desc}</p>}
+
+        {/* Digest-Optik: zweispaltige Mini-Kennzahlen */}
+        {extras?.stats && extras.stats.length > 0 && (
+          <dl className="mt-2 grid max-w-md grid-cols-2 gap-x-6 gap-y-1.5">
+            {extras.stats.map((s) => (
+              <div key={s.label} className="flex items-baseline justify-between gap-3">
+                <dt className="text-xs text-slate-500 dark:text-gray-400">{s.label}</dt>
+                <dd className={clsx('text-sm font-semibold tabular-nums text-slate-900 dark:text-white', s.accent)}>
+                  {s.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        {/* Fortschrittsbalken (Monatsabschluss-Fortschritt) */}
+        {extras?.progress && (
+          <div className="mt-2 flex max-w-md items-center gap-3">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-gray-700">
+              <div
+                className="h-full rounded-full bg-primary-600 transition-all"
+                style={{ width: `${Math.min(100, Math.max(0, progressPct))}%` }}
+              />
+            </div>
+            <span className="text-xs font-medium tabular-nums text-slate-500 dark:text-gray-400">{progressPct} %</span>
+          </div>
+        )}
+
+        {/* Namenslisten (Salden-Ausreißer, fehlendes GPS) */}
+        {extras?.rows && extras.rows.length > 0 && (
+          <ul className="mt-2 max-w-md space-y-0.5">
+            {extras.rows.map((r, idx) => (
+              <li key={`${r.label}:${idx}`} className="flex items-baseline justify-between gap-4 text-sm">
+                <span className="truncate text-slate-600 dark:text-gray-400">{r.label}</span>
+                <span className={clsx('font-medium tabular-nums text-slate-900 dark:text-white', r.accent)}>{r.value}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {extras?.note && <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">{extras.note}</p>}
+
         {item.actionRequired && item.link && (
           <button
             type="button"
@@ -307,11 +549,21 @@ export default function Feed() {
 
   useEffect(() => {
     load();
-    // Auto-Refresh: alle 60s (still) + bei Fenster-Fokus.
-    const iv = window.setInterval(() => load(true), 60_000);
+    // Auto-Refresh: alle 10s STILL im Hintergrund (kein Spinner — Items werden
+    // sanft per State-Replace aktualisiert). Bei verstecktem Tab pausieren und
+    // beim Sichtbarwerden/Fokus sofort einmal nachladen.
+    const iv = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load(true);
+    }, 10_000);
     const onFocus = () => load(true);
+    const onVisibility = () => { if (document.visibilityState === 'visible') load(true); };
     window.addEventListener('focus', onFocus);
-    return () => { window.clearInterval(iv); window.removeEventListener('focus', onFocus); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(iv);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [load]);
 
   // Kennzahlen aus den Items ableiten.
@@ -323,14 +575,16 @@ export default function Feed() {
   const counts = useMemo(() => ({
     all: items.length,
     tasks: items.filter((i) => i.actionRequired || i.priority === 'high').length,
-    team: items.filter((i) => !isPersonal(i)).length,
+    company: items.filter(isCompany).length,
+    team: items.filter((i) => !isPersonal(i) && !isCompany(i)).length,
     personal: items.filter(isPersonal).length,
   }), [items]);
 
   const filtered = useMemo(() => {
     switch (tab) {
       case 'tasks': return items.filter((i) => i.actionRequired || i.priority === 'high');
-      case 'team': return items.filter((i) => !isPersonal(i));
+      case 'company': return items.filter(isCompany);
+      case 'team': return items.filter((i) => !isPersonal(i) && !isCompany(i));
       case 'personal': return items.filter(isPersonal);
       default: return items;
     }
@@ -386,6 +640,8 @@ export default function Feed() {
   const tabs: Array<{ key: Tab; label: string; count: number }> = [
     { key: 'all', label: t('feed.tabs.all'), count: counts.all },
     { key: 'tasks', label: t('feed.tabs.tasks'), count: counts.tasks },
+    // „Unternehmen" nur für Verwalter-Rollen (Mitarbeiter erhalten ohnehin keine Items).
+    ...(isManager ? [{ key: 'company' as Tab, label: t('feed.tabs.company'), count: counts.company }] : []),
     { key: 'team', label: t('feed.tabs.team'), count: counts.team },
     { key: 'personal', label: t('feed.tabs.personal'), count: counts.personal },
   ];

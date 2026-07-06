@@ -53,6 +53,9 @@ interface UserAttributes {
   nfcTagUid?: string | null;
   // Optionale PIN für Code-Eingabe am Terminal (bcrypt-gehasht gespeichert).
   pin?: string | null;
+  // Monats-Stundenzettel per E-Mail beim Monatsabschluss:
+  // 'inherit' = Firmen-Default (SystemSettings.sendTimesheetOnClose), 'on' = immer, 'off' = nie.
+  timesheetEmailMode?: string;
   isActive: boolean;
   phoneNumber?: string;
   department?: string;
@@ -65,7 +68,7 @@ interface UserAttributes {
   updatedAt?: Date;
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'tenantId' | 'isSuperAdmin' | 'workingDaysOverride' | 'hoursPerDayOverride' | 'employmentFactor' | 'exitDate' | 'birthDate' | 'timeModelId' | 'stampCode' | 'nfcTagUid' | 'pin'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'tenantId' | 'isSuperAdmin' | 'workingDaysOverride' | 'hoursPerDayOverride' | 'employmentFactor' | 'exitDate' | 'birthDate' | 'timeModelId' | 'stampCode' | 'nfcTagUid' | 'pin' | 'timesheetEmailMode'> {}
 
 export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -86,6 +89,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public stampCode?: string | null;
   public nfcTagUid?: string | null;
   public pin?: string | null;
+  public timesheetEmailMode?: string;
   public isActive!: boolean;
   public phoneNumber?: string;
   public department?: string;
@@ -193,6 +197,13 @@ User.init(
     pin: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    // Stundenzettel-Mail beim Monatsabschluss: 'inherit' (Firmen-Default) | 'on' | 'off'.
+    timesheetEmailMode: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'inherit',
+      validate: { isIn: [['inherit', 'on', 'off']] },
     },
     isActive: {
       type: DataTypes.BOOLEAN,

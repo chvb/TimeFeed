@@ -39,6 +39,7 @@ interface TimeEntryRow {
   type: 'in' | 'out' | 'break_start' | 'break_end' | string;
   timestamp: string;
   source: string;
+  terminal?: { id: number; name: string; locationLabel?: string | null } | null;
   lat?: number | null;
   lng?: number | null;
   isCancelled: boolean;
@@ -128,10 +129,25 @@ function DayEntries({ date }: { date: string }) {
             <span className={clsx('text-slate-700 dark:text-gray-300', e.isCancelled && 'line-through')}>
               {t(`time.entryType.${e.type}`)}
             </span>
-            <span className="text-xs text-slate-400">{t(`time.entrySource.${e.source}`)}</span>
-            <span className="text-xs text-slate-400" title={e.lat != null && e.lng != null ? t('time.withGps') : t('time.withoutGps')}>
-              <MapPinIcon className={clsx('h-3.5 w-3.5 inline', e.lat != null && e.lng != null ? 'text-green-500' : 'text-slate-300')} />
+            <span className="text-xs text-slate-400">
+              {t(`time.entrySource.${e.source}`)}
+              {e.source === 'terminal' && e.terminal?.name ? ` · ${e.terminal.name}` : ''}
             </span>
+            {e.lat != null && e.lng != null ? (
+              <a
+                href={`https://www.google.com/maps?q=${e.lat},${e.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-green-600 hover:text-green-800 inline-flex items-center gap-0.5"
+                title={t('time.openMap')}
+              >
+                <MapPinIcon className="h-3.5 w-3.5 inline" />
+              </a>
+            ) : (
+              <span className="text-xs text-slate-400" title={t('time.withoutGps')}>
+                <MapPinIcon className="h-3.5 w-3.5 inline text-slate-300" />
+              </span>
+            )}
             {e.isCancelled && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
                 {t('time.cancelled')}{e.cancelReason ? `: ${e.cancelReason}` : ''}

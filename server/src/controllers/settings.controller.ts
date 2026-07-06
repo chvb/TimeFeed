@@ -86,6 +86,7 @@ export class SettingsController {
       arbzgMaxDailyMinutes: settings.arbzgMaxDailyMinutes,
       arbzgMinRestMinutes: settings.arbzgMinRestMinutes,
       gpsRequired: settings.gpsRequired,
+      gpsMode: settings.gpsMode,
       // Aufbewahrung/Löschkonzept
       retentionMonthsEntries: settings.retentionMonthsEntries,
       retentionMonthsGps: settings.retentionMonthsGps,
@@ -94,6 +95,8 @@ export class SettingsController {
       terminalAlertMinutes: settings.terminalAlertMinutes,
       terminalAlertEmails: settings.terminalAlertEmails,
       terminalPingSeconds: settings.terminalPingSeconds,
+      // Stundenzettel-Versand beim Monatsabschluss
+      sendTimesheetOnClose: settings.sendTimesheetOnClose,
     };
   }
 
@@ -151,11 +154,13 @@ export class SettingsController {
         'breakMode', 'breakAfter6hMinutes', 'breakAfter9hMinutes',
         'autoCapEnabled', 'autoCapTime',
         'arbzgWarningsEnabled', 'arbzgMaxDailyMinutes', 'arbzgMinRestMinutes',
-        'gpsRequired',
+        'gpsRequired', 'gpsMode',
         // Aufbewahrung/Löschkonzept
         'retentionMonthsEntries', 'retentionMonthsGps',
         // Terminal-Überwachung
         'terminalAlertEnabled', 'terminalAlertMinutes', 'terminalAlertEmails', 'terminalPingSeconds',
+        // Stundenzettel-Versand beim Monatsabschluss
+        'sendTimesheetOnClose',
       ];
       const updateData: any = {};
       for (const key of ALLOWED_FIELDS) {
@@ -177,8 +182,12 @@ export class SettingsController {
         }
         updateData.retentionMonthsGps = v;
       }
+      if ('gpsMode' in updateData && !['off', 'optional', 'warn', 'required'].includes(String(updateData.gpsMode))) {
+        throw new AppError(400, "gpsMode muss 'off', 'optional', 'warn' oder 'required' sein");
+      }
       // Terminal-Überwachung validieren
       if ('terminalAlertEnabled' in updateData) updateData.terminalAlertEnabled = Boolean(updateData.terminalAlertEnabled);
+      if ('sendTimesheetOnClose' in updateData) updateData.sendTimesheetOnClose = Boolean(updateData.sendTimesheetOnClose);
       if ('terminalAlertMinutes' in updateData) {
         const v = Number(updateData.terminalAlertMinutes);
         if (!Number.isInteger(v) || v < 2 || v > 1440) {

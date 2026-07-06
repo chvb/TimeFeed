@@ -58,6 +58,22 @@ export const manageTimes = {
       reopenMonthError: 'Wieder öffnen fehlgeschlagen.',
       monthClosed: 'Monat abgeschlossen',
 
+      // Sammel-Monatsabschluss (ganze Firma)
+      closeAll: 'Monat für alle abschließen',
+      closeAllTitle: 'Monat für alle abschließen',
+      closeAllConfirm: 'Monat {{month}} für alle {{count}} Mitarbeiter abschließen? Danach sind keine Änderungen mehr möglich.',
+      closeAllSuccess: 'Monat für alle Mitarbeiter abgeschlossen.',
+      closeAllIncomplete: 'Abschluss nicht möglich — es gibt unvollständige Tage.',
+      closeAllAlreadyClosed: 'Der Monat ist bereits abgeschlossen.',
+      closeAllNeedCompany: 'Bitte zuerst eine Firma im Kopf-Wechsler wählen.',
+      closeAllBlockedTitle: 'Abschluss blockiert — unvollständige Tage',
+      closeAllBlockedText: 'Folgende Mitarbeiter haben unvollständige Tage (Ausstempeln vergessen). Bitte zuerst korrigieren:',
+      closeAllBlockedDismiss: 'Hinweis schließen',
+      reopenAll: 'Für alle wieder öffnen',
+      reopenAllTitle: 'Monat für alle wieder öffnen',
+      reopenAllConfirm: 'Monat {{month}} für alle Mitarbeiter wieder öffnen?',
+      reopenAllSuccess: 'Monat für alle wieder geöffnet.',
+
       // Stundenzettel
       timesheetsTitle: 'Stundenzettel',
       timesheetUpload: 'Hochladen',
@@ -148,6 +164,22 @@ export const manageTimes = {
       reopenMonthSuccess: 'Month reopened.',
       reopenMonthError: 'Reopening failed.',
       monthClosed: 'Month closed',
+
+      // Bulk month closure (whole company)
+      closeAll: 'Close month for everyone',
+      closeAllTitle: 'Close month for everyone',
+      closeAllConfirm: 'Close month {{month}} for all {{count}} employees? No further changes will be possible.',
+      closeAllSuccess: 'Month closed for all employees.',
+      closeAllIncomplete: 'Closing not possible — there are incomplete days.',
+      closeAllAlreadyClosed: 'The month is already closed.',
+      closeAllNeedCompany: 'Please select a company in the header switcher first.',
+      closeAllBlockedTitle: 'Closing blocked — incomplete days',
+      closeAllBlockedText: 'The following employees have incomplete days (forgot to clock out). Please correct them first:',
+      closeAllBlockedDismiss: 'Dismiss notice',
+      reopenAll: 'Reopen for everyone',
+      reopenAllTitle: 'Reopen month for everyone',
+      reopenAllConfirm: 'Reopen month {{month}} for all employees?',
+      reopenAllSuccess: 'Month reopened for everyone.',
 
       // Timesheets
       timesheetsTitle: 'Timesheets',

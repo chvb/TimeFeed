@@ -28,6 +28,9 @@ export function userAttributeExcludes(actor: { role: string; isSuperAdmin?: bool
 // PIN-Format (Terminal-Codeeingabe): 4–8 Ziffern.
 const PIN_RE = /^\d{4,8}$/;
 
+// Monats-Stundenzettel per E-Mail: 'inherit' (Firmen-Default) | 'on' | 'off'.
+const TIMESHEET_EMAIL_MODES = new Set(['inherit', 'on', 'off']);
+
 export class UserController {
   // Kollegen-Liste (id + Name) aus dem eigenen Team – für alle Rollen.
   async getColleagues(req: Request, res: Response, next: NextFunction) {
@@ -274,6 +277,13 @@ export class UserController {
       if (req.body.pin != null && req.body.pin !== '' && !PIN_RE.test(String(req.body.pin))) {
         return next(new AppError(400, 'PIN muss aus 4–8 Ziffern bestehen'));
       }
+      // Stundenzettel-Mail-Modus (optional; Default 'inherit').
+      const timesheetEmailMode = req.body.timesheetEmailMode != null && req.body.timesheetEmailMode !== ''
+        ? String(req.body.timesheetEmailMode)
+        : 'inherit';
+      if (!TIMESHEET_EMAIL_MODES.has(timesheetEmailMode)) {
+        return next(new AppError(400, "timesheetEmailMode muss 'inherit', 'on' oder 'off' sein"));
+      }
 
       const user = await User.create({
         email,
@@ -297,6 +307,7 @@ export class UserController {
         timeModelId,
         nfcTagUid: req.body.nfcTagUid || null,
         pin: req.body.pin ? String(req.body.pin) : null, // wird im Model-Hook bcrypt-gehasht
+        timesheetEmailMode,
         isActive: true,
       });
 
@@ -421,6 +432,16 @@ export class UserController {
         } else {
           user.pin = String(req.body.pin); // Model-Hook hasht
         }
+      }
+      // Stundenzettel-Mail-Modus ('inherit' | 'on' | 'off'; null/'' = zurück auf 'inherit').
+      if (req.body.timesheetEmailMode !== undefined) {
+        const mode = req.body.timesheetEmailMode == null || req.body.timesheetEmailMode === ''
+          ? 'inherit'
+          : String(req.body.timesheetEmailMode);
+        if (!TIMESHEET_EMAIL_MODES.has(mode)) {
+          return next(new AppError(400, "timesheetEmailMode muss 'inherit', 'on' oder 'off' sein"));
+        }
+        user.timesheetEmailMode = mode;
       }
 
       await user.save();

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Op } from 'sequelize';
+import { Op, fn, col } from 'sequelize';
 import { User, UserRole } from '../models/User';
 import { Holiday } from '../models/Holiday';
 import { WorkDay } from '../models/WorkDay';
@@ -9,6 +9,7 @@ import { MonthClosure } from '../models/MonthClosure';
 import { TerminalDevice } from '../models/TerminalDevice';
 import { TimesheetDocument } from '../models/TimesheetDocument';
 import { IntegrationSettings } from '../models/IntegrationSettings';
+import { SystemSettings } from '../models/SystemSettings';
 import { Company } from '../models/Company';
 import {
   getEffectiveActor,
@@ -17,6 +18,29 @@ import {
   getManagedCompanyIds,
 } from '../services/accessScope';
 import { getUserTimeState, pairShifts, ymdLocal, addDays, localDayStart } from '../services/timeCalcService';
+import {
+  WeekRow,
+  BalanceTotal,
+  mondayOfWeek,
+  monthRange,
+  summarizeCompanyWeek,
+  summarizeOwnWeek,
+  absenceRateToday,
+  pickBalanceOutliers,
+  autoCappedUserIds,
+  computeMonthProgress,
+  upcomingExits,
+  upcomingBirthdays,
+  getLastBackupAt,
+  evaluateBackupStatus,
+  BALANCE_OUTLIER_OVER_MINUTES,
+  BALANCE_OUTLIER_UNDER_MINUTES,
+  OUTLIER_MAX_NAMES,
+  AUTO_CAP_MAX_NAMES,
+  MONTH_CLOSE_DEADLINE_DAY,
+  GPS_MISSING_MAX_ENTRIES,
+  gpsMissingEnabled,
+} from '../services/feedDigestService';
 
 /**
  * feed.controller — der namensgebende FEED von TimeFeed.
@@ -73,6 +97,7 @@ export async function getFeed(req: Request, res: Response, next: NextFunction) {
     const actor = getEffectiveActor(me, req.query.companyId, req.query.tenantId);
     const isManager = !!me.isSuperAdmin || MANAGE_ROLES.has(me.role);
     const isAccounting = !!me.isSuperAdmin || ACCOUNTING_ROLES.has(me.role);
+    const isAdminRole = !!me.isSuperAdmin || me.role === UserRole.ADMIN;
 
     const now = new Date();
     const todayYmd = ymdLocal(now);
@@ -83,6 +108,12 @@ export async function getFeed(req: Request, res: Response, next: NextFunction) {
     const ago7 = addDays(todayStart, -7);
     const ago14 = addDays(todayStart, -14);
     const in14 = addDays(todayStart, 14);
+    // Unternehmens-/Digest-Zeitfenster: laufende Woche (ab Montag) + Vormonat.
+    const weekStartYmd = ymdLocal(mondayOfWeek(now));
+    const prevMonthKey = previousMonth(now);
+    const { startYmd: prevMonthStart, endYmd: prevMonthEnd } = monthRange(prevMonthKey);
+    // 1.–5. des Monats: Rückblick auf den Vormonat (my_month_summary).
+    const isMonthReviewWindow = now.getDate() <= MONTH_CLOSE_DEADLINE_DAY;
 
     // Erreichbarer Mitarbeiterkreis (null = uneingeschränkt). Mitarbeiter → [me.id].
     const accessibleIds = await getAccessibleUserIds(actor);
@@ -90,7 +121,7 @@ export async function getFeed(req: Request, res: Response, next: NextFunction) {
     if (accessibleIds !== null) userWhere.id = { [Op.in]: accessibleIds };
     const users = await User.findAll({
       where: userWhere,
-      attributes: ['id', 'firstName', 'lastName', 'entryDate', 'companyId'],
+      attributes: ['id', 'firstName', 'lastName', 'entryDate', 'companyId', 'exitDate', 'birthDate'],
     });
     const userIds = users.map((u) => u.id);
     const nameById = new Map<number, string>(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
@@ -110,6 +141,12 @@ export async function getFeed(req: Request, res: Response, next: NextFunction) {
       recentTimesheets,
       absenceDays,
       holidays,
+      weekRows,
+      balanceTotals,
+      prevMonthClosures,
+      ownPrevMonthAgg,
+      lastBackupAt,
+      companySettings,
     ] = await Promise.all([
       getUserTimeState(me.id),
       WorkDay.sum('balanceMinutes', { where: { userId: me.id, date: { [Op.lte]: yesterdayYmd } } }),
@@ -170,6 +207,51 @@ export async function getFeed(req: Request, res: Response, next: NextFunction) {
         attributes: ['id', 'name', 'startDate', 'endDate', 'type'],
         order: [['startDate', 'ASC']],
       }),
+      // WorkDays der laufenden Woche EINMAL laden — dient my_week_summary,
+      // company_week_digest UND absence_rate_today (kein N+1).
+      WorkDay.findAll({
+        where: { ...teamIdFilter, date: { [Op.gte]: weekStartYmd, [Op.lte]: todayYmd } },
+        attributes: ['userId', 'date', 'workedMinutes', 'targetMinutes', 'balanceMinutes', 'absence'],
+        raw: true,
+      }) as unknown as Promise<WeekRow[]>,
+      // Kumulierte Salden je Nutzer (balance_outlier) — EIN GROUP-BY-Aggregat.
+      isAccounting
+        ? (WorkDay.findAll({
+          attributes: ['userId', [fn('SUM', col('balance_minutes')), 'balanceMinutes']],
+          where: { ...teamIdFilter, date: { [Op.lte]: yesterdayYmd } },
+          group: ['user_id'],
+          raw: true,
+        }) as unknown as Promise<BalanceTotal[]>)
+        : Promise.resolve([] as BalanceTotal[]),
+      // Vormonats-Abschlüsse (month_progress + my_month_summary).
+      isAccounting || isMonthReviewWindow
+        ? MonthClosure.findAll({ where: { month: prevMonthKey }, attributes: ['companyId', 'userId'], raw: true })
+        : Promise.resolve([] as MonthClosure[]),
+      // Eigene Vormonats-Summen (my_month_summary, nur am 1.–5.).
+      isMonthReviewWindow
+        ? WorkDay.findOne({
+          attributes: [
+            [fn('SUM', col('worked_minutes')), 'workedMinutes'],
+            [fn('SUM', col('target_minutes')), 'targetMinutes'],
+            [fn('SUM', col('balance_minutes')), 'balanceMinutes'],
+          ],
+          where: { userId: me.id, date: { [Op.gte]: prevMonthStart, [Op.lte]: prevMonthEnd } },
+          raw: true,
+        })
+        : Promise.resolve(null),
+      // Backup-Metadaten (nur Admin; im Service gecacht, S3-Fehler tolerant).
+      isAdminRole ? getLastBackupAt(now) : Promise.resolve(null),
+      // Firmen-Settings (gps_missing): Firmen-Zeile → globale Zeile → Bestandszeile.
+      // Nur lesen, nichts anlegen; `gpsMode` wird defensiv ausgewertet.
+      isManager
+        ? (async () => {
+          if (actor.companyId) {
+            const own = await SystemSettings.findOne({ where: { companyId: actor.companyId } });
+            if (own) return own;
+          }
+          return (await SystemSettings.findOne({ where: { companyId: null as any } })) || SystemSettings.findOne();
+        })()
+        : Promise.resolve(null),
     ]);
 
     const items: FeedItem[] = [];
@@ -420,6 +502,207 @@ export async function getFeed(req: Request, res: Response, next: NextFunction) {
           });
         }
       }
+    }
+
+    // ---- Für alle: eigene Wochen-Zusammenfassung (my_week_summary) ----------
+    const ownWeek = summarizeOwnWeek(weekRows as WeekRow[], me.id);
+    items.push({
+      id: `my_week_summary:${me.id}:${weekStartYmd}`,
+      type: 'my_week_summary',
+      priority: 'normal',
+      actionRequired: false,
+      timestamp: now.toISOString(),
+      data: { weekStart: weekStartYmd, ...ownWeek },
+      link: '/times',
+    });
+
+    // ---- Für alle: Vormonats-Rückblick (my_month_summary, nur am 1.–5.) -----
+    if (ownPrevMonthAgg) {
+      const agg: any = ownPrevMonthAgg;
+      const worked = Number(agg.workedMinutes) || 0;
+      const target = Number(agg.targetMinutes) || 0;
+      const balance = Number(agg.balanceMinutes) || 0;
+      if (worked > 0 || target > 0) {
+        // Abgeschlossen = Einzelabschluss ODER Firmen-Abschluss der eigenen Firma.
+        const closedForMe = (prevMonthClosures as any[]).some((c) =>
+          c.userId === me.id || (c.userId == null && me.companyId != null && c.companyId === me.companyId));
+        items.push({
+          id: `my_month_summary:${me.id}:${prevMonthKey}`,
+          type: 'my_month_summary',
+          priority: 'normal',
+          actionRequired: false,
+          timestamp: now.toISOString(),
+          data: { month: prevMonthKey, workedMinutes: worked, targetMinutes: target, balanceMinutes: balance, closed: closedForMe },
+          link: '/times',
+        });
+      }
+    }
+
+    // ---- Unternehmens-Ebene: Digest-Karten für Verwalter-Rollen -------------
+    if (isManager) {
+      const memberIds = new Set(userIds);
+
+      // Wochen-Zusammenfassung der Firma (Ist/Soll, Rückstände, Ø-Saldo).
+      const cw = summarizeCompanyWeek(weekRows as WeekRow[], memberIds);
+      if (cw.employeeCount > 0) {
+        items.push({
+          id: `company_week_digest:${weekStartYmd}`,
+          type: 'company_week_digest',
+          priority: 'normal',
+          actionRequired: false,
+          timestamp: now.toISOString(),
+          data: { weekStart: weekStartYmd, ...cw },
+          link: '/manage-times',
+        });
+      }
+
+      // Heutige Abwesenheitsquote (nur wenn > 0 abwesend).
+      const rate = absenceRateToday(weekRows as WeekRow[], todayYmd, memberIds);
+      if (rate) {
+        items.push({
+          id: `absence_rate_today:${todayYmd}`,
+          type: 'absence_rate_today',
+          priority: 'normal',
+          actionRequired: false,
+          timestamp: now.toISOString(),
+          data: { absent: rate.absentCount, total: rate.total, byKind: rate.byKind },
+          link: '/presence',
+        });
+      }
+
+      // Letzte Nacht automatisch ausgestempelt (aus den bereits geladenen 48h-Stempeln).
+      const cappedIds = autoCappedUserIds(teamEntries48h as any[], localDayStart(yesterdayYmd));
+      if (cappedIds.length > 0) {
+        items.push({
+          id: `auto_capped_last_night:${yesterdayYmd}`,
+          type: 'auto_capped_last_night',
+          priority: 'high',
+          actionRequired: true,
+          timestamp: now.toISOString(),
+          data: {
+            date: yesterdayYmd,
+            count: cappedIds.length,
+            names: cappedIds.slice(0, AUTO_CAP_MAX_NAMES).map((id) => nameById.get(id) ?? `#${id}`),
+            moreCount: Math.max(0, cappedIds.length - AUTO_CAP_MAX_NAMES),
+          },
+          link: '/manage-times',
+        });
+      }
+
+      // Fehlende GPS-Daten (7 Tage, Flag 'no_gps') — nur wenn gpsMode 'warn'/'required'.
+      // flaggedRecentDays ist bereits geladen (Status 'flagged' schließt no_gps ein).
+      if (gpsMissingEnabled(companySettings)) {
+        const gpsDays = (flaggedRecentDays as WorkDay[]).filter((wd) => readFlags(wd).includes('no_gps'));
+        if (gpsDays.length > 0) {
+          items.push({
+            id: `gps_missing:${todayYmd}`,
+            type: 'gps_missing',
+            priority: 'normal',
+            actionRequired: false,
+            timestamp: now.toISOString(),
+            data: {
+              count: gpsDays.length,
+              entries: gpsDays.slice(0, GPS_MISSING_MAX_ENTRIES).map((wd) => ({
+                name: nameById.get(wd.userId) ?? `#${wd.userId}`,
+                date: wd.date,
+              })),
+              moreCount: Math.max(0, gpsDays.length - GPS_MISSING_MAX_ENTRIES),
+            },
+            link: '/manage-times',
+          });
+        }
+      }
+    }
+
+    // ---- Buchhaltung/Admin: Abschluss-Fortschritt, Salden-Ausreißer, Austritte
+    if (isAccounting) {
+      // Monatsabschluss-Fortschritt Vormonat („X von Y Mitarbeitern").
+      const progress = computeMonthProgress(
+        (users as any[]).map((u) => ({ id: u.id, companyId: u.companyId })),
+        prevMonthClosures as any[],
+      );
+      if (progress.total > 0) {
+        const overdue = now.getDate() > MONTH_CLOSE_DEADLINE_DAY && progress.closed < progress.total;
+        items.push({
+          id: `month_progress:${prevMonthKey}`,
+          type: 'month_progress',
+          priority: overdue ? 'high' : 'normal',
+          actionRequired: overdue,
+          timestamp: now.toISOString(),
+          data: { month: prevMonthKey, closed: progress.closed, total: progress.total },
+          link: '/manage-times',
+        });
+      }
+
+      // Salden-Ausreißer (> +20 h / < −10 h), je Richtung eine Karte, max. 5 Namen.
+      const totals: BalanceTotal[] = (balanceTotals as any[])
+        .filter((r) => nameById.has(r.userId))
+        .map((r) => ({ userId: r.userId, balanceMinutes: Number(r.balanceMinutes) || 0 }));
+      const { over, under } = pickBalanceOutliers(totals);
+      const pushOutliers = (direction: 'over' | 'under', list: BalanceTotal[], thresholdMinutes: number) => {
+        if (list.length === 0) return;
+        items.push({
+          id: `balance_outlier:${direction}`,
+          type: 'balance_outlier',
+          priority: 'normal',
+          actionRequired: false,
+          timestamp: now.toISOString(),
+          data: {
+            direction,
+            thresholdMinutes,
+            count: list.length,
+            entries: list.slice(0, OUTLIER_MAX_NAMES).map((e) => ({
+              name: nameById.get(e.userId) ?? `#${e.userId}`,
+              balanceMinutes: e.balanceMinutes,
+            })),
+            moreCount: Math.max(0, list.length - OUTLIER_MAX_NAMES),
+          },
+          link: '/manage-times',
+        });
+      };
+      pushOutliers('over', over, BALANCE_OUTLIER_OVER_MINUTES);
+      pushOutliers('under', under, BALANCE_OUTLIER_UNDER_MINUTES);
+
+      // Austritte der nächsten 30 Tage.
+      for (const x of upcomingExits(users as any[], todayStart)) {
+        items.push({
+          id: `upcoming_exit:${x.userId}:${x.date}`,
+          type: 'upcoming_exit',
+          priority: 'normal',
+          actionRequired: false,
+          timestamp: localDayStart(x.date).toISOString(),
+          data: { name: nameById.get(x.userId) ?? `#${x.userId}`, date: x.date },
+          link: '/employees',
+        });
+      }
+    }
+
+    // ---- Admin: Backup-Status (nie oder älter als 7 Tage → high) ------------
+    if (isAdminRole) {
+      const backupState = evaluateBackupStatus((lastBackupAt as string | null) ?? null, now);
+      if (backupState) {
+        items.push({
+          id: 'backup_status',
+          type: 'backup_status',
+          priority: 'high',
+          actionRequired: false,
+          timestamp: now.toISOString(),
+          data: { lastBackupAt: lastBackupAt ?? null, reason: backupState.reason, ageDays: backupState.ageDays },
+          link: '/storage',
+        });
+      }
+    }
+
+    // ---- Geburtstage der nächsten 7 Tage (accessScope: Mitarbeiter nur eigene)
+    for (const b of upcomingBirthdays(users as any[], todayStart)) {
+      items.push({
+        id: `birthday_upcoming:${b.userId}:${b.date}`,
+        type: 'birthday_upcoming',
+        priority: 'low',
+        actionRequired: false,
+        timestamp: localDayStart(b.date).toISOString(),
+        data: { name: nameById.get(b.userId) ?? `#${b.userId}`, self: b.userId === me.id, date: b.date },
+      });
     }
 
     // ---- Team-Infos: Abwesenheiten (7 Tage), Feiertage, Jubiläen, Neue -------

@@ -40,8 +40,14 @@ interface SystemSettingsAttributes {
   arbzgWarningsEnabled: boolean;
   arbzgMaxDailyMinutes: number;
   arbzgMinRestMinutes: number;
-  // GPS beim Stempeln verpflichtend? (false = erlaubt, aber als 'no_gps' markiert)
+  // GPS beim Stempeln verpflichtend? (Altfeld — abgelöst durch gpsMode, bleibt für Bestands-DBs)
   gpsRequired: boolean;
+  // GPS-Modus beim Stempeln:
+  // 'off'      = Standort weder abfragen noch speichern
+  // 'optional' = ohne Standort still akzeptieren (Standard)
+  // 'warn'     = akzeptieren, aber Tag markieren + Feed-Karte + nächtliche Sammel-Mail
+  // 'required' = ohne Standort keine Buchung
+  gpsMode: string;
   // Aufbewahrung (Löschkonzept):
   // retentionMonthsEntries — Aufbewahrung der Zeitdaten (TimeEntries/WorkDays/
   // CorrectionRequests) in Monaten. Minimum 24: § 16 Abs. 2 ArbZG verlangt die
@@ -59,15 +65,19 @@ interface SystemSettingsAttributes {
   // Heartbeat-Intervall der Kiosk-Terminals in Sekunden (Terminals übernehmen
   // Änderungen live über die Ping-/Info-Antwort).
   terminalPingSeconds: number;
+  // Monats-Stundenzettel beim Monatsabschluss automatisch per E-Mail an die
+  // Mitarbeiter senden (Firmen-Default; je Nutzer über User.timesheetEmailMode übersteuerbar).
+  sendTimesheetOnClose: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface SystemSettingsCreationAttributes extends Optional<SystemSettingsAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId'
   | 'breakMode' | 'breakAfter6hMinutes' | 'breakAfter9hMinutes' | 'autoCapEnabled' | 'autoCapTime'
-  | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired'
+  | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired' | 'gpsMode'
   | 'retentionMonthsEntries' | 'retentionMonthsGps'
-  | 'terminalAlertEnabled' | 'terminalAlertMinutes' | 'terminalAlertEmails' | 'terminalPingSeconds'> {}
+  | 'terminalAlertEnabled' | 'terminalAlertMinutes' | 'terminalAlertEmails' | 'terminalPingSeconds'
+  | 'sendTimesheetOnClose'> {}
 
 export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettingsCreationAttributes> implements SystemSettingsAttributes {
   public id!: number;
@@ -103,12 +113,14 @@ export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettin
   public arbzgMaxDailyMinutes!: number;
   public arbzgMinRestMinutes!: number;
   public gpsRequired!: boolean;
+  public gpsMode!: string;
   public retentionMonthsEntries!: number;
   public retentionMonthsGps!: number;
   public terminalAlertEnabled!: boolean;
   public terminalAlertMinutes!: number;
   public terminalAlertEmails?: string | null;
   public terminalPingSeconds!: number;
+  public sendTimesheetOnClose!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -281,6 +293,12 @@ SystemSettings.init(
       allowNull: false,
       defaultValue: false,
     },
+    gpsMode: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'optional',
+      validate: { isIn: [['off', 'optional', 'warn', 'required']] },
+    },
     // Aufbewahrung: min. 24 Monate (§ 16 Abs. 2 ArbZG — Nachweise mind. 2 Jahre).
     retentionMonthsEntries: {
       type: DataTypes.INTEGER,
@@ -316,6 +334,12 @@ SystemSettings.init(
       allowNull: false,
       defaultValue: 20,
       validate: { min: 5, max: 600 },
+    },
+    // Stundenzettel-Versand beim Monatsabschluss (Firmen-Default).
+    sendTimesheetOnClose: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
   },
   {

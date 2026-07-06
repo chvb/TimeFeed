@@ -58,10 +58,12 @@ interface SystemSettings {
   arbzgMaxDailyMinutes: number;
   arbzgMinRestMinutes: number;
   gpsRequired: boolean;
+  gpsMode?: string;
   terminalAlertEnabled?: boolean;
   terminalAlertMinutes?: number;
   terminalAlertEmails?: string | null;
   terminalPingSeconds?: number;
+  sendTimesheetOnClose?: boolean;
 }
 
 interface EmailSettings {
@@ -142,10 +144,12 @@ const Settings: React.FC = () => {
     arbzgMaxDailyMinutes: 600,
     arbzgMinRestMinutes: 660,
     gpsRequired: false,
+    gpsMode: 'optional',
     terminalAlertEnabled: false,
     terminalAlertMinutes: 15,
     terminalAlertEmails: '',
-    terminalPingSeconds: 20
+    terminalPingSeconds: 20,
+    sendTimesheetOnClose: false
   });
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     smtpHost: '',
@@ -699,16 +703,23 @@ const Settings: React.FC = () => {
             {/* GPS */}
             <div className="bg-white p-6 rounded-lg border border-gray-200">
               <h4 className="text-lg font-medium text-slate-900 mb-2">{t('settings.time.gpsHeading')}</h4>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={settings.gpsRequired}
-                  onChange={(e) => setSettings({ ...settings, gpsRequired: e.target.checked })}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <span className="text-sm text-slate-700">{t('settings.time.gpsRequired')}</span>
-              </label>
-              <p className="text-xs text-slate-500 mt-2">{t('settings.time.gpsHint')}</p>
+              <div className="space-y-3">
+                {(['off', 'optional', 'warn', 'required'] as const).map((mode) => (
+                  <label key={mode} className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="gpsMode"
+                      checked={(settings.gpsMode || 'optional') === mode}
+                      onChange={() => setSettings({ ...settings, gpsMode: mode })}
+                      className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-slate-800">{t(`settings.time.gpsMode.${mode}`)}</span>
+                      <span className="block text-xs text-slate-500">{t(`settings.time.gpsMode.${mode}Hint`)}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             {/* Terminal-Überwachung */}
@@ -763,6 +774,21 @@ const Settings: React.FC = () => {
                   <p className="text-xs text-slate-500 md:col-span-2">{t('settings.time.terminalAlertHint')}</p>
                 </div>
               )}
+            </div>
+
+            {/* Stundenzettel-Versand beim Monatsabschluss */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200">
+              <h4 className="text-lg font-medium text-slate-900 mb-2">{t('settings.time.timesheetHeading')}</h4>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={settings.sendTimesheetOnClose ?? false}
+                  onChange={(e) => setSettings({ ...settings, sendTimesheetOnClose: e.target.checked })}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <span className="text-sm text-slate-700">{t('settings.time.sendTimesheetOnClose')}</span>
+              </label>
+              <p className="text-xs text-slate-500 mt-2">{t('settings.time.sendTimesheetOnCloseHint')}</p>
             </div>
           </div>
         );

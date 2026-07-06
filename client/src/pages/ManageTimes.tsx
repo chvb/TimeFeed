@@ -3,14 +3,18 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   LockClosedIcon,
+  LockOpenIcon,
   ShieldCheckIcon,
   UsersIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import ErrorBanner from '../components/ErrorBanner';
 import SearchInput from '../components/common/SearchInput';
+import { useConfirm } from '../components/common/ConfirmProvider';
 import { useT, useI18n } from '../i18n';
 import { formatMinutes, formatSignedMinutes } from '../lib/timeFormat';
 import EmployeeMonthDetail from '../components/manage/EmployeeMonthDetail';
@@ -67,6 +71,10 @@ export default function ManageTimes() {
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<OverviewRow | null>(null);
+  const { confirm } = useConfirm();
+  const [bulkBusy, setBulkBusy] = useState(false);
+  // Blockierende Tage aus einem gescheiterten Firmen-Abschluss (400 INCOMPLETE_DAYS).
+  const [incompleteInfo, setIncompleteInfo] = useState<Array<{ userId: number; date: string }> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -87,6 +95,9 @@ export default function ManageTimes() {
   useEffect(() => {
     setSelected((sel) => (sel ? rows.find((r) => r.userId === sel.userId) || null : null));
   }, [rows]);
+
+  // Monatswechsel: veraltete Blockier-Liste verwerfen.
+  useEffect(() => { setIncompleteInfo(null); }, [month]);
 
   const nameOf = (r: OverviewRow) => r.name || `${r.firstName || ''} ${r.lastName || ''}`.trim() || `#${r.userId}`;
 
@@ -116,6 +127,104 @@ export default function ManageTimes() {
   // Client-seitiger Rollen-Guard (API liefert ohnehin 403 — hier saubere Meldung
   // statt Fehlbanner, analog TimeModels/Exports; E2E-Befund).
   const { user } = useAuthStore();
+
+  // ---- Sammel-Monatsabschluss (ganze Firma) --------------------------------
+  const canCloseAll = !!user && (user.isSuperAdmin || user.role === 'admin' || user.role === 'buchhaltung');
+  const canReopenAll = !!user && (user.isSuperAdmin || user.role === 'admin');
+  const anyClosed = rows.some((r) => r.closed);
+  const nameByUserId = useMemo(() => {
+    const m = new Map<number, string>();
+    rows.forEach((r) => m.set(r.userId, nameOf(r)));
+    return m;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
+
+  // Firmen-Kontext für firmenweite Aktionen: Firmen-Admins nutzen implizit ihre
+  // eigene Firma (Server leitet sie aus dem Token ab); Super-/Mandanten-Admins
+  // brauchen die im Kopf-Wechsler gewählte Firma (localStorage 'tf-company-context').
+  const resolveBulkCompanyId = (): { companyId?: number } | null => {
+    if (user?.companyId) return {}; // eigene Firma — Server ergänzt sie selbst
+    const cc = localStorage.getItem('tf-company-context') || '';
+    if (cc.startsWith('company:')) {
+      const id = Number(cc.slice(8));
+      if (Number.isFinite(id)) return { companyId: id };
+    }
+    toast.error(t('manage.closeAllNeedCompany'));
+    return null;
+  };
+
+  const closeAll = async () => {
+    const body = resolveBulkCompanyId();
+    if (!body) return;
+    const ok = await confirm({
+      title: t('manage.closeAllTitle'),
+      message: t('manage.closeAllConfirm', { month: monthLabel, count: rows.length }),
+    });
+    if (!ok) return;
+    try {
+      setBulkBusy(true);
+      setIncompleteInfo(null);
+      await api.post('/time/close-month', { month, ...body });
+      toast.success(t('manage.closeAllSuccess'));
+      load();
+    } catch (e: any) {
+      const data = e.response?.data || {};
+      if (data.error === 'INCOMPLETE_DAYS' || data.code === 'INCOMPLETE_DAYS') {
+        const days = (data.days || []).filter((d: any) => d && d.date);
+        setIncompleteInfo(days);
+        toast.error(t('manage.closeAllIncomplete'));
+      } else if (data.error === 'ALREADY_CLOSED' || data.code === 'ALREADY_CLOSED') {
+        toast.error(data.message || t('manage.closeAllAlreadyClosed'));
+      } else {
+        toast.error(data.message || data.error || t('manage.closeMonthError'));
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const reopenAll = async () => {
+    const body = resolveBulkCompanyId();
+    if (!body) return;
+    const ok = await confirm({
+      title: t('manage.reopenAllTitle'),
+      message: t('manage.reopenAllConfirm', { month: monthLabel }),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      setBulkBusy(true);
+      await api.post('/time/reopen-month', { month, ...body });
+      toast.success(t('manage.reopenAllSuccess'));
+      setIncompleteInfo(null);
+      load();
+    } catch (e: any) {
+      const data = e.response?.data || {};
+      toast.error(data.message || data.error || t('manage.reopenMonthError'));
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  // Blockierende Tage je Mitarbeiter gruppieren (Namen aus der Übersicht mappen).
+  const incompleteByUser = useMemo(() => {
+    if (!incompleteInfo) return [];
+    const m = new Map<number, string[]>();
+    incompleteInfo.forEach((d) => {
+      const list = m.get(d.userId) || [];
+      list.push(d.date);
+      m.set(d.userId, list);
+    });
+    return [...m.entries()].map(([userId, dates]) => ({
+      userId,
+      name: nameByUserId.get(userId) || `#${userId}`,
+      dates,
+    }));
+  }, [incompleteInfo, nameByUserId]);
+
+  const fmtShortDate = (d: string) =>
+    new Date(`${d}T00:00:00`).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
+
   if (user && !['admin', 'buchhaltung', 'verwaltung'].includes(user.role) && !user.isSuperAdmin) {
     return (
       <div>
@@ -152,6 +261,58 @@ export default function ManageTimes() {
           </div>
         )}
       </div>
+
+      {/* Sammel-Aktionen: Monat für die ganze Firma abschließen / wieder öffnen */}
+      {tab === 'overview' && !selected && !loading && rows.length > 0 && (canCloseAll || (canReopenAll && anyClosed)) && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {canCloseAll && (
+            <button
+              type="button"
+              onClick={closeAll}
+              disabled={bulkBusy}
+              className="btn-primary inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <LockClosedIcon className="h-4 w-4" /> {t('manage.closeAll')}
+            </button>
+          )}
+          {canReopenAll && anyClosed && (
+            <button
+              type="button"
+              onClick={reopenAll}
+              disabled={bulkBusy}
+              className="btn-secondary inline-flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <LockOpenIcon className="h-4 w-4" /> {t('manage.reopenAll')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Hinweis-Box: blockierende (unvollständige) Tage aus dem Firmen-Abschluss */}
+      {tab === 'overview' && !selected && incompleteByUser.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-semibold">{t('manage.closeAllBlockedTitle')}</p>
+            <button
+              type="button"
+              onClick={() => setIncompleteInfo(null)}
+              className="text-amber-700 dark:text-amber-300 hover:text-amber-900"
+              aria-label={t('manage.closeAllBlockedDismiss')}
+              title={t('manage.closeAllBlockedDismiss')}
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-0.5">{t('manage.closeAllBlockedText')}</p>
+          <ul className="mt-2 space-y-0.5 list-disc list-inside">
+            {incompleteByUser.map((u) => (
+              <li key={u.userId}>
+                <span className="font-medium">{u.name}</span>: {u.dates.map(fmtShortDate).join(', ')}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Reiter Übersicht / Korrekturanträge */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-4">

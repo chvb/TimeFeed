@@ -229,6 +229,9 @@ export function startTimeRecalcJob(): void {
       await runTimeRecalc();
       // Aufbewahrung nach dem Tagesabschluss; Fehler dürfen die Job-Kette nicht stoppen.
       await runRetentionCleanup().catch((e) => console.error('Retention-Job fehlgeschlagen:', e));
+      // GPS-Warn-Digest (gpsMode='warn'): eine Sammel-Mail pro Firma für den Vortag.
+      const { runGpsWarnDigest } = await import('./gpsDigestService');
+      await runGpsWarnDigest().catch((e) => console.error('GPS-Digest fehlgeschlagen:', e));
       schedule(); // nächsten Lauf planen (robust gegen DST-Wechsel)
     }, next.getTime() - now.getTime());
     // Der Timer soll einen Shutdown nicht blockieren.

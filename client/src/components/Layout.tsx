@@ -41,8 +41,8 @@ interface NavChild { name: string; href: string }
 interface NavItem { name: string; tKey?: string; href?: string; icon: any; roles?: string[]; superAdmin?: boolean; companyManager?: boolean; children?: NavChild[] }
 
 const navigation: NavItem[] = [
-  { name: 'Feed', tKey: 'nav.feed', href: '/feed', icon: NewspaperIcon },
   { name: 'Dashboard', tKey: 'nav.dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Feed', tKey: 'nav.feed', href: '/feed', icon: NewspaperIcon },
   { name: 'Meine Zeiten', tKey: 'nav.myTimes', href: '/times', icon: ClockIcon },
   { name: 'Zeiten verwalten', tKey: 'nav.manageTimes', href: '/manage-times', icon: ClipboardDocumentListIcon, roles: ['admin', 'buchhaltung', 'verwaltung'] },
   { name: 'Anwesenheit', tKey: 'nav.presence', href: '/presence', icon: UserGroupIcon, roles: ['admin', 'buchhaltung', 'verwaltung'] },
@@ -54,8 +54,9 @@ const navigation: NavItem[] = [
   // Mandanten: Super-Admin (Verwaltung) und Mandanten-Admin (eigenes Branding).
   { name: 'Mandanten', tKey: 'nav.tenants', href: '/tenants', icon: BuildingLibraryIcon, companyManager: true },
   { name: 'Firmen', tKey: 'nav.companies', href: '/companies', icon: BuildingOffice2Icon, companyManager: true },
-  { name: 'API-Schlüssel', tKey: 'nav.apiKeys', href: '/api-keys', icon: KeyIcon, roles: ['admin'] },
   { name: 'Einstellungen', tKey: 'nav.settings', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] },
+  // Direkt unter den Einstellungen, nur für den Super-Admin sichtbar.
+  { name: 'API-Schlüssel', tKey: 'nav.apiKeys', href: '/api-keys', icon: KeyIcon, superAdmin: true },
 ];
 
 function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate: () => void }) {

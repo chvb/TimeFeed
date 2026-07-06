@@ -301,6 +301,7 @@ export default function Terminal() {
     return () => window.clearInterval(id);
   }, []);
 
+
   /* ---------- Wake-Lock (Tablet nicht einschlafen lassen) ---------- */
   useEffect(() => {
     let lock: any = null;
@@ -366,6 +367,43 @@ export default function Terminal() {
       setBusy(false);
     }
   }, [showError, t]);
+
+  /* ---------- Physische Tastatur für Code-/PIN-Eingabe ----------
+     Ziffern/Backspace/Enter am Idle- und PIN-Screen — funktioniert damit auch
+     mit USB-/Bluetooth-Scannern, die sich als Tastatur melden (Ziffern + Enter).
+     Nicht aktiv, wenn ein echtes Eingabefeld fokussiert ist (Setup/Zahnrad). */
+  useEffect(() => {
+    if (screen !== 'idle' && screen !== 'pin') return;
+    if (screen === 'idle' && !methods.includes('code')) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (busyRef.current) return;
+      const setInput = screen === 'idle' ? setCodeInput : setPinInput;
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        setInput((c) => (c.length < 12 ? c + e.key : c));
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        setInput((c) => c.slice(0, -1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (screen === 'idle') {
+          setCodeInput((c) => {
+            if (c) handleIdentify({ stampCode: c });
+            return c;
+          });
+        } else {
+          setPinInput((p) => {
+            if (pendingCred && p) handleIdentify(pendingCred, p);
+            return p;
+          });
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [screen, methods, pendingCred, handleIdentify]);
 
   // Scan-Quellen (NFC/QR) rufen immer die aktuelle Handler-Version auf,
   // mit Dedupe gegen Mehrfach-Erkennung desselben Tags/Codes.

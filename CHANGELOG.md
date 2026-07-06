@@ -21,6 +21,26 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.0] - 2026-07-06
+
+### Added
+- Feed: neue Seite als Aktivitäts-Stream mit Kennzahlen, Filtern und Handlungs-Buttons; Unternehmens-Ebene für Verwaltung/Buchhaltung (Wochen-Bilanz, Monatsabschluss-Fortschritt, Überstunden-Ausreißer, Abwesenheitsquote, Auto-Kappungen, Backup-Status, Austritte, Geburtstage) plus persönliche Wochen-/Monats-Zusammenfassung; Auto-Aktualisierung alle 10 Sekunden
+- Monats-Stundenzettel automatisch als PDF per E-Mail beim Monatsabschluss (global pro Firma und je Mitarbeiter einstellbar: Standard/Immer/Nie)
+- Sammel-Monatsabschluss: unter „Zeiten verwalten" den Monat für alle Mitarbeiter auf einmal abschließen bzw. wieder öffnen
+- GPS-Modus in den Einstellungen: deaktiviert / optional / akzeptieren mit Warnung (Feed-Karte + nächtliche Sammel-Mail) / erforderlich
+- Stempel-Journal zeigt jetzt den Terminal-Namen und öffnet den GPS-Standort per Klick auf der Karte
+- QR-Badge der Mitarbeiter mit Druckdialog (gebrandeter Ausweis, als PDF speicherbar)
+- Terminal: Token-Neuerzeugung mit Einmal-Anzeige, passwortgeschützte Kiosk-Einstellungen (pro Gerät), Heartbeat mit einstellbarem Ping-Intervall (Standard 20 s), Live-Status „Zuletzt gemeldet" mit Ampel in der Geräteliste, Tastatur-/Scanner-Eingabe für Stempel-Code und PIN
+- Terminal-Störungsmeldung per E-Mail (Schwelle und Empfänger pro Firma einstellbar, mit Entwarnung)
+
+### Improved
+- Einheitliches E-Mail-Design für alle Mails: TimeFeed-Logo, Orange, gebrandete Buttons
+- Terminal meldet sich nie mehr automatisch ab (Token bleibt erhalten, automatische Neuprüfung)
+- API-Schlüssel: nur noch für Super-Admins, im Menü unter den Einstellungen; Dashboard wieder oben im Menü
+
+### Fixed
+- Service Worker lieferte bei Serverausfall eine ungültige Antwort (Konsolen-Fehler) — jetzt saubere Offline-Seite
+
 ## [1.0.1] - 2026-07-06
 
 ### Improved

@@ -62,6 +62,7 @@ export const time = {
       note: 'Notiz',
       withGps: 'Mit Standort',
       withoutGps: 'Ohne Standort',
+      openMap: 'Standort auf Karte öffnen',
       status: {
         open: 'Offen',
         incomplete: 'Unvollständig',
@@ -160,6 +161,7 @@ export const time = {
       note: 'Note',
       withGps: 'With location',
       withoutGps: 'Without location',
+      openMap: 'Open location on map',
       status: {
         open: 'Open',
         incomplete: 'Incomplete',

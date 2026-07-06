@@ -44,4 +44,15 @@ export async function ensureSecondaryAndRetentionColumns(): Promise<void> {
   await addIfMissing(SystemSettings, 'terminal_alert_minutes', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 15 });
   await addIfMissing(SystemSettings, 'terminal_alert_emails', { type: DataTypes.STRING, allowNull: true });
   await addIfMissing(SystemSettings, 'terminal_ping_seconds', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 20 });
+
+  // GPS-Modus (löst gpsRequired ab); Bestandsmapping: gps_required=1 → 'required'.
+  const desc = await sequelize.getQueryInterface().describeTable('system_settings');
+  if (!desc['gps_mode']) {
+    await sequelize.getQueryInterface().addColumn('system_settings', 'gps_mode', { type: DataTypes.STRING, allowNull: false, defaultValue: 'optional' });
+    await sequelize.query("UPDATE system_settings SET gps_mode='required' WHERE gps_required = 1");
+    console.log('Migration: system_settings.gps_mode ergänzt (gps_required übernommen).');
+  }
+
+  // system_settings — Stundenzettel automatisch per E-Mail beim Monatsabschluss (Firmen-Default)
+  await addIfMissing(SystemSettings, 'send_timesheet_on_close', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
 }

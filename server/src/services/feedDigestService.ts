@@ -31,6 +31,8 @@ export const EXIT_LOOKAHEAD_DAYS = 30;
 export const BIRTHDAY_LOOKAHEAD_DAYS = 7;
 /** auto_capped_last_night: max. Namen im Item. */
 export const AUTO_CAP_MAX_NAMES = 8;
+/** gps_missing: max. Einträge (Name + Datum) in der gebündelten Karte. */
+export const GPS_MISSING_MAX_ENTRIES = 10;
 
 // ---------------------------------------------------------------------------
 // Zeit-Helfer
@@ -189,6 +191,20 @@ export function autoCappedUserIds(entries: StampRowLike[], yesterdayStart: Date)
     ids.add(e.userId);
   }
   return [...ids];
+}
+
+// ---------------------------------------------------------------------------
+// gps_missing
+// ---------------------------------------------------------------------------
+
+/**
+ * gps_missing nur liefern, wenn die Firmen-Settings das (parallel eingeführte)
+ * Feld `gpsMode` haben UND es 'warn' oder 'required' ist. Defensiv gelesen:
+ * fehlt das Feld (noch), wird das Item NICHT geliefert.
+ */
+export function gpsMissingEnabled(settings: unknown): boolean {
+  const mode = (settings as any)?.gpsMode;
+  return mode === 'warn' || mode === 'required';
 }
 
 // ---------------------------------------------------------------------------

@@ -65,6 +65,9 @@ export async function ensureColumns(): Promise<void> {
   await addIfMissing(SystemSettings, 'arbzg_min_rest_minutes', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 660 });
   await addIfMissing(SystemSettings, 'gps_required', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
 
+  // Stundenzettel-Mail beim Monatsabschluss: 'inherit' (Firmen-Default) | 'on' | 'off'.
+  await addIfMissing(User, 'timesheet_email_mode', { type: DataTypes.STRING, allowNull: false, defaultValue: 'inherit' });
+
   await migrateRoleNames();
   await ensureCompanyScopedNameUnique();
   await ensureDefaultCompany();

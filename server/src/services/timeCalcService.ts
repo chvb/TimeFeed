@@ -324,7 +324,10 @@ export async function calcWorkDay(userId: number, date: string): Promise<WorkDay
     flags.push('target_credited');
   }
 
-  if (dayShifts.some((s) => s.missingGps)) flags.push('no_gps');
+  // 'no_gps' nur markieren, wenn der GPS-Modus es verlangt ('warn'/'required') --
+  // bei 'off'/'optional' ist Stempeln ohne Standort ausdruecklich in Ordnung.
+  const gpsMode = (settings as any).gpsMode || 'optional';
+  if ((gpsMode === 'warn' || gpsMode === 'required') && dayShifts.some((s) => s.missingGps)) flags.push('no_gps');
   if (dayShifts.some((s) => s.autoCapped)) flags.push('auto_capped');
 
   const firstIn = dayShifts.length > 0 ? dayShifts[0].inAt : null;

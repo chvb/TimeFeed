@@ -21,6 +21,7 @@ import {
   ymdLocal,
 } from '../services/timeCalcService';
 import { isDayLocked, isMonthClosed, monthEndDate, monthOf, MONTH_LOCKED_RESPONSE } from '../services/monthLockService';
+import { sendTimesheetsForClosedMonth } from '../services/timesheetPdfService';
 
 const settingsController = new SettingsController();
 
@@ -95,6 +96,8 @@ async function buildTimeStatus(userId: number, companyId: number | null) {
     since: st.since,
     today,
     breakMode: settings.breakMode,
+    // 'off' → Client fragt gar keinen Standort ab (kein Berechtigungs-Popup).
+    gpsMode: settings.gpsMode || 'optional',
     balanceMinutes: Number(total) || 0,
   };
 }
@@ -118,10 +121,13 @@ export class TimeController {
       if (!user) return next(new AppError(404, 'User not found'));
 
       const settings = await settingsController.getOrCreateSettings(user.companyId ?? null);
+      const gpsMode = settings.gpsMode || 'optional';
       const hasGps = lat != null && lng != null;
-      if (settings.gpsRequired && !hasGps) {
+      if (gpsMode === 'required' && !hasGps) {
         return res.status(400).json({ error: 'GPS_REQUIRED', message: 'Standortfreigabe ist für das Stempeln erforderlich.' });
       }
+      // 'off': Standort wird weder erwartet noch gespeichert (Datenminimierung).
+      const storeGps = gpsMode !== 'off' && hasGps;
 
       // Sequenzvalidierung gegen den aktuellen Zustand (gemeinsame Logik mit dem
       // Terminal-Stempeln, siehe timeCalcService.validateStampSequence).
@@ -151,9 +157,9 @@ export class TimeController {
         type,
         timestamp: now,
         source,
-        lat: hasGps ? Number(lat) : null,
-        lng: hasGps ? Number(lng) : null,
-        accuracy: accuracy != null ? Number(accuracy) : null,
+        lat: storeGps ? Number(lat) : null,
+        lng: storeGps ? Number(lng) : null,
+        accuracy: storeGps && accuracy != null ? Number(accuracy) : null,
         note: typeof note === 'string' && note.trim() ? note.trim() : null,
       });
 
@@ -213,6 +219,8 @@ export class TimeController {
         where,
         order: [['timestamp', 'ASC']],
         limit: 2000,
+        // Terminal-Name fürs Journal („Terminal · Eingang Halle 1").
+        include: [{ association: 'terminal', attributes: ['id', 'name', 'locationLabel'], required: false }],
       });
       res.json({ entries });
     } catch (error) {
@@ -560,6 +568,12 @@ export class TimeController {
         entityId: closure.id,
         newValues: { companyId, userId: singleUserId, month, totals: { targetMinutes: totals.targetMinutes, workedMinutes: totals.workedMinutes, balanceMinutes: totals.balanceMinutes } },
       }, req);
+
+      // Stundenzettel-PDFs per Mail (fire-and-forget NACH erfolgreichem Abschluss;
+      // Fehler werden im Service geloggt und geschluckt — der Abschluss steht bereits).
+      sendTimesheetsForClosedMonth(targets, companyId, month).catch((e) => {
+        console.error('Stundenzettel-Versand fehlgeschlagen:', (e as any)?.message || e);
+      });
 
       res.status(201).json({ closure });
     } catch (error) {

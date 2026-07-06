@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { apiKeyController } from '../controllers/apiKey.controller';
-import { authenticate, authorizeCompanyManager } from '../middleware/auth';
+import { authenticate, authorizeSuperAdmin } from '../middleware/auth';
 
 const router = Router();
 
-// API-Schlüssel-Verwaltung: Super-Admin oder Mandanten-Admin (tenant-gescopet).
-router.use(authenticate, authorizeCompanyManager);
+// Nur Super-Admin: API-Schlüssel sind instanzweite Infrastruktur.
+router.use(authenticate, authorizeSuperAdmin);
 
 router.get('/', apiKeyController.list);
 router.post('/', apiKeyController.create);

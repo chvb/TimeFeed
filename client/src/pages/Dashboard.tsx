@@ -115,6 +115,8 @@ export default function Dashboard() {
   const [since, setSince] = useState<Date | null>(null);
   const [today, setToday] = useState<WorkDayDto | null>(null);
   const [breakMode, setBreakMode] = useState<BreakMode>('manual');
+  // GPS-Modus der Firma: bei 'off' wird gar kein Standort abgefragt (kein Popup).
+  const [gpsMode, setGpsMode] = useState<string>('optional');
   const [balanceMinutes, setBalanceMinutes] = useState<number | null>(null);
   const [balanceUpTo, setBalanceUpTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,6 +138,7 @@ export default function Dashboard() {
     if (data?.breakMode === 'auto' || data?.breakMode === 'manual' || data?.breakMode === 'combined') {
       setBreakMode(data.breakMode);
     }
+    if (typeof data?.gpsMode === 'string') setGpsMode(data.gpsMode);
     if (typeof data?.balanceMinutes === 'number') setBalanceMinutes(data.balanceMinutes);
   }, []);
 
@@ -172,7 +175,7 @@ export default function Dashboard() {
     if (stamping) return;
     setStamping(type);
     try {
-      const pos = await getPosition();
+      const pos = gpsMode === 'off' ? null : await getPosition();
       const body: Record<string, unknown> = { type };
       if (pos) {
         body.lat = pos.coords.latitude;

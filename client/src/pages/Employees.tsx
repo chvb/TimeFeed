@@ -33,6 +33,7 @@ interface Employee {
   timeModelId?: number | null;
   stampCode?: string | null;
   nfcTagUid?: string | null;
+  timesheetEmailMode?: 'inherit' | 'on' | 'off';
   group?: {
     name: string;
   };
@@ -61,6 +62,7 @@ interface EmployeeFormData {
   timeModelId?: number | null;
   nfcTagUid?: string;
   pin?: string;
+  timesheetEmailMode?: 'inherit' | 'on' | 'off';
 }
 
 const Employees: React.FC = () => {
@@ -117,7 +119,8 @@ const Employees: React.FC = () => {
     employeeNumber: '',
     timeModelId: null,
     nfcTagUid: '',
-    pin: ''
+    pin: '',
+    timesheetEmailMode: 'inherit'
   });
 
   useEffect(() => {
@@ -328,7 +331,8 @@ const Employees: React.FC = () => {
         position: formData.position || null,
         phoneNumber: formData.phoneNumber || null,
         timeModelId: formData.timeModelId || null,
-        nfcTagUid: formData.nfcTagUid?.trim() || null
+        nfcTagUid: formData.nfcTagUid?.trim() || null,
+        timesheetEmailMode: formData.timesheetEmailMode || 'inherit'
       };
 
       // Remove password field if empty (for updates)
@@ -514,7 +518,8 @@ const Employees: React.FC = () => {
       employeeNumber: employee.employeeNumber || '',
       timeModelId: employee.timeModelId ?? null,
       nfcTagUid: employee.nfcTagUid || '',
-      pin: ''
+      pin: '',
+      timesheetEmailMode: employee.timesheetEmailMode || 'inherit'
     });
     setShowModal(true);
   };
@@ -546,7 +551,8 @@ const Employees: React.FC = () => {
       employeeNumber: '',
       timeModelId: null,
       nfcTagUid: '',
-      pin: ''
+      pin: '',
+      timesheetEmailMode: 'inherit'
     });
   };
 
@@ -1853,6 +1859,20 @@ const Employees: React.FC = () => {
                         />
                         <p className="text-xs text-slate-400 mt-1">{t('employees.pinHint')}</p>
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-1">{t('employees.timesheetEmailMode')}</label>
+                      <select
+                        value={formData.timesheetEmailMode || 'inherit'}
+                        onChange={(e) => setFormData({ ...formData, timesheetEmailMode: e.target.value as 'inherit' | 'on' | 'off' })}
+                        className="input-field"
+                      >
+                        <option value="inherit">{t('employees.timesheetEmailInherit')}</option>
+                        <option value="on">{t('employees.timesheetEmailOn')}</option>
+                        <option value="off">{t('employees.timesheetEmailOff')}</option>
+                      </select>
+                      <p className="text-xs text-slate-400 mt-1">{t('employees.timesheetEmailHint')}</p>
                     </div>
                   </div>
 

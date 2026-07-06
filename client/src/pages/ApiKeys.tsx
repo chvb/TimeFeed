@@ -122,7 +122,8 @@ export default function ApiKeys() {
     return <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">{t('apiKeys.active')}</span>;
   };
 
-  if (user?.role !== 'admin' && !user?.isSuperAdmin) {
+  // Nur Super-Admin (Nav zeigt den Punkt auch nur ihm; Server prüft zusätzlich).
+  if (!user?.isSuperAdmin) {
     return <div className="p-8 text-center text-slate-500">{t('apiKeys.noAccess')}</div>;
   }
 
