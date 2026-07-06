@@ -13,6 +13,18 @@ export interface StorageSettingsAttributes {
   // Separater Pfad/Prefix für hochgeladene Anhänge (PDFs), getrennt von Backups.
   s3AttachmentPrefix?: string;
   isActive?: boolean;
+  // --- Sekundärer S3 (Backup-/Failover-Spiegel, Muster: FotoFeed) ---------
+  // Nur aktiv, wenn secondaryEnabled UND Bucket + Access-/Secret-Key gesetzt.
+  secondaryEnabled?: boolean;
+  secondaryEndpoint?: string;
+  secondaryRegion?: string;
+  secondaryBucket?: string;
+  secondaryAccessKey?: string;
+  secondarySecretKey?: string;
+  // Prefix, unter dem die gespiegelten Objekte (mit ihrem Primär-Key) liegen.
+  secondaryPrefix?: string;
+  // Harter Timeout für Primär-Operationen, bevor auf Sekundär ausgewichen wird.
+  secondaryFailoverTimeoutMs?: number;
 }
 
 export class StorageSettings extends Model<StorageSettingsAttributes> implements StorageSettingsAttributes {
@@ -25,6 +37,14 @@ export class StorageSettings extends Model<StorageSettingsAttributes> implements
   public s3BackupPrefix?: string;
   public s3AttachmentPrefix?: string;
   public isActive?: boolean;
+  public secondaryEnabled?: boolean;
+  public secondaryEndpoint?: string;
+  public secondaryRegion?: string;
+  public secondaryBucket?: string;
+  public secondaryAccessKey?: string;
+  public secondarySecretKey?: string;
+  public secondaryPrefix?: string;
+  public secondaryFailoverTimeoutMs?: number;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -41,6 +61,14 @@ StorageSettings.init(
     s3BackupPrefix: { type: DataTypes.STRING, allowNull: true, defaultValue: 'timefeed/backups/' },
     s3AttachmentPrefix: { type: DataTypes.STRING, allowNull: true, defaultValue: 'timefeed/attachments/' },
     isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    secondaryEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    secondaryEndpoint: { type: DataTypes.STRING, allowNull: true },
+    secondaryRegion: { type: DataTypes.STRING, allowNull: true, defaultValue: 'eu-central-1' },
+    secondaryBucket: { type: DataTypes.STRING, allowNull: true },
+    secondaryAccessKey: { type: DataTypes.STRING, allowNull: true },
+    secondarySecretKey: { type: DataTypes.STRING, allowNull: true },
+    secondaryPrefix: { type: DataTypes.STRING, allowNull: true, defaultValue: 'timefeed-mirror/' },
+    secondaryFailoverTimeoutMs: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 3000 },
   },
   {
     sequelize,

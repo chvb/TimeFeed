@@ -6,6 +6,7 @@ import {
 } from '../models';
 import { UserRole } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
+import storageService from './storageService';
 
 // Inkl. password-HASH (kein Klartext) – sonst können sich nach einem Restore
 // keine Nutzer mehr anmelden. bulkCreate läuft ohne individualHooks, daher wird
@@ -51,6 +52,20 @@ export async function createBackupObject() {
       trashItems, auditLogs, storageSettings,
     },
   };
+}
+
+/**
+ * Erstellt ein Voll-Backup und lädt es auf den primären S3 hoch; wenn der
+ * sekundäre S3 aktiviert ist (secondaryEnabled), wird das Backup zusätzlich —
+ * hier bewusst SYNCHRON statt fire-and-forget — auf den Sekundär gespiegelt.
+ * Schlägt (nur) die Sekundär-Spiegelung fehl, bleibt das Backup gültig und der
+ * Key wird für den secondarySyncService vorgemerkt.
+ */
+export async function createAndUploadBackupToS3(): Promise<{ key: string; storedOn: 'primary' | 'secondary'; secondaryUploaded: boolean }> {
+  const backup = await createBackupObject();
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `timefeed-backup-${stamp}.json`;
+  return storageService.uploadBackup(filename, JSON.stringify(backup, null, 2), 'application/json', { awaitSecondary: true });
 }
 
 /** Stellt aus einem Backup-Objekt wieder her (transaktional, mit Feld-Whitelist für User). */

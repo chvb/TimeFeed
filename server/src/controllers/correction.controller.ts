@@ -11,6 +11,7 @@ import { AuditAction, AuditCategory } from '../models/AuditLog';
 import emailService, { escapeHtml } from '../services/emailService';
 import { addDays, calcWorkDay, localDayStart, ymdLocal } from '../services/timeCalcService';
 import { isDayLocked, MONTH_LOCKED_RESPONSE } from '../services/monthLockService';
+import { notifyUser } from '../services/pushService';
 
 /**
  * CorrectionController — Korrekturanträge (/api/corrections, Phase 4).
@@ -259,6 +260,13 @@ export class CorrectionController {
 
       await notifyEmployeeOfDecision(correction, employee, true);
 
+      // Web-Push (fire-and-forget): sofortige Benachrichtigung auf dem Gerät.
+      notifyUser(employee.id, {
+        title: 'Korrekturantrag genehmigt',
+        body: `Dein Korrekturantrag für den ${correction.date} wurde genehmigt.`,
+        url: '/',
+      }).catch(() => { /* unkritisch */ });
+
       res.json({ correction, workDay });
     } catch (error) {
       next(error);
@@ -294,6 +302,13 @@ export class CorrectionController {
       }, req);
 
       await notifyEmployeeOfDecision(correction, employee, false);
+
+      // Web-Push (fire-and-forget): sofortige Benachrichtigung auf dem Gerät.
+      notifyUser(employee.id, {
+        title: 'Korrekturantrag abgelehnt',
+        body: `Dein Korrekturantrag für den ${correction.date} wurde abgelehnt.`,
+        url: '/',
+      }).catch(() => { /* unkritisch */ });
 
       res.json({ correction });
     } catch (error) {

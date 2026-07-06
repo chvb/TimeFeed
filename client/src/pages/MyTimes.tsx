@@ -17,6 +17,7 @@ import { useT, useI18n } from '../i18n';
 import { formatMinutes, formatSignedMinutes, timeHHMM } from '../lib/timeFormat';
 import CorrectionRequestModal from '../components/time/CorrectionRequestModal';
 import MyCorrectionsList from '../components/time/MyCorrectionsList';
+import AbsenceBadge from '../components/common/AbsenceBadge';
 
 interface WorkDayRow {
   id: number;
@@ -197,11 +198,7 @@ export default function MyTimes() {
       <span className={clsx('status-badge', STATUS_BADGE[d.status] || 'bg-slate-100 text-slate-700')}>
         {t(`time.status.${d.status}`)}
       </span>
-      {d.absence && (
-        <span className="status-badge bg-primary-100 text-primary-800">
-          {t(`time.absence.${d.absence}`) !== `time.absence.${d.absence}` ? t(`time.absence.${d.absence}`) : d.absence}
-        </span>
-      )}
+      <AbsenceBadge absence={d.absence} />
       <DayFlags day={d} t={t} />
     </span>
   );

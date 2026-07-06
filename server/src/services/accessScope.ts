@@ -147,13 +147,16 @@ export async function canManageCompanyRecord(actor: Actor, companyId?: number | 
 
 /**
  * companyId für einen NEU anzulegenden firmenbezogenen Datensatz:
- * - Super-Admin: frei aus dem Body (oder null = global)
+ * - Super-Admin: frei aus dem Body; ohne Angabe eigene Firma (falls vorhanden), sonst global
  * - Firmen-Admin/Buchhaltung: immer eigene Firma
  * - Mandanten-Admin: Firma aus dem Body, MUSS im eigenen Tenant liegen (sonst Fehler)
  */
 export async function resolveWritableCompanyId(actor: Actor, bodyCompanyId?: any): Promise<number | null> {
   const cid = bodyCompanyId != null && bodyCompanyId !== '' ? Number(bodyCompanyId) : null;
-  if (actor.isSuperAdmin) return cid;
+  // Ohne expliziten Kontext auf die eigene Firma schreiben — sonst entstehen bei
+  // Super-Admins MIT companyId (Demo-Seed) companyId=null-Datensätze, die für
+  // firmen-gescopte Leser unsichtbar sind (E2E-Befund: „unsichtbare" Zeitmodelle).
+  if (actor.isSuperAdmin) return cid ?? actor.companyId ?? null;
   if (actor.companyId) return actor.companyId;
   if (actor.tenantId) {
     if (cid != null && !(await canManageCompanyRecord(actor, cid))) {

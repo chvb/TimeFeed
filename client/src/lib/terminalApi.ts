@@ -6,11 +6,19 @@
 export type TerminalMethod = 'nfc' | 'code' | 'qr';
 export type StampType = 'in' | 'out' | 'break_start' | 'break_end';
 
+export interface TerminalBranding {
+  brandName?: string | null;
+  brandColor?: string | null;
+  brandLogo?: string | null;
+}
+
 export interface TerminalInfo {
   name: string;
   companyName: string;
   methods: TerminalMethod[];
   requirePin: boolean;
+  /** Mandanten-Branding (Feld `branding` aus GET /api/terminal/info), falls gesetzt. */
+  branding?: TerminalBranding | null;
 }
 
 export interface IdentifyResult {
@@ -97,12 +105,22 @@ export async function fetchTerminalInfo(token: string): Promise<TerminalInfo> {
   if (typeof cfg === 'string') { try { cfg = JSON.parse(cfg) || {}; } catch { cfg = {}; } }
   const rawMethods = Array.isArray(cfg.methods) ? cfg.methods : Array.isArray(raw.methods) ? raw.methods : [];
   const methods = rawMethods.filter((m: string): m is TerminalMethod => (VALID_METHODS as string[]).includes(m));
+  // Mandanten-Branding (optional): Name/Farbe/Logo für den Kiosk-Header.
+  const rawBranding = d.branding || raw.branding || null;
+  const branding: TerminalBranding | null = rawBranding
+    ? {
+        brandName: rawBranding.brandName || rawBranding.name || null,
+        brandColor: rawBranding.brandColor || rawBranding.color || null,
+        brandLogo: rawBranding.brandLogo || rawBranding.logo || null,
+      }
+    : null;
   return {
     name: raw.name || '',
     companyName: d.companyName || raw.companyName || d.company?.name || raw.company?.name || '',
     // Ohne explizite Konfiguration alle Methoden anbieten (Gerätefähigkeit filtert ohnehin).
     methods: methods.length ? methods : [...VALID_METHODS],
     requirePin: !!(cfg.requirePin ?? raw.requirePin ?? d.requirePin),
+    branding,
   };
 }
 

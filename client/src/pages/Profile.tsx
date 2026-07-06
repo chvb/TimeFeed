@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { UserIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, BriefcaseIcon, CalendarDaysIcon, LockClosedIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { UserIcon, EnvelopeIcon, PhoneIcon, BuildingOfficeIcon, BriefcaseIcon, CalendarDaysIcon, LockClosedIcon, ExclamationTriangleIcon, BellIcon } from '@heroicons/react/24/outline';
 import api from '../lib/api';
 import { useConfirm } from '../components/common/ConfirmProvider';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { useT } from '../i18n';
+
+/** VAPID-Public-Key (Base64-URL) → Uint8Array für pushManager.subscribe. */
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  // Explizit ArrayBuffer-gestützt (nicht SharedArrayBuffer) → als BufferSource verwendbar.
+  const out = new Uint8Array(new ArrayBuffer(raw.length));
+  for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
 
 export default function Profile() {
   const t = useT();
@@ -31,10 +42,70 @@ export default function Profile() {
   const [icalUrl, setIcalUrl] = useState('');
   const { confirm } = useConfirm();
 
+  // Push-Benachrichtigungen (Web Push) auf diesem Gerät
+  const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
   useEffect(() => {
     fetchPasswordRequirements();
     api.get('/users/me/ical').then((r) => setIcalUrl(r.data.url)).catch(() => {});
-  }, []);
+    // Bestehende Push-Subscription dieses Geräts erkennen.
+    if (pushSupported) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.pushManager.getSubscription())
+        .then((sub) => setPushEnabled(!!sub))
+        .catch(() => {});
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const enablePush = async () => {
+    setPushBusy(true);
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        toast.error(t('profile.pushDenied'));
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const keyRes = await api.get('/push/vapid-public-key');
+      const publicKey =
+        (typeof keyRes.data === 'string' ? keyRes.data : '') ||
+        keyRes.data?.publicKey || keyRes.data?.vapidPublicKey || keyRes.data?.key || '';
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      await api.post('/push/subscribe', { subscription: sub.toJSON() });
+      setPushEnabled(true);
+      toast.success(t('profile.pushEnabled'));
+    } catch (error: any) {
+      console.error('Failed to enable push:', error);
+      toast.error(error.response?.data?.message || t('profile.pushEnableError'));
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const disablePush = async () => {
+    setPushBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        const endpoint = sub.endpoint;
+        await sub.unsubscribe();
+        await api.delete('/push/subscribe', { data: { endpoint } }).catch(() => {});
+      }
+      setPushEnabled(false);
+      toast.success(t('profile.pushDisabled'));
+    } catch (error: any) {
+      console.error('Failed to disable push:', error);
+      toast.error(t('profile.pushDisableError'));
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const fetchPasswordRequirements = async () => {
     try {
@@ -521,6 +592,44 @@ export default function Profile() {
           </div>
         </div>
         <p className="text-[11px] text-slate-400 mt-2">{t('profile.icalHint')}</p>
+      </div>
+
+      {/* Benachrichtigungen (Web Push auf diesem Gerät) */}
+      <div className="card mt-6">
+        <div className="flex items-center mb-3">
+          <BellIcon className="h-5 w-5 text-primary-600 mr-2" />
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t('profile.notificationsTitle')}</h2>
+        </div>
+        {pushSupported ? (
+          <div className="flex items-center justify-between gap-4 p-4 border border-gray-200 rounded-lg">
+            <div>
+              <h4 className="text-sm font-medium text-slate-900">{t('profile.pushToggle')}</h4>
+              <p className="text-sm text-slate-600">{t('profile.pushDesc')}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pushEnabled}
+              aria-label={t('profile.pushToggle')}
+              disabled={pushBusy}
+              onClick={() => (pushEnabled ? disablePush() : enablePush())}
+              className={clsx(
+                'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                pushEnabled ? 'bg-primary-600' : 'bg-gray-300',
+                pushBusy && 'opacity-50 cursor-wait'
+              )}
+            >
+              <span
+                className={clsx(
+                  'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                  pushEnabled ? 'translate-x-6' : 'translate-x-1'
+                )}
+              />
+            </button>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">{t('profile.pushUnsupported')}</p>
+        )}
       </div>
     </div>
   );

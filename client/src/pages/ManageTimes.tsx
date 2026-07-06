@@ -3,10 +3,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   LockClosedIcon,
+  ShieldCheckIcon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import api from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 import ErrorBanner from '../components/ErrorBanner';
 import SearchInput from '../components/common/SearchInput';
 import { useT, useI18n } from '../i18n';
@@ -110,6 +112,22 @@ export default function ManageTimes() {
     if (r.openCorrections > 0) parts.push(t('manage.openCorrectionsShort', { count: r.openCorrections }));
     return parts.join(' · ');
   };
+
+  // Client-seitiger Rollen-Guard (API liefert ohnehin 403 — hier saubere Meldung
+  // statt Fehlbanner, analog TimeModels/Exports; E2E-Befund).
+  const { user } = useAuthStore();
+  if (user && !['admin', 'buchhaltung', 'verwaltung'].includes(user.role) && !user.isSuperAdmin) {
+    return (
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3">{t('manage.title')}</h1>
+        <div className="card text-center">
+          <ShieldCheckIcon className="h-12 w-12 text-slate-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">{t('manage.accessDeniedTitle')}</h3>
+          <p className="text-slate-600 dark:text-gray-400">{t('manage.accessDeniedText')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

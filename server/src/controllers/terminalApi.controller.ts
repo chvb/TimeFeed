@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User';
 import { Company } from '../models/Company';
+import { Tenant } from '../models/Tenant';
 import { TimeEntry, TimeEntryType } from '../models/TimeEntry';
 import { TerminalDevice } from '../models/TerminalDevice';
 import { SettingsController } from './settings.controller';
@@ -88,19 +89,26 @@ const sendFailure = (res: Response, f: IdentifyFailure) =>
   res.status(f.status).json({ error: f.code, code: f.code, message: f.message });
 
 export class TerminalApiController {
-  /** GET /api/terminal/info → { name, companyName, config, breakMode } */
+  /** GET /api/terminal/info → { name, companyName, config, breakMode, branding } */
   async info(req: Request, res: Response, next: NextFunction) {
     try {
       const terminal = req.terminal!;
       const [company, settings] = await Promise.all([
-        Company.findByPk(terminal.companyId, { attributes: ['id', 'name'] }),
+        Company.findByPk(terminal.companyId, { attributes: ['id', 'name', 'tenantId'] }),
         settingsController.getOrCreateSettings(terminal.companyId),
       ]);
+      // Branding des Mandanten der Terminal-Firma (für gebrandete Kiosk-Oberfläche).
+      const tenant = company?.tenantId ? await Tenant.findByPk(company.tenantId) : null;
       res.json({
         name: terminal.name,
         companyName: company?.name ?? null,
         config: terminal.getConfig(),
         breakMode: settings.breakMode,
+        branding: {
+          brandName: tenant?.brandName ?? null,
+          brandColor: tenant?.brandColor ?? null,
+          brandLogo: tenant?.brandLogo ?? null,
+        },
       });
     } catch (error) {
       next(error);

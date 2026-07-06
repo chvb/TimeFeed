@@ -42,13 +42,22 @@ interface SystemSettingsAttributes {
   arbzgMinRestMinutes: number;
   // GPS beim Stempeln verpflichtend? (false = erlaubt, aber als 'no_gps' markiert)
   gpsRequired: boolean;
+  // Aufbewahrung (Löschkonzept):
+  // retentionMonthsEntries — Aufbewahrung der Zeitdaten (TimeEntries/WorkDays/
+  // CorrectionRequests) in Monaten. Minimum 24: § 16 Abs. 2 ArbZG verlangt die
+  // Aufbewahrung der Arbeitszeitnachweise für mindestens zwei Jahre.
+  retentionMonthsEntries: number;
+  // retentionMonthsGps — GPS-Daten (lat/lng/accuracy) sind nach kurzer Zeit
+  // nicht mehr erforderlich (Datenminimierung, Art. 5 DSGVO) und werden früher genullt.
+  retentionMonthsGps: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface SystemSettingsCreationAttributes extends Optional<SystemSettingsAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId'
   | 'breakMode' | 'breakAfter6hMinutes' | 'breakAfter9hMinutes' | 'autoCapEnabled' | 'autoCapTime'
-  | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired'> {}
+  | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired'
+  | 'retentionMonthsEntries' | 'retentionMonthsGps'> {}
 
 export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettingsCreationAttributes> implements SystemSettingsAttributes {
   public id!: number;
@@ -84,6 +93,8 @@ export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettin
   public arbzgMaxDailyMinutes!: number;
   public arbzgMinRestMinutes!: number;
   public gpsRequired!: boolean;
+  public retentionMonthsEntries!: number;
+  public retentionMonthsGps!: number;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -255,6 +266,20 @@ SystemSettings.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+    },
+    // Aufbewahrung: min. 24 Monate (§ 16 Abs. 2 ArbZG — Nachweise mind. 2 Jahre).
+    retentionMonthsEntries: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 24,
+      validate: { min: 24 },
+    },
+    // GPS-Daten deutlich früher nullen (Datenminimierung).
+    retentionMonthsGps: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 3,
+      validate: { min: 1 },
     },
   },
   {

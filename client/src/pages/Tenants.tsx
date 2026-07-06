@@ -7,7 +7,8 @@ import api from '../lib/api';
 import { useConfirm } from '../components/common/ConfirmProvider';
 import SearchInput from '../components/common/SearchInput';
 import { matchesSearch } from '../lib/normalize';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, isTenantAdmin as isTenantAdminFn } from '../store/authStore';
+import { loadBranding } from '../lib/branding';
 import { useT } from '../i18n';
 
 interface Tenant {
@@ -15,7 +16,18 @@ interface Tenant {
   name: string;
   isActive: boolean;
   companyCount?: number;
+  brandName?: string | null;
+  brandColor?: string | null;
+  brandLogo?: string | null;
 }
+
+interface BrandingForm {
+  brandName: string;
+  brandColor: string;
+  brandLogo: string; // Data-URL oder ''
+}
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 export default function Tenants() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -23,6 +35,7 @@ export default function Tenants() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [form, setForm] = useState<{ name: string; isActive: boolean }>({ name: '', isActive: true });
+  const [branding, setBranding] = useState<BrandingForm>({ brandName: '', brandColor: '', brandLogo: '' });
   const [saving, setSaving] = useState(false);
   const { confirm } = useConfirm();
   const { user } = useAuthStore();
@@ -34,24 +47,94 @@ export default function Tenants() {
 
   const load = async () => {
     try {
-      const res = await api.get('/tenants');
-      setTenants(res.data.tenants || []);
+      if (user?.isSuperAdmin) {
+        const res = await api.get('/tenants');
+        setTenants(res.data.tenants || []);
+      } else {
+        // Mandanten-Admin: GET /tenants ist Super-Admin-only → eigene Zeile aus
+        // GET /api/branding (+ Name aus /companies/options) zusammensetzen.
+        const [b, opts] = await Promise.all([
+          api.get('/branding'),
+          api.get('/companies/options').catch(() => ({ data: {} } as any)),
+        ]);
+        const tid = b.data?.tenantId ?? user?.tenantId;
+        if (!tid) { setTenants([]); return; }
+        const tn = (opts.data?.tenants || []).find((x: any) => x.id === tid);
+        setTenants([{
+          id: tid,
+          name: tn?.name || b.data?.brandName || `#${tid}`,
+          isActive: true,
+          brandName: b.data?.brandName ?? null,
+          brandColor: b.data?.brandColor ?? null,
+          brandLogo: b.data?.brandLogo ?? null,
+        }]);
+      }
     } catch (e: any) {
       toast.error(e.response?.data?.message || t('tenants.tLoadError'));
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', isActive: true }); setModalOpen(true); };
-  const openEdit = (tn: Tenant) => { setEditing(tn); setForm({ name: tn.name, isActive: tn.isActive }); setModalOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ name: '', isActive: true });
+    setBranding({ brandName: '', brandColor: '', brandLogo: '' });
+    setModalOpen(true);
+  };
+
+  const openEdit = async (tn: Tenant) => {
+    setEditing(tn);
+    setForm({ name: tn.name, isActive: tn.isActive });
+    setBranding({ brandName: tn.brandName || '', brandColor: tn.brandColor || '', brandLogo: tn.brandLogo || '' });
+    setModalOpen(true);
+    // Branding-Felder ggf. nachladen (GET /tenants/:id ist Super-Admin-only).
+    if (!user?.isSuperAdmin) return;
+    try {
+      const r = await api.get(`/tenants/${tn.id}`);
+      const d = r.data.tenant || r.data;
+      setBranding({
+        brandName: d.brandName || tn.brandName || '',
+        brandColor: d.brandColor || tn.brandColor || '',
+        brandLogo: d.brandLogo || tn.brandLogo || '',
+      });
+    } catch { /* Detail nicht verfügbar → Werte aus der Liste behalten */ }
+  };
+
+  const onLogoFile = (file: File | null) => {
+    if (!file) return;
+    if (!['image/png', 'image/svg+xml'].includes(file.type)) { toast.error(t('tenants.brandLogoWrongType')); return; }
+    if (file.size > 500 * 1024) { toast.error(t('tenants.brandLogoTooBig')); return; }
+    const reader = new FileReader();
+    reader.onload = () => setBranding((b) => ({ ...b, brandLogo: String(reader.result || '') }));
+    reader.readAsDataURL(file);
+  };
 
   const save = async () => {
     if (!form.name.trim()) { toast.error(t('tenants.tNameRequired')); return; }
+    if (branding.brandColor && !HEX_RE.test(branding.brandColor)) { toast.error(t('tenants.brandColorInvalid')); return; }
     setSaving(true);
     try {
-      const payload = { name: form.name.trim(), isActive: form.isActive };
-      if (editing) await api.put(`/tenants/${editing.id}`, payload);
-      else await api.post('/tenants', payload);
+      let id = editing?.id;
+      // Stammdaten (Name/aktiv) darf nur der Super-Admin ändern.
+      if (user?.isSuperAdmin) {
+        const payload = { name: form.name.trim(), isActive: form.isActive };
+        if (editing) await api.put(`/tenants/${editing.id}`, payload);
+        else { const r = await api.post('/tenants', payload); id = r.data.tenant?.id ?? r.data.id; }
+      }
+      // Branding separat speichern (PUT /api/tenants/:id/branding) — nur beim Bearbeiten.
+      if (editing && id != null) {
+        try {
+          await api.put(`/tenants/${id}/branding`, {
+            brandName: branding.brandName.trim() || null,
+            brandColor: branding.brandColor || null,
+            brandLogo: branding.brandLogo || null,
+          });
+        } catch (e: any) {
+          toast.error(e.response?.data?.message || e.response?.data?.error || t('tenants.brandingSaveError'));
+        }
+        // Eigenes Branding sofort anwenden (Header/Farbe/Manifest live aktualisieren).
+        if (user?.tenantId === id) loadBranding(id);
+      }
       toast.success(editing ? t('tenants.tSaved') : t('tenants.tCreated'));
       setModalOpen(false);
       load();
@@ -93,7 +176,13 @@ export default function Tenants() {
     </button>
   );
 
-  const filtered = tenants.filter((tn) => matchesSearch(tn.name, search)).sort((a, b) => {
+  const superAdmin = !!user?.isSuperAdmin;
+  const tenantAdmin = isTenantAdminFn(user);
+
+  const filtered = tenants
+    // Mandanten-Admin sieht nur den eigenen Mandanten (Branding-Pflege).
+    .filter((tn) => superAdmin || tn.id === user?.tenantId)
+    .filter((tn) => matchesSearch(tn.name, search)).sort((a, b) => {
     let av: any; let bv: any;
     if (sortField === 'companies') { av = a.companyCount ?? 0; bv = b.companyCount ?? 0; }
     else if (sortField === 'status') { av = a.isActive ? 1 : 0; bv = b.isActive ? 1 : 0; }
@@ -103,8 +192,8 @@ export default function Tenants() {
     return 0;
   });
 
-  // Mandantenverwaltung ausschließlich für Super-Admin.
-  if (!user?.isSuperAdmin) {
+  // Mandantenverwaltung: Super-Admin (vollständig) oder Mandanten-Admin (eigener Mandant/Branding).
+  if (!superAdmin && !tenantAdmin) {
     return <div className="p-8 text-center text-slate-500">{t('tenants.noAccess')}</div>;
   }
 
@@ -112,7 +201,9 @@ export default function Tenants() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2"><BuildingLibraryIcon className="h-8 w-8 text-primary-600" /> {t('tenants.title')}</h1>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2"><PlusIcon className="h-5 w-5" /> {t('tenants.new')}</button>
+        {superAdmin && (
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2"><PlusIcon className="h-5 w-5" /> {t('tenants.new')}</button>
+        )}
       </div>
 
       <p className="text-sm text-slate-500 mb-4">{t('tenants.subtitle')}</p>
@@ -142,9 +233,13 @@ export default function Tenants() {
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${tn.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{tn.isActive ? t('tenants.active') : t('tenants.inactive')}</span>
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
-                  <button onClick={() => navigate(`/employees?createTenantAdmin=${tn.id}`)} className="text-slate-400 hover:text-primary-600 mr-3" title={t('tenants.createAdmin')}><UserPlusIcon className="h-5 w-5 inline" /></button>
-                  <button onClick={() => openEdit(tn)} className="text-slate-400 hover:text-primary-600 mr-3" title={t('tenants.edit')}><PencilIcon className="h-5 w-5 inline" /></button>
-                  <button onClick={() => remove(tn)} className="text-slate-400 hover:text-red-600" title={t('tenants.delete')}><TrashIcon className="h-5 w-5 inline" /></button>
+                  {superAdmin && (
+                    <button onClick={() => navigate(`/employees?createTenantAdmin=${tn.id}`)} className="text-slate-400 hover:text-primary-600 mr-3" title={t('tenants.createAdmin')}><UserPlusIcon className="h-5 w-5 inline" /></button>
+                  )}
+                  <button onClick={() => openEdit(tn)} className="text-slate-400 hover:text-primary-600" title={t('tenants.edit')}><PencilIcon className="h-5 w-5 inline" /></button>
+                  {superAdmin && (
+                    <button onClick={() => remove(tn)} className="text-slate-400 hover:text-red-600 ml-3" title={t('tenants.delete')}><TrashIcon className="h-5 w-5 inline" /></button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -171,11 +266,81 @@ export default function Tenants() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">{t('tenants.nameLabel')}</label>
-                      <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field w-full" placeholder={t('tenants.namePlaceholder')} />
+                      <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} disabled={!superAdmin} className="input-field w-full disabled:bg-slate-100 disabled:text-slate-500" placeholder={t('tenants.namePlaceholder')} />
                     </div>
                     <label className="flex items-center gap-2 text-sm text-slate-700">
-                      <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> {t('tenants.activeLabel')}
+                      <input type="checkbox" checked={form.isActive} disabled={!superAdmin} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> {t('tenants.activeLabel')}
                     </label>
+
+                    {/* Branding (nur im Bearbeiten-Dialog) */}
+                    {editing && (
+                      <div className="pt-4 border-t border-slate-200 space-y-4">
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-900">{t('tenants.brandingHeading')}</h4>
+                          <p className="text-xs text-slate-500 mt-0.5">{t('tenants.brandingHint')}</p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('tenants.brandNameLabel')}</label>
+                          <input
+                            value={branding.brandName}
+                            onChange={(e) => setBranding({ ...branding, brandName: e.target.value })}
+                            className="input-field w-full"
+                            placeholder={t('tenants.brandNamePlaceholder')}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('tenants.brandColorLabel')}</label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={HEX_RE.test(branding.brandColor) ? branding.brandColor : '#ea580c'}
+                              onChange={(e) => setBranding({ ...branding, brandColor: e.target.value })}
+                              className="h-10 w-14 rounded-lg border border-slate-300 cursor-pointer bg-white p-1"
+                              aria-label={t('tenants.brandColorLabel')}
+                            />
+                            <input
+                              value={branding.brandColor}
+                              onChange={(e) => setBranding({ ...branding, brandColor: e.target.value.trim() })}
+                              className="input-field w-32 font-mono text-sm"
+                              placeholder="#ea580c"
+                              maxLength={7}
+                            />
+                            {branding.brandColor && (
+                              <button type="button" onClick={() => setBranding({ ...branding, brandColor: '' })} className="text-xs text-slate-400 hover:text-red-600">
+                                {t('tenants.brandLogoRemove')}
+                              </button>
+                            )}
+                          </div>
+                          {branding.brandColor && !HEX_RE.test(branding.brandColor) && (
+                            <p className="text-xs text-red-600 mt-1">{t('tenants.brandColorInvalid')}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">{t('tenants.brandLogoLabel')}</label>
+                          <div className="flex items-center gap-3">
+                            {branding.brandLogo && (
+                              <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-slate-200 bg-white p-1 flex-shrink-0">
+                                <img src={branding.brandLogo} alt="" className="max-h-full max-w-full object-contain" />
+                              </span>
+                            )}
+                            <label className="btn-secondary cursor-pointer text-sm">
+                              {t('tenants.brandLogoUpload')}
+                              <input
+                                type="file"
+                                accept="image/png,image/svg+xml"
+                                className="sr-only"
+                                onChange={(e) => { onLogoFile(e.target.files?.[0] || null); e.target.value = ''; }}
+                              />
+                            </label>
+                            {branding.brandLogo && (
+                              <button type="button" onClick={() => setBranding({ ...branding, brandLogo: '' })} className="text-xs text-slate-400 hover:text-red-600">
+                                {t('tenants.brandLogoRemove')}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-6 flex justify-end gap-2">
                     <button onClick={() => setModalOpen(false)} className="btn-secondary">{t('tenants.cancel')}</button>

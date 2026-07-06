@@ -11,12 +11,14 @@ import { manageTimes } from './pages/manageTimes';
 import { corrections } from './pages/corrections';
 import { presence } from './pages/presence';
 import { exportsPage } from './pages/exports';
+import { apiKeys } from './pages/apiKeys';
+import { integrations } from './pages/integrations';
 
 export const pagesDe: Record<string, any> = {
   ...dashboard.de, ...people.de, ...settings.de, ...companiesPages.de, ...uiPages.de, ...time.de, ...timeModels.de, ...terminal.de,
-  ...manageTimes.de, ...corrections.de, ...presence.de, ...exportsPage.de,
+  ...manageTimes.de, ...corrections.de, ...presence.de, ...exportsPage.de, ...apiKeys.de, ...integrations.de,
 };
 export const pagesEn: Record<string, any> = {
   ...dashboard.en, ...people.en, ...settings.en, ...companiesPages.en, ...uiPages.en, ...time.en, ...timeModels.en, ...terminal.en,
-  ...manageTimes.en, ...corrections.en, ...presence.en, ...exportsPage.en,
+  ...manageTimes.en, ...corrections.en, ...presence.en, ...exportsPage.en, ...apiKeys.en, ...integrations.en,
 };

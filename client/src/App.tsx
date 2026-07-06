@@ -28,6 +28,7 @@ const Groups = lazy(() => import('./pages/Groups'));
 const Companies = lazy(() => import('./pages/Companies'));
 const Exports = lazy(() => import('./pages/Exports'));
 const Tenants = lazy(() => import('./pages/Tenants'));
+const ApiKeys = lazy(() => import('./pages/ApiKeys'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/Settings'));
 const SystemUpdate = lazy(() => import('./pages/SystemUpdate'));
@@ -75,6 +76,7 @@ function App() {
             <Route path="/groups" element={<Groups />} />
             <Route path="/companies" element={<Companies />} />
             <Route path="/tenants" element={<Tenants />} />
+            <Route path="/api-keys" element={<ApiKeys />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/system-update" element={<SystemUpdate />} />

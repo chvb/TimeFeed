@@ -20,6 +20,7 @@ import {
   DeviceTabletIcon,
   ClipboardDocumentListIcon,
   ArrowDownTrayIcon,
+  KeyIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore, isTenantAdmin as isTenantAdminFn } from '../store/authStore';
 import { useT, useI18n } from '../i18n';
@@ -32,6 +33,8 @@ import { APP_VERSION } from '../constants/version';
 import clsx from 'clsx';
 import Logo from './common/Logo';
 import AppFooter from './common/AppFooter';
+import { BRAND_NAME } from './common/brand';
+import { loadBranding, useBranding } from '../lib/branding';
 
 interface NavChild { name: string; href: string }
 interface NavItem { name: string; tKey?: string; href?: string; icon: any; roles?: string[]; superAdmin?: boolean; companyManager?: boolean; children?: NavChild[] }
@@ -46,8 +49,10 @@ const navigation: NavItem[] = [
   { name: 'Zeitmodelle', tKey: 'nav.timeModels', href: '/time-models', icon: AdjustmentsHorizontalIcon, roles: ['admin'] },
   { name: 'Terminals', tKey: 'nav.terminals', href: '/terminals', icon: DeviceTabletIcon, roles: ['admin'] },
   { name: 'Lohn-Export', tKey: 'nav.exports', href: '/exports', icon: ArrowDownTrayIcon, roles: ['admin', 'buchhaltung'] },
-  { name: 'Mandanten', tKey: 'nav.tenants', href: '/tenants', icon: BuildingLibraryIcon, superAdmin: true },
+  // Mandanten: Super-Admin (Verwaltung) und Mandanten-Admin (eigenes Branding).
+  { name: 'Mandanten', tKey: 'nav.tenants', href: '/tenants', icon: BuildingLibraryIcon, companyManager: true },
   { name: 'Firmen', tKey: 'nav.companies', href: '/companies', icon: BuildingOffice2Icon, companyManager: true },
+  { name: 'API-Schlüssel', tKey: 'nav.apiKeys', href: '/api-keys', icon: KeyIcon, roles: ['admin'] },
   { name: 'Einstellungen', tKey: 'nav.settings', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] },
 ];
 
@@ -113,6 +118,12 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [changelogOpen, setChangelogOpen] = useState(false);
+
+  // Mandanten-Branding: nach dem Login laden (Farbe/Logo/Name, Manifest, Print).
+  const branding = useBranding();
+  useEffect(() => {
+    loadBranding(user?.tenantId ?? null);
+  }, [user?.tenantId]);
 
   // Firmen-Wechsler (Super-Admin / firmenübergreifende HR): Ansichten je Firma filtern.
   const [companyOptions, setCompanyOptions] = useState<{ id: number; name: string; tenantId?: number | null }[]>([]);
@@ -200,12 +211,31 @@ export default function Layout() {
       <ChangelogModal open={changelogOpen} onClose={closeChangelog} />
 
       {/* Orange Kopfleiste (Feed-Familie) — volle Breite */}
-      <header className="flex items-center justify-between h-24 px-6 bg-primary-600 dark:bg-gray-900 text-white shadow-md z-50 flex-shrink-0 transition-colors">
+      <header
+        className="flex items-center justify-between h-24 px-6 bg-primary-600 dark:bg-gray-900 text-white shadow-md z-50 flex-shrink-0 transition-colors"
+        style={branding.brandColor && !dark ? { backgroundColor: branding.brandColor } : undefined}
+      >
         <div className="flex items-center gap-3 min-w-0">
           <button type="button" className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={t('header.menu')}>
             {sidebarOpen ? <XMarkIcon className="h-6 w-6" /> : <Bars3Icon className="h-6 w-6" />}
           </button>
-          <Logo size="large" light />
+          {branding.brandLogo ? (
+            <span className="flex items-center gap-2.5 min-w-0">
+              <span className="flex rounded-2xl bg-white p-1 shadow-sm flex-shrink-0">
+                <img src={branding.brandLogo} alt={branding.brandName || BRAND_NAME} className="h-12 w-12 object-contain" />
+              </span>
+              <span className="font-bold tracking-tight text-2xl leading-none text-white truncate">
+                {branding.brandName || BRAND_NAME}
+              </span>
+            </span>
+          ) : branding.brandName ? (
+            <span className="flex items-center gap-2.5 min-w-0">
+              <Logo size="large" light iconOnly />
+              <span className="font-bold tracking-tight text-2xl leading-none text-white truncate">{branding.brandName}</span>
+            </span>
+          ) : (
+            <Logo size="large" light />
+          )}
           <div className="hidden sm:flex items-center gap-3 min-w-0">
             <div className="h-9 w-px bg-white/30" />
             <span className="text-sm text-white/80 tracking-wide truncate">{t('header.slogan')}</span>

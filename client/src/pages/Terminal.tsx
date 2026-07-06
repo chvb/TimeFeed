@@ -502,18 +502,32 @@ export default function Terminal() {
   const timeStr = now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+  // Mandanten-Branding aus GET /api/terminal/info (Header-Logo/-Name/-Farbe im Kiosk).
+  const branding = info?.branding || null;
+  const headerBg = branding?.brandColor
+    ? branding.brandColor
+    : `linear-gradient(90deg, ${BRAND_GRADIENT_FROM}, ${BRAND_GRADIENT_TO})`;
+
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-white select-none overflow-hidden">
-      {/* Orange Kopfzeile (Feed-Familie) */}
+      {/* Kopfzeile: orange (Feed-Familie) bzw. Mandanten-Markenfarbe */}
       <header
         className="flex items-center justify-between h-16 px-4 sm:px-6 flex-shrink-0 shadow-md"
-        style={{ background: `linear-gradient(90deg, ${BRAND_GRADIENT_FROM}, ${BRAND_GRADIENT_TO})` }}
+        style={{ background: headerBg }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <Logo size="small" light iconOnly />
+          {branding?.brandLogo ? (
+            <span className="flex rounded-2xl bg-white p-1 shadow-sm flex-shrink-0">
+              <img src={branding.brandLogo} alt={branding.brandName || BRAND_NAME} className="h-8 w-8 object-contain" />
+            </span>
+          ) : (
+            <Logo size="small" light iconOnly />
+          )}
           <div className="min-w-0 leading-tight">
-            <p className="font-bold truncate">{info?.name || BRAND_NAME}</p>
-            {info?.companyName && <p className="text-xs text-white/80 truncate">{info.companyName}</p>}
+            <p className="font-bold truncate">{info?.name || branding?.brandName || BRAND_NAME}</p>
+            {(info?.companyName || branding?.brandName) && (
+              <p className="text-xs text-white/80 truncate">{info?.companyName || branding?.brandName}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">

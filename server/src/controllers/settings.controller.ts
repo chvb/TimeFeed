@@ -86,6 +86,9 @@ export class SettingsController {
       arbzgMaxDailyMinutes: settings.arbzgMaxDailyMinutes,
       arbzgMinRestMinutes: settings.arbzgMinRestMinutes,
       gpsRequired: settings.gpsRequired,
+      // Aufbewahrung/Löschkonzept
+      retentionMonthsEntries: settings.retentionMonthsEntries,
+      retentionMonthsGps: settings.retentionMonthsGps,
     };
   }
 
@@ -144,10 +147,28 @@ export class SettingsController {
         'autoCapEnabled', 'autoCapTime',
         'arbzgWarningsEnabled', 'arbzgMaxDailyMinutes', 'arbzgMinRestMinutes',
         'gpsRequired',
+        // Aufbewahrung/Löschkonzept
+        'retentionMonthsEntries', 'retentionMonthsGps',
       ];
       const updateData: any = {};
       for (const key of ALLOWED_FIELDS) {
         if (key in req.body) updateData[key] = req.body[key];
+      }
+      // Aufbewahrungsfristen validieren: Zeitdaten mind. 24 Monate
+      // (§ 16 Abs. 2 ArbZG — Nachweise mindestens zwei Jahre aufbewahren).
+      if ('retentionMonthsEntries' in updateData) {
+        const v = Number(updateData.retentionMonthsEntries);
+        if (!Number.isInteger(v) || v < 24) {
+          throw new AppError(400, 'retentionMonthsEntries muss eine ganze Zahl ≥ 24 sein (§ 16 ArbZG: mindestens 2 Jahre)');
+        }
+        updateData.retentionMonthsEntries = v;
+      }
+      if ('retentionMonthsGps' in updateData) {
+        const v = Number(updateData.retentionMonthsGps);
+        if (!Number.isInteger(v) || v < 1) {
+          throw new AppError(400, 'retentionMonthsGps muss eine ganze Zahl ≥ 1 sein');
+        }
+        updateData.retentionMonthsGps = v;
       }
       if (Array.isArray(updateData.workingDays)) {
         updateData.workingDays = JSON.stringify(updateData.workingDays);

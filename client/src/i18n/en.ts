@@ -11,6 +11,7 @@ export const en = {
     groups: 'Groups & departments',
     tenants: 'Tenants',
     companies: 'Companies',
+    apiKeys: 'API keys',
     settings: 'Settings',
     switchScope: 'Select tenant/company',
     allCompanies: 'All companies',

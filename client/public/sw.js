@@ -61,3 +61,41 @@ self.addEventListener('fetch', (event) => {
     fetch(req).catch(() => caches.match(req))
   );
 });
+
+/*
+ * Push-Benachrichtigungen (Web Push): Server sendet JSON-Payload
+ * { title, body, data: { url } }. Klick öffnet/fokussiert die App.
+ */
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  const title = data.title || 'TimeFeed';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      icon: data.icon || '/icons/icon-192.png',
+      badge: data.badge || '/icons/icon-192.png',
+      data: { url: (data.data && data.data.url) || data.url || '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if ('focus' in w) {
+          if ('navigate' in w) w.navigate(url).catch(() => {});
+          return w.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});

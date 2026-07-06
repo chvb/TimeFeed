@@ -1,15 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import { Tenant } from '../models/Tenant';
 import { Company } from '../models/Company';
-import { User } from '../models/User';
+import { User, UserRole } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
 import { AuditService } from '../services/auditService';
 import { AuditAction, AuditCategory } from '../models/AuditLog';
+import { BRAND_COLOR_RE, resolveUserTenantId, validateBrandLogo } from './branding.controller';
 
 const toDto = (t: any, companyCount?: number) => ({
   id: t.id,
   name: t.name,
   isActive: t.isActive,
+  brandName: t.brandName ?? null,
+  brandColor: t.brandColor ?? null,
+  brandLogo: t.brandLogo ?? null,
   companyCount,
   createdAt: t.createdAt,
 });
@@ -60,6 +64,60 @@ export class TenantController {
       await tenant.update(updateData);
       await AuditService.log({ userId: req.user!.id, action: AuditAction.UPDATE, category: AuditCategory.SYSTEM, entity: 'Tenant', entityId: tenant.id, additionalData: { name: tenant.name } }, req);
       res.json(toDto(tenant));
+    } catch (e) { next(e); }
+  }
+
+  /**
+   * PUT /api/tenants/:id/branding — Body { brandName?, brandColor?, brandLogo? }.
+   * Super-Admin ODER Admin des betreffenden Mandanten. null/'' löscht ein Feld.
+   */
+  async updateBranding(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = Number(req.params.id);
+      if (!Number.isInteger(tenantId) || tenantId <= 0) return next(new AppError(400, 'Ungültige Mandanten-ID'));
+
+      const u = req.user!;
+      if (!u.isSuperAdmin) {
+        const ownTenantId = await resolveUserTenantId(u);
+        if (u.role !== UserRole.ADMIN || ownTenantId !== tenantId) {
+          return next(new AppError(403, 'Nur Super-Admin oder Admin dieses Mandanten'));
+        }
+      }
+
+      const tenant = await Tenant.findByPk(tenantId);
+      if (!tenant) return next(new AppError(404, 'Mandant nicht gefunden'));
+
+      const updateData: any = {};
+      const { brandName, brandColor, brandLogo } = req.body ?? {};
+      if (brandName !== undefined) {
+        const v = brandName === null ? '' : String(brandName).trim();
+        if (v.length > 100) return next(new AppError(400, 'brandName zu lang (max. 100 Zeichen)'));
+        updateData.brandName = v || null;
+      }
+      if (brandColor !== undefined) {
+        const v = brandColor === null ? '' : String(brandColor).trim();
+        if (v && !BRAND_COLOR_RE.test(v)) return next(new AppError(400, "brandColor muss das Format '#rrggbb' haben"));
+        updateData.brandColor = v ? v.toLowerCase() : null;
+      }
+      if (brandLogo !== undefined) {
+        const v = brandLogo === null ? '' : String(brandLogo).trim();
+        if (v) validateBrandLogo(v);
+        updateData.brandLogo = v || null;
+      }
+
+      await tenant.update(updateData);
+      await AuditService.log({
+        userId: u.id,
+        action: AuditAction.UPDATE,
+        category: AuditCategory.SYSTEM,
+        entity: 'Tenant',
+        entityId: tenant.id,
+        additionalData: { branding: true, brandName: tenant.brandName, brandColor: tenant.brandColor, brandLogoBytes: tenant.brandLogo?.length ?? 0 },
+      }, req);
+      res.json({
+        tenant: toDto(tenant),
+        branding: { brandName: tenant.brandName ?? null, brandColor: tenant.brandColor ?? null, brandLogo: tenant.brandLogo ?? null },
+      });
     } catch (e) { next(e); }
   }
 

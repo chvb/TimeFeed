@@ -20,6 +20,7 @@ import { formatMinutes, formatSignedMinutes, timeHHMM } from '../../lib/timeForm
 import { printMonthTimesheet } from '../../lib/printMonthSheet';
 import ManualEntryModal from './ManualEntryModal';
 import TimesheetSection from './TimesheetSection';
+import AbsenceBadge from '../common/AbsenceBadge';
 
 interface WorkDayRow {
   id: number;
@@ -277,11 +278,7 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
       <span className={clsx('status-badge', STATUS_BADGE[d.status] || 'bg-slate-100 text-slate-700')}>
         {t(`time.status.${d.status}`)}
       </span>
-      {d.absence && (
-        <span className="status-badge bg-primary-100 text-primary-800">
-          {t(`time.absence.${d.absence}`) !== `time.absence.${d.absence}` ? t(`time.absence.${d.absence}`) : d.absence}
-        </span>
-      )}
+      <AbsenceBadge absence={d.absence} />
     </span>
   );
 

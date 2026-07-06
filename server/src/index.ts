@@ -29,6 +29,12 @@ import terminalApiRoutes from './routes/terminalApi.routes';
 import correctionRoutes from './routes/correction.routes';
 import timesheetRoutes from './routes/timesheet.routes';
 import { exportProfileRouter, exportsRouter } from './routes/export.routes';
+import brandingRoutes from './routes/branding.routes';
+import apiKeyRoutes from './routes/apiKey.routes';
+import externalRoutes from './routes/external.routes';
+import integrationRoutes from './routes/integration.routes';
+import pushRoutes from './routes/push.routes';
+import { brandingController } from './controllers/branding.controller';
 import { errorHandler } from './middleware/errorHandler';
 import './models'; // Import models to set up associations
 
@@ -133,6 +139,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Dynamisches PWA-Manifest — MUSS vor dem Static-Handler stehen, sonst liefert
+// dieser die statische Datei aus. Ohne ?tenant identisch zur statischen Datei,
+// mit ?tenant=<id> gebrandet (Name/Farbe/Icons des Mandanten).
+app.get('/manifest.webmanifest', (req, res, next) => brandingController.manifest(req, res, next));
+
 // Statische Assets sind content-hash-benannt → lange cachebar. index.html jedoch
 // NIE cachen, damit Clients nach einem Deploy sofort die neuen Bundle-Hashes laden
 // (Voraussetzung für das Auto-Update-Banner – kein manuelles Hard-Reload nötig).
@@ -175,6 +186,11 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/storage', storageRoutes);
 app.use('/api/changelog', changelogRoutes);
+app.use('/api/branding', brandingRoutes);
+app.use('/api/api-keys', apiKeyRoutes);
+app.use('/api/external', externalRoutes);
+app.use('/api/integrations', integrationRoutes);
+app.use('/api/push', pushRoutes);
 
 app.get('/health', async (_req, res) => {
   let uptime30d: number | null = null;
@@ -219,9 +235,20 @@ const startServer = async () => {
     await sequelize.sync({ force: false });
     console.log('Database synchronized.');
 
+    // Spalten der Feature-Erweiterungen (Branding, UrlaubsFeed-Sync) ergänzen.
+    // MUSS vor ensureColumns laufen: dessen Bestandsmigration liest bereits das
+    // Tenant-Modell inkl. brand_*-Spalten — auf einer Bestands-DB ohne diese
+    // Spalten würde der Boot sonst crashen.
+    const { ensureFeatureColumns } = await import('./db/ensureFeatureColumns');
+    await ensureFeatureColumns();
+
     // Neue Spalten in bestehenden Tabellen ergänzen (sync alteriert nicht).
     const { ensureColumns } = await import('./db/ensureColumns');
     await ensureColumns();
+
+    // Web-Push: VAPID-Keys laden bzw. beim ersten Start generieren.
+    const { initPush } = await import('./services/pushService');
+    await initPush().catch((e) => console.error('WebPush-Init fehlgeschlagen:', e?.message));
 
     // Heartbeats für die Uptime-Berechnung starten.
     const { startHeartbeats } = await import('./services/serverMetricsService');
@@ -230,6 +257,10 @@ const startServer = async () => {
     // Täglicher Zeit-Abschlussjob (Auto-Kappung + Neuberechnung), 02:00 Uhr.
     const { startTimeRecalcJob } = await import('./services/timeRecalcJob');
     startTimeRecalcJob();
+
+    // Täglicher UrlaubsFeed-Abwesenheits-Sync, 03:00 Uhr.
+    const { startAbsenceSyncJob } = await import('./services/absenceSyncService');
+    startAbsenceSyncJob();
     
     const { seedDatabase } = await import('./db/seedData');
     const userCount = await import('./models/User').then(m => m.User.count());

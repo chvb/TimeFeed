@@ -991,6 +991,19 @@ const Employees: React.FC = () => {
     }, 250);
   };
 
+  // Client-seitiger Rollen-Guard (API liefert ohnehin 403 — hier saubere Meldung
+  // statt Fehlbanner; E2E-Befund). Nav zeigt die Seite nur admin/buchhaltung/verwaltung.
+  if (user && !['admin', 'buchhaltung', 'verwaltung'].includes(user.role) && !user.isSuperAdmin) {
+    return (
+      <div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3">{t('employees.title')}</h1>
+        <div className="card text-center">
+          <p className="text-slate-600 dark:text-gray-400">{t('employees.accessDeniedText')}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div>

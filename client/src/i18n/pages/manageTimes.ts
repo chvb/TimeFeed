@@ -3,6 +3,8 @@ export const manageTimes = {
   de: {
     manage: {
       title: 'Zeiten verwalten',
+      accessDeniedTitle: 'Zugriff verweigert',
+      accessDeniedText: 'Diese Seite steht nur Admin, Buchhaltung und Verwaltung zur Verfügung.',
       tabOverview: 'Monatsübersicht',
       tabCorrections: 'Korrekturanträge',
       loadError: 'Übersicht konnte nicht geladen werden.',
@@ -92,6 +94,8 @@ export const manageTimes = {
   en: {
     manage: {
       title: 'Manage times',
+      accessDeniedTitle: 'Access denied',
+      accessDeniedText: 'This page is only available to admin, accounting and administration roles.',
       tabOverview: 'Month overview',
       tabCorrections: 'Correction requests',
       loadError: 'Overview could not be loaded.',

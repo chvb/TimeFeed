@@ -14,3 +14,9 @@
 
 ## 0.5.0
 - Lohn-Exporte: DATEV LODAS und Lohn & Gehalt (ASCII), CSV und Excel; Exportprofil pro Firma (Berater-/Mandantennr., Lohnarten, Überstunden-Modus, Abschluss-Pflicht), Vorschau mit Warnungen, neue Seite "Lohn-Export"
+
+## 0.6.0
+- Sekundärer S3-Backup-Server (Dual-Write, Failover, automatischer Rück-Sync), Aufbewahrungs-/Löschkonzept (ArbZG/DSGVO)
+- Branding pro Mandant (Logo, Farbe, Name) mit dynamischem PWA-Manifest, auch am Terminal
+- API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
+- Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite

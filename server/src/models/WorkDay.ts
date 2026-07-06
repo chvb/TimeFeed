@@ -26,6 +26,9 @@ interface WorkDayAttributes {
   flags: string[];
   // 'holiday' | 'vacation' | 'sick' | … → Tag zählt als Sollzeit-Gutschrift.
   absence?: string | null;
+  // Herkunft der Abwesenheit: 'urlaubsfeed' (per Sync gesetzt, darf vom Sync
+  // wieder entfernt werden) | 'manual' | null.
+  absenceSource?: string | null;
   firstIn?: Date | null;
   lastOut?: Date | null;
   createdAt?: Date;
@@ -34,7 +37,7 @@ interface WorkDayAttributes {
 
 interface WorkDayCreationAttributes extends Optional<WorkDayAttributes,
   'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'targetMinutes' | 'workedMinutes' | 'breakMinutes'
-  | 'autoBreakMinutes' | 'balanceMinutes' | 'status' | 'flags' | 'absence' | 'firstIn' | 'lastOut'> {}
+  | 'autoBreakMinutes' | 'balanceMinutes' | 'status' | 'flags' | 'absence' | 'absenceSource' | 'firstIn' | 'lastOut'> {}
 
 export class WorkDay extends Model<WorkDayAttributes, WorkDayCreationAttributes> implements WorkDayAttributes {
   public id!: number;
@@ -49,6 +52,7 @@ export class WorkDay extends Model<WorkDayAttributes, WorkDayCreationAttributes>
   public status!: WorkDayStatus;
   public flags!: string[];
   public absence?: string | null;
+  public absenceSource?: string | null;
   public firstIn?: Date | null;
   public lastOut?: Date | null;
   public readonly createdAt!: Date;
@@ -91,6 +95,10 @@ WorkDay.init(
       defaultValue: [],
     },
     absence: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    absenceSource: {
       type: DataTypes.STRING,
       allowNull: true,
     },

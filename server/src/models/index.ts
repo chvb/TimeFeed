@@ -20,6 +20,10 @@ import { CorrectionRequest } from './CorrectionRequest';
 import { MonthClosure } from './MonthClosure';
 import { TimesheetDocument } from './TimesheetDocument';
 import { ExportProfile } from './ExportProfile';
+import { ApiKey } from './ApiKey';
+import { IntegrationSettings } from './IntegrationSettings';
+import { PushSubscription } from './PushSubscription';
+import { VapidKeys } from './VapidKeys';
 
 // Tenant (Mandant) → Firma.
 Tenant.hasMany(Company, { foreignKey: 'tenantId', as: 'companies' });
@@ -98,4 +102,17 @@ Company.hasMany(TimesheetDocument, { foreignKey: 'companyId', as: 'timesheetDocu
 Company.hasOne(ExportProfile, { foreignKey: 'companyId', as: 'exportProfile' });
 ExportProfile.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
 
-export { User, Group, GroupManager, Department, EmailSettings, PasswordResetToken, SystemSettings, AuditLog, StorageSettings, TrashItem, Heartbeat, Company, Tenant, Holiday, TimeModel, TimeEntry, WorkDay, TerminalDevice, CorrectionRequest, MonthClosure, TimesheetDocument, ExportProfile };
+// API-Schlüssel für die externe Schnittstelle (/api/external), je Mandant.
+Tenant.hasMany(ApiKey, { foreignKey: 'tenantId', as: 'apiKeys' });
+ApiKey.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+ApiKey.belongsTo(User, { foreignKey: 'createdById', as: 'createdBy' });
+
+// UrlaubsFeed-Kopplung: eine Integrations-Konfiguration je Mandant.
+Tenant.hasOne(IntegrationSettings, { foreignKey: 'tenantId', as: 'integrationSettings' });
+IntegrationSettings.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+// Web-Push-Abos je Nutzer.
+User.hasMany(PushSubscription, { foreignKey: 'userId', as: 'pushSubscriptions' });
+PushSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+export { User, Group, GroupManager, Department, EmailSettings, PasswordResetToken, SystemSettings, AuditLog, StorageSettings, TrashItem, Heartbeat, Company, Tenant, Holiday, TimeModel, TimeEntry, WorkDay, TerminalDevice, CorrectionRequest, MonthClosure, TimesheetDocument, ExportProfile, ApiKey, IntegrationSettings, PushSubscription, VapidKeys };

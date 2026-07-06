@@ -4,8 +4,13 @@ import { authenticate, authorizeSuperAdmin } from '../middleware/auth';
 
 const router = Router();
 
+router.use(authenticate);
+
+// Branding: Super-Admin ODER Admin des betreffenden Mandanten (Prüfung im Controller).
+router.put('/:id/branding', (req, res, next) => tenantController.updateBranding(req, res, next));
+
 // Mandanten-/Tenant-Verwaltung – ausschließlich Super-Admin.
-router.use(authenticate, authorizeSuperAdmin);
+router.use(authorizeSuperAdmin);
 
 router.get('/', tenantController.list);
 router.get('/:id', tenantController.getById);

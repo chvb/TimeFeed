@@ -15,7 +15,9 @@ import {
   TrashIcon,
   ServerStackIcon,
   GlobeAltIcon,
-  ClockIcon
+  ClockIcon,
+  LinkIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import SystemUpdate from './SystemUpdate';
@@ -166,6 +168,108 @@ const Settings: React.FC = () => {
   const [backupRestoring, setBackupRestoring] = useState(false);
   const [backupFile, setBackupFile] = useState<File | null>(null);
 
+  // UrlaubsFeed-Kopplung (Tab „Integrationen"). Feldnamen laut Server
+  // (integration.controller.ts): urlaubsfeedUrl, urlaubsfeedApiKey, hasKey,
+  // syncEnabled, lastSyncAt, lastSyncResult (AbsenceSyncResult).
+  interface UfSyncResult {
+    ok?: boolean;
+    fetched?: number;          // geholte Abwesenheiten
+    matchedUsers?: number;     // zugeordnete Mitarbeiter
+    unmatchedEmails?: string[]; // unbekannte E-Mails (max. 20)
+    error?: string;
+    syncedAt?: string;
+  }
+  const [ufUrl, setUfUrl] = useState('');
+  const [ufApiKey, setUfApiKey] = useState('');           // leer = unverändert lassen
+  const [ufHasKey, setUfHasKey] = useState(false);
+  const [ufSyncEnabled, setUfSyncEnabled] = useState(false);
+  const [ufLastSyncAt, setUfLastSyncAt] = useState<string | null>(null);
+  const [ufLastResult, setUfLastResult] = useState<UfSyncResult | null>(null);
+  const [ufSaving, setUfSaving] = useState(false);
+  const [ufTesting, setUfTesting] = useState(false);
+  const [ufSyncing, setUfSyncing] = useState(false);
+
+  const applyUfData = (d: any) => {
+    setUfUrl(d.urlaubsfeedUrl || '');
+    setUfHasKey(!!d.hasKey);
+    setUfSyncEnabled(!!d.syncEnabled);
+    setUfLastSyncAt(d.lastSyncAt || null);
+    setUfLastResult(d.lastSyncResult && typeof d.lastSyncResult === 'object' ? d.lastSyncResult : null);
+  };
+
+  const loadIntegration = async () => {
+    try {
+      const r = await api.get('/integrations/urlaubsfeed');
+      applyUfData(r.data || {});
+    } catch (error: any) {
+      // 404 = noch nicht konfiguriert → leeres Formular, kein Fehler-Toast.
+      if (error.response?.status !== 404) {
+        toast.error(error.response?.data?.message || error.response?.data?.error || t('integrations.urlaubsfeed.loadError'));
+      }
+    }
+  };
+
+  const saveIntegration = async () => {
+    if (ufUrl && !/^https:\/\/.+/i.test(ufUrl.trim())) {
+      toast.error(t('integrations.urlaubsfeed.urlInvalid'));
+      return;
+    }
+    setUfSaving(true);
+    try {
+      const payload: Record<string, unknown> = { urlaubsfeedUrl: ufUrl.trim() || null, syncEnabled: ufSyncEnabled };
+      if (ufApiKey) payload.urlaubsfeedApiKey = ufApiKey; // Feld weglassen = Key unverändert
+      const r = await api.put('/integrations/urlaubsfeed', payload);
+      applyUfData(r.data || {});
+      setUfApiKey('');
+      toast.success(t('integrations.urlaubsfeed.saved'));
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.response?.data?.error || t('integrations.urlaubsfeed.saveError'));
+    } finally {
+      setUfSaving(false);
+    }
+  };
+
+  const testIntegration = async () => {
+    setUfTesting(true);
+    try {
+      // Antwort ist { ok, tenant?, status?, message? } — auch bei ok:false mit HTTP 200.
+      const r = await api.post('/integrations/urlaubsfeed/test');
+      if (r.data?.ok) {
+        const detail = r.data?.tenant ? `Tenant: ${r.data.tenant}` : '';
+        toast.success(detail ? `${t('integrations.urlaubsfeed.testSuccess')} (${detail})` : t('integrations.urlaubsfeed.testSuccess'));
+      } else {
+        const detail = r.data?.message || (r.data?.status ? `HTTP ${r.data.status}` : '');
+        toast.error(detail ? `${t('integrations.urlaubsfeed.testError')}: ${detail}` : t('integrations.urlaubsfeed.testError'));
+      }
+    } catch (error: any) {
+      const detail = error.response?.data?.message || error.response?.data?.error || error.message || '';
+      toast.error(detail ? `${t('integrations.urlaubsfeed.testError')}: ${detail}` : t('integrations.urlaubsfeed.testError'));
+    } finally {
+      setUfTesting(false);
+    }
+  };
+
+  const syncIntegration = async () => {
+    setUfSyncing(true);
+    try {
+      // Antwort ist direkt das AbsenceSyncResult (bei ok:false HTTP 502 → catch).
+      const r = await api.post('/integrations/urlaubsfeed/sync');
+      setUfLastResult(r.data || null);
+      setUfLastSyncAt(r.data?.syncedAt || new Date().toISOString());
+      toast.success(t('integrations.urlaubsfeed.syncSuccess'));
+    } catch (error: any) {
+      const d = error.response?.data;
+      if (d && typeof d === 'object' && d.syncedAt) { setUfLastResult(d); setUfLastSyncAt(d.syncedAt); }
+      toast.error(d?.error || d?.message || t('integrations.urlaubsfeed.syncError'));
+    } finally {
+      setUfSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'integrations') loadIntegration();
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const tabs = [
     // Konfiguration
     { id: 'general', name: 'Allgemein', icon: Cog6ToothIcon },
@@ -174,6 +278,7 @@ const Settings: React.FC = () => {
     { id: 'email', name: 'E-Mail', icon: EnvelopeIcon, superAdmin: true },
     { id: 'notifications', name: 'Benachrichtigungen', icon: BellIcon },
     { id: 'security', name: 'Sicherheit', icon: ShieldCheckIcon, superAdmin: true },
+    { id: 'integrations', name: 'Integrationen', icon: LinkIcon },
     // Auswertung & Export
     { id: 'audit', name: 'Audit Log', icon: ClipboardDocumentCheckIcon },
     // System & Wartung
@@ -878,6 +983,106 @@ const Settings: React.FC = () => {
               >
                 {t('settings.email.saveButton')}
               </button>
+            </div>
+          </div>
+        );
+
+      case 'integrations':
+        return (
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium text-slate-900">
+              {t('integrations.heading')}
+            </h3>
+
+            <div className="bg-white p-6 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 mb-1">
+                <LinkIcon className="h-5 w-5 text-primary-600" />
+                <h4 className="text-lg font-medium text-slate-900">{t('integrations.urlaubsfeed.title')}</h4>
+              </div>
+              <p className="text-sm text-slate-600 mb-4">{t('integrations.urlaubsfeed.desc')}</p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('integrations.urlaubsfeed.urlLabel')}</label>
+                  <input
+                    type="url"
+                    value={ufUrl}
+                    onChange={(e) => setUfUrl(e.target.value)}
+                    className="input-field w-full"
+                    placeholder={t('integrations.urlaubsfeed.urlPlaceholder')}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{t('integrations.urlaubsfeed.apiKeyLabel')}</label>
+                  <input
+                    type="password"
+                    value={ufApiKey}
+                    onChange={(e) => setUfApiKey(e.target.value)}
+                    className="input-field w-full"
+                    placeholder={t('integrations.urlaubsfeed.apiKeyPlaceholder')}
+                    autoComplete="new-password"
+                  />
+                  <p className={`text-xs mt-1 flex items-center gap-1 ${ufHasKey ? 'text-green-600' : 'text-slate-500'}`}>
+                    {ufHasKey && <CheckCircleIcon className="h-4 w-4" />}
+                    {ufHasKey ? t('integrations.urlaubsfeed.keyStored') : t('integrations.urlaubsfeed.keyMissing')}
+                  </p>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200">
+                  <input
+                    type="checkbox"
+                    id="uf-sync-enabled"
+                    checked={ufSyncEnabled}
+                    onChange={(e) => setUfSyncEnabled(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="uf-sync-enabled" className="cursor-pointer">
+                    <span className="block text-sm font-medium text-slate-900">{t('integrations.urlaubsfeed.syncEnabled')}</span>
+                    <span className="block text-sm text-slate-600">{t('integrations.urlaubsfeed.syncEnabledHint')}</span>
+                  </label>
+                </div>
+
+                <p className="text-xs text-slate-500">{t('integrations.urlaubsfeed.help')}</p>
+
+                <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-gray-200">
+                  <button onClick={saveIntegration} disabled={ufSaving} className="btn-primary">
+                    {ufSaving ? t('integrations.urlaubsfeed.saving') : t('integrations.urlaubsfeed.save')}
+                  </button>
+                  <button onClick={testIntegration} disabled={ufTesting} className="btn-secondary">
+                    {ufTesting ? t('integrations.urlaubsfeed.testing') : t('integrations.urlaubsfeed.test')}
+                  </button>
+                  <button onClick={syncIntegration} disabled={ufSyncing || !ufHasKey} className="btn-secondary disabled:opacity-50">
+                    {ufSyncing ? t('integrations.urlaubsfeed.syncing') : t('integrations.urlaubsfeed.syncNow')}
+                  </button>
+                </div>
+
+                <div className="text-sm text-slate-600">
+                  <span className="font-medium">{t('integrations.urlaubsfeed.lastSync')}:</span>{' '}
+                  {ufLastSyncAt ? new Date(ufLastSyncAt).toLocaleString('de-DE') : t('integrations.urlaubsfeed.lastSyncNever')}
+                </div>
+
+                {ufLastResult && (
+                  ufLastResult.ok === false ? (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h5 className="text-sm font-medium text-red-800 mb-1">{t('integrations.urlaubsfeed.resultTitle')}</h5>
+                      <p className="text-sm text-red-700">{ufLastResult.error || t('integrations.urlaubsfeed.syncError')}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
+                      <h5 className="text-sm font-medium text-primary-800 mb-2">{t('integrations.urlaubsfeed.resultTitle')}</h5>
+                      <ul className="text-sm text-primary-700 space-y-1">
+                        <li>• {t('integrations.urlaubsfeed.resultAbsences', { count: ufLastResult.fetched ?? 0 })}</li>
+                        <li>• {t('integrations.urlaubsfeed.resultMatched', { count: ufLastResult.matchedUsers ?? 0 })}</li>
+                        <li>• {t('integrations.urlaubsfeed.resultUnknown', { count: ufLastResult.unmatchedEmails?.length ?? 0 })}</li>
+                        {!!ufLastResult.unmatchedEmails?.length && (
+                          <li className="text-xs break-all text-primary-600">{ufLastResult.unmatchedEmails.join(', ')}</li>
+                        )}
+                      </ul>
+                    </div>
+                  )
+                )}
+              </div>
             </div>
           </div>
         );

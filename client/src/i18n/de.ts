@@ -11,6 +11,7 @@ export const de = {
     groups: 'Gruppen & Abteilungen',
     tenants: 'Mandanten',
     companies: 'Firmen',
+    apiKeys: 'API-Schlüssel',
     settings: 'Einstellungen',
     switchScope: 'Mandant/Firma wählen',
     allCompanies: 'Alle Firmen',

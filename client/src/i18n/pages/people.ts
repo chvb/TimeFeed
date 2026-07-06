@@ -4,6 +4,7 @@ export const people = {
   de: {
     employees: {
       title: 'Mitarbeiter',
+      accessDeniedText: 'Diese Seite steht nur Admin, Buchhaltung und Verwaltung zur Verfügung.',
       superAdminLabel: 'Super-Admin (instanzweit, sieht & verwaltet ALLES)',
       superAdminHint: 'Nur für Plattform-Betreiber. Vergibt vollen Zugriff über alle Mandanten und Firmen hinweg.',
       instanceAdminWarning: 'Admin/HR ohne Firma und ohne Mandant hätte instanzweiten Vollzugriff. Bitte eine Firma oder einen Mandanten wählen – oder dieses Konto ausdrücklich als Super-Admin kennzeichnen.',
@@ -227,6 +228,7 @@ export const people = {
   en: {
     employees: {
       title: 'Employees',
+      accessDeniedText: 'This page is only available to admin, accounting and administration roles.',
       superAdminLabel: 'Super-Admin (instance-wide, sees & manages EVERYTHING)',
       superAdminHint: 'For platform operators only. Grants full access across all tenants and companies.',
       instanceAdminWarning: 'An admin/HR without company and without tenant would have instance-wide full access. Please choose a company or a tenant — or explicitly mark this account as super-admin.',
