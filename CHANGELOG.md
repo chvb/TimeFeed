@@ -29,6 +29,8 @@
 ### Improved
 - Speicher-Einstellungen: Sekundärer-S3-Abschnitt in der UI nachgereicht
 - Watchdog: Autostart + Selbstheilung für TimeFeed und UrlaubsFeed
+- Mitarbeiter-Abgleich UrlaubsFeed ↔ TimeFeed (Pull mit Auswahl)
+- Header: Firmen-/Mandanten-Wechsler überlappt nicht mehr (Muster UrlaubsFeed)
 
 ## [1.1.0] - 2026-07-06
 
