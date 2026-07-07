@@ -3,8 +3,9 @@ import rateLimit from 'express-rate-limit';
 import { Op, literal } from 'sequelize';
 import dayjs from 'dayjs';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
-import { API_SCOPE_TIMES_READ } from '../models/ApiKey';
+import { API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ } from '../models/ApiKey';
 import { User } from '../models/User';
+import { Group } from '../models/Group';
 import { WorkDay } from '../models/WorkDay';
 import { AppError } from '../middleware/errorHandler';
 
@@ -29,6 +30,41 @@ router.get('/ping', apiKeyAuth(), (req: Request, res: Response) => {
 });
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * GET /api/external/users  (Scope: users:read)
+ * Mitarbeiter-Export für den Abgleich mit der Schwester-App (z. B. UrlaubsFeed
+ * zieht sich hierüber die TimeFeed-Nutzer). Liefert bewusst NUR Stammdaten —
+ * keine Geheimnisse (Passwort/PIN/stampCode) und keine internen IDs.
+ */
+router.get('/users', apiKeyAuth(API_SCOPE_USERS_READ), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Nutzer des Mandanten: über die Firmen des Tenants ODER direkt am Tenant hängend.
+    const tenantId = Number(req.apiTenantId);
+    const users = await User.findAll({
+      where: {
+        [Op.or]: [
+          { companyId: { [Op.in]: literal(`(SELECT id FROM companies WHERE tenant_id = ${tenantId})`) } },
+          { tenantId },
+        ],
+      },
+      attributes: ['firstName', 'lastName', 'email', 'employeeNumber', 'isActive', 'role'],
+      include: [{ model: Group, as: 'group', attributes: ['name'], required: false }],
+      order: [['lastName', 'ASC'], ['firstName', 'ASC']],
+    });
+    res.json({
+      users: users.map((u: any) => ({
+        firstName: u.firstName,
+        lastName: u.lastName,
+        email: u.email,
+        employeeNumber: u.employeeNumber || null,
+        groupName: u.group?.name ?? null,
+        isActive: !!u.isActive,
+        role: u.role,
+      })),
+    });
+  } catch (e) { next(e); }
+});
 
 /**
  * GET /api/external/times?from=YYYY-MM-DD&to=YYYY-MM-DD  (Scope: times:read)

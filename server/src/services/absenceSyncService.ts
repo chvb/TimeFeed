@@ -79,6 +79,41 @@ export async function pingUrlaubsFeed(rawUrl: string, apiKey: string): Promise<{
   }
 }
 
+// Mitarbeiter-Stammdaten, wie sie {url}/api/external/users der Gegenstelle liefert
+// (UrlaubsFeed hat den gleichen Export wie TimeFeed, siehe routes/external.routes.ts).
+export interface RemoteUser {
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  employeeNumber?: string | null;
+  groupName?: string | null;
+  isActive?: boolean;
+  role?: string;
+}
+
+/**
+ * Mitarbeiterliste der gekoppelten UrlaubsFeed-Instanz abrufen (für den
+ * Mitarbeiter-Abgleich). Wirft bei Nicht-Erreichbarkeit/Fehlantwort einen Error
+ * mit sauberer Message — der Aufrufer mappt das auf HTTP 502.
+ */
+export async function fetchUrlaubsFeedUsers(rawUrl: string, apiKey: string): Promise<RemoteUser[]> {
+  const base = normalizeBaseUrl(rawUrl);
+  let resp;
+  try {
+    resp = await axios.get(`${base}/api/external/users`, {
+      headers: { 'X-Api-Key': apiKey },
+      timeout: HTTP_TIMEOUT_MS,
+      validateStatus: () => true,
+    });
+  } catch (e: any) {
+    throw new Error(`UrlaubsFeed nicht erreichbar: ${e?.code || e?.message || 'unbekannter Fehler'}`);
+  }
+  if (resp.status !== 200 || !Array.isArray(resp.data?.users)) {
+    throw new Error(`UrlaubsFeed antwortete mit HTTP ${resp.status}: ${resp.data?.message || resp.data?.error || 'unerwartete Antwort'}`);
+  }
+  return resp.data.users;
+}
+
 /** Alle Nutzer eines Mandanten (über Firmen des Tenants ODER direkt am Tenant hängend). */
 async function tenantUsers(tenantId: number): Promise<User[]> {
   return User.findAll({

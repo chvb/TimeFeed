@@ -163,6 +163,26 @@ class EmailService {
     return await this.sendEmail(email, subject, html);
   }
 
+  // Willkommens-Mail für per UrlaubsFeed-Abgleich (o. ä.) angelegte Konten:
+  // gebrandete Mail mit „Passwort festlegen"-Link (PasswordResetToken-Flow).
+  async sendWelcome(email: string, firstName: string, resetToken: string): Promise<any> {
+    const base = await getPublicBaseUrl();
+    const resetUrl = `${base}/reset-password?token=${resetToken}`;
+
+    const subject = 'Willkommen bei TimeFeed';
+    const html = await renderBrandedEmail({
+      title: 'Willkommen bei TimeFeed',
+      bodyHtml: `
+        <p>Hallo ${escapeHtml(firstName)},</p>
+        <p>für Sie wurde ein TimeFeed-Konto angelegt. Legen Sie jetzt Ihr persönliches Passwort fest, um mit der Zeiterfassung zu starten.</p>
+        <p>Klicken Sie auf den Button — oder kopieren Sie diesen Link in Ihren Browser:</p>
+        <p style="background-color:#FFF7ED;padding:14px;border-radius:8px;word-break:break-all;font-family:monospace;font-size:12px;border-left:4px solid ${MAIL_PRIMARY};">${resetUrl}</p>`,
+      button: { text: 'Passwort festlegen', url: resetUrl },
+      footerNote: 'Dieser Link ist 7 Tage gültig. Falls Sie dieses Konto nicht erwarten, wenden Sie sich bitte an Ihre Administration.',
+    });
+    return await this.sendEmail(email, subject, html);
+  }
+
   async sendTestEmail(email: string): Promise<any> {
     const subject = 'TimeFeed Test-E-Mail';
     const html = await renderBrandedEmail({

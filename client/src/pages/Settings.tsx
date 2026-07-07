@@ -17,7 +17,8 @@ import {
   GlobeAltIcon,
   ClockIcon,
   LinkIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  UsersIcon
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import SystemUpdate from './SystemUpdate';
@@ -200,6 +201,115 @@ const Settings: React.FC = () => {
   const [ufSaving, setUfSaving] = useState(false);
   const [ufTesting, setUfTesting] = useState(false);
   const [ufSyncing, setUfSyncing] = useState(false);
+
+  // Mitarbeiter-Abgleich UrlaubsFeed → TimeFeed (Pull mit Auswahl). Shapes laut
+  // Server (integration.controller.ts): listRemoteUsers / importUsers.
+  interface UfRemoteUser {
+    firstName: string;
+    lastName: string;
+    email: string;
+    employeeNumber?: string | null;
+    groupName?: string | null;
+    status: 'new' | 'exists' | 'diff';
+    diff?: { firstName?: string; lastName?: string; employeeNumber?: string };
+  }
+  interface UfImportResult {
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: { email: string; reason: string }[];
+  }
+  const [ufUsers, setUfUsers] = useState<UfRemoteUser[] | null>(null);
+  const [ufUsersLoading, setUfUsersLoading] = useState(false);
+  const [ufSelected, setUfSelected] = useState<Set<string>>(new Set());
+  const [ufUpdateExisting, setUfUpdateExisting] = useState(false);
+  const [ufSendWelcome, setUfSendWelcome] = useState(false);
+  const [ufImporting, setUfImporting] = useState(false);
+  const [ufImportResult, setUfImportResult] = useState<UfImportResult | null>(null);
+  const [ufCompanies, setUfCompanies] = useState<{ id: number; name: string }[]>([]);
+  const [ufCompanyId, setUfCompanyId] = useState('');
+  // Akteure ohne feste Firma (Super-Admin/Mandanten-Admin) müssen für NEUE Nutzer
+  // eine Zielfirma wählen (Server: resolveWritableCompanyId-Muster wie bei Terminals).
+  const ufNeedsCompany = !user?.companyId;
+
+  const loadUfUsers = async (resetResult = true) => {
+    setUfUsersLoading(true);
+    if (resetResult) setUfImportResult(null);
+    try {
+      const r = await api.get('/integrations/urlaubsfeed/users');
+      const list: UfRemoteUser[] = r.data?.users || [];
+      setUfUsers(list);
+      // Neue Mitarbeiter vorauswählen — das ist der häufigste Import-Fall.
+      setUfSelected(new Set(list.filter((u) => u.status === 'new').map((u) => u.email.toLowerCase())));
+      if (ufNeedsCompany && ufCompanies.length === 0) {
+        const c = await api.get('/companies/options');
+        setUfCompanies(c.data?.companies || []);
+      }
+    } catch (error: any) {
+      const detail = error.response?.data?.message || error.response?.data?.error || '';
+      toast.error(detail ? `${t('integrations.userSync.loadError')}: ${detail}` : t('integrations.userSync.loadError'));
+    } finally {
+      setUfUsersLoading(false);
+    }
+  };
+
+  const toggleUfUser = (email: string) => {
+    setUfSelected((prev) => {
+      const next = new Set(prev);
+      const key = email.toLowerCase();
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleUfAll = () => {
+    setUfSelected((prev) => {
+      const all = (ufUsers || []).map((u) => u.email.toLowerCase());
+      return prev.size === all.length ? new Set<string>() : new Set(all);
+    });
+  };
+
+  // Tooltip-Text für den „Abweichend"-Badge: welche Felder weichen ab (Remote-Wert).
+  const ufDiffTitle = (diff?: UfRemoteUser['diff']): string | undefined => {
+    if (!diff) return undefined;
+    const labels: Record<string, string> = {
+      firstName: t('integrations.userSync.fieldFirstName'),
+      lastName: t('integrations.userSync.fieldLastName'),
+      employeeNumber: t('integrations.userSync.fieldEmployeeNumber'),
+    };
+    return Object.entries(diff).map(([k, v]) => `${labels[k] || k}: ${v}`).join(', ');
+  };
+
+  const importUfUsers = async () => {
+    const emails = Array.from(ufSelected);
+    if (emails.length === 0) return;
+    const hasNew = (ufUsers || []).some((u) => u.status === 'new' && ufSelected.has(u.email.toLowerCase()));
+    if (hasNew && ufNeedsCompany && !ufCompanyId) {
+      toast.error(t('integrations.userSync.companyRequired'));
+      return;
+    }
+    const ok = await confirm({
+      title: t('integrations.userSync.confirmTitle'),
+      message: t('integrations.userSync.confirmMsg', { count: emails.length }),
+      confirmText: t('integrations.userSync.confirmBtn'),
+    });
+    if (!ok) return;
+    setUfImporting(true);
+    try {
+      const body: Record<string, unknown> = { emails, updateExisting: ufUpdateExisting, sendWelcome: ufSendWelcome };
+      if (ufCompanyId) body.companyId = Number(ufCompanyId);
+      const r = await api.post('/integrations/urlaubsfeed/import-users', body);
+      const result: UfImportResult = r.data || { created: 0, updated: 0, skipped: 0, errors: [] };
+      setUfImportResult(result);
+      toast.success(t('integrations.userSync.toastDone', { created: result.created ?? 0, updated: result.updated ?? 0 }));
+      // Liste neu laden, damit die Status-Badges den neuen Stand zeigen.
+      await loadUfUsers(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.response?.data?.error || t('integrations.userSync.importError'));
+    } finally {
+      setUfImporting(false);
+    }
+  };
 
   const applyUfData = (d: any) => {
     setUfUrl(d.urlaubsfeedUrl || '');
@@ -1169,6 +1279,171 @@ const Settings: React.FC = () => {
                       </ul>
                     </div>
                   )
+                )}
+              </div>
+            </div>
+
+            {/* Mitarbeiter-Abgleich: Mitarbeiter aus UrlaubsFeed laden und selektiv importieren. */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 mb-1">
+                <UsersIcon className="h-5 w-5 text-primary-600" />
+                <h4 className="text-lg font-medium text-slate-900">{t('integrations.userSync.title')}</h4>
+              </div>
+              <p className="text-sm text-slate-600 mb-4">{t('integrations.userSync.desc')}</p>
+
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <button onClick={() => loadUfUsers()} disabled={ufUsersLoading || !ufHasKey} className="btn-secondary disabled:opacity-50">
+                    {ufUsersLoading ? t('integrations.userSync.loading') : t('integrations.userSync.load')}
+                  </button>
+                  {ufUsers && (
+                    <span className="text-sm text-slate-500">{t('integrations.userSync.selected', { count: ufSelected.size })}</span>
+                  )}
+                </div>
+
+                {ufUsers && ufUsers.length === 0 && (
+                  <p className="text-sm text-slate-500">{t('integrations.userSync.empty')}</p>
+                )}
+
+                {ufUsers && ufUsers.length > 0 && (
+                  <>
+                    <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                      <table className="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left">
+                              <input
+                                type="checkbox"
+                                checked={ufSelected.size === ufUsers.length && ufUsers.length > 0}
+                                onChange={toggleUfAll}
+                                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                              />
+                            </th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-700">{t('integrations.userSync.colName')}</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-700">{t('integrations.userSync.colEmail')}</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-700">{t('integrations.userSync.colEmployeeNumber')}</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-700">{t('integrations.userSync.colGroup')}</th>
+                            <th className="px-3 py-2 text-left font-medium text-slate-700">{t('integrations.userSync.colStatus')}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 bg-white">
+                          {ufUsers.map((u) => (
+                            <tr key={u.email.toLowerCase()} className="hover:bg-gray-50">
+                              <td className="px-3 py-2">
+                                <input
+                                  type="checkbox"
+                                  checked={ufSelected.has(u.email.toLowerCase())}
+                                  onChange={() => toggleUfUser(u.email)}
+                                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                />
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-slate-900">{u.firstName} {u.lastName}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-slate-600">{u.email}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-slate-600">{u.employeeNumber || '–'}</td>
+                              <td className="px-3 py-2 whitespace-nowrap text-slate-600">{u.groupName || '–'}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {u.status === 'new' && (
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    {t('integrations.userSync.statusNew')}
+                                  </span>
+                                )}
+                                {u.status === 'exists' && (
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                    {t('integrations.userSync.statusExists')}
+                                  </span>
+                                )}
+                                {u.status === 'diff' && (
+                                  <span
+                                    title={ufDiffTitle(u.diff)}
+                                    className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 cursor-help"
+                                  >
+                                    {t('integrations.userSync.statusDiff')}
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200">
+                      <input
+                        type="checkbox"
+                        id="uf-update-existing"
+                        checked={ufUpdateExisting}
+                        onChange={(e) => setUfUpdateExisting(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="uf-update-existing" className="cursor-pointer">
+                        <span className="block text-sm font-medium text-slate-900">{t('integrations.userSync.optUpdateExisting')}</span>
+                        <span className="block text-sm text-slate-600">{t('integrations.userSync.optUpdateExistingHint')}</span>
+                      </label>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200">
+                      <input
+                        type="checkbox"
+                        id="uf-send-welcome"
+                        checked={ufSendWelcome}
+                        onChange={(e) => setUfSendWelcome(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="uf-send-welcome" className="cursor-pointer">
+                        <span className="block text-sm font-medium text-slate-900">{t('integrations.userSync.optSendWelcome')}</span>
+                        <span className="block text-sm text-slate-600">{t('integrations.userSync.optSendWelcomeHint')}</span>
+                      </label>
+                    </div>
+
+                    {ufNeedsCompany && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">{t('integrations.userSync.companyLabel')}</label>
+                        <select
+                          value={ufCompanyId}
+                          onChange={(e) => setUfCompanyId(e.target.value)}
+                          className="input-field w-full sm:max-w-xs"
+                        >
+                          <option value="">{t('integrations.userSync.companyPlaceholder')}</option>
+                          {ufCompanies.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="pt-4 border-t border-gray-200">
+                      <button
+                        onClick={importUfUsers}
+                        disabled={ufImporting || ufSelected.size === 0}
+                        className="btn-primary disabled:opacity-50"
+                      >
+                        {ufImporting
+                          ? t('integrations.userSync.importing')
+                          : `${t('integrations.userSync.importBtn')} (${ufSelected.size})`}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {ufImportResult && (
+                  <div className={`border rounded-lg p-4 ${ufImportResult.errors.length > 0 ? 'bg-amber-50 border-amber-200' : 'bg-primary-50 border-primary-200'}`}>
+                    <h5 className="text-sm font-medium text-slate-800 mb-2">{t('integrations.userSync.resultTitle')}</h5>
+                    <ul className="text-sm text-slate-700 space-y-1">
+                      <li>• {t('integrations.userSync.resultCreated', { count: ufImportResult.created })}</li>
+                      <li>• {t('integrations.userSync.resultUpdated', { count: ufImportResult.updated })}</li>
+                      <li>• {t('integrations.userSync.resultSkipped', { count: ufImportResult.skipped })}</li>
+                      {ufImportResult.errors.length > 0 && (
+                        <li>
+                          • {t('integrations.userSync.resultErrors')}:
+                          <ul className="mt-1 ml-4 space-y-0.5 text-xs text-amber-800 break-all">
+                            {ufImportResult.errors.map((e) => (
+                              <li key={e.email}>{e.email}: {e.reason}</li>
+                            ))}
+                          </ul>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
                 )}
               </div>
             </div>

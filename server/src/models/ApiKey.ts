@@ -8,6 +8,10 @@ import { sequelize } from '../db/database';
 // (keyPrefix) zur Wiedererkennung in der Verwaltungs-UI.
 export const API_KEY_PREFIX = 'tfk_';
 export const API_SCOPE_TIMES_READ = 'times:read';
+// Mitarbeiter-Export (GET /api/external/users) für den Abgleich TimeFeed ⇄ UrlaubsFeed.
+export const API_SCOPE_USERS_READ = 'users:read';
+// Default-Scopes neuer Schlüssel (Bestands-Keys werden in ensureFeatureColumns migriert).
+export const API_DEFAULT_SCOPES = [API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ];
 
 interface ApiKeyAttributes {
   id: number;
@@ -86,7 +90,7 @@ ApiKey.init(
     scopes: {
       type: DataTypes.JSON,
       allowNull: false,
-      defaultValue: [API_SCOPE_TIMES_READ],
+      defaultValue: API_DEFAULT_SCOPES,
     },
     isActive: {
       type: DataTypes.BOOLEAN,

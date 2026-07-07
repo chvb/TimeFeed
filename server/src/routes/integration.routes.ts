@@ -21,5 +21,8 @@ router.get('/urlaubsfeed', integrationController.get);
 router.put('/urlaubsfeed', integrationController.put);
 router.post('/urlaubsfeed/test', integrationController.test);
 router.post('/urlaubsfeed/sync', integrationController.sync);
+// Mitarbeiter-Abgleich: Remote-Liste (Vorschau mit Match-Status) + selektiver Import.
+router.get('/urlaubsfeed/users', integrationController.listRemoteUsers);
+router.post('/urlaubsfeed/import-users', integrationController.importUsers);
 
 export default router;

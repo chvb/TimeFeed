@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { ApiKey, API_SCOPE_TIMES_READ, generateApiKey, hashApiKey } from '../models/ApiKey';
+import { ApiKey, API_DEFAULT_SCOPES, generateApiKey, hashApiKey } from '../models/ApiKey';
 import { Tenant } from '../models/Tenant';
 import { User } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
@@ -75,7 +75,8 @@ export class ApiKeyController {
         name: String(name).trim(),
         keyPrefix: fullKey.slice(0, 8),
         keyHash: hashApiKey(fullKey),
-        scopes: [API_SCOPE_TIMES_READ],
+        // Neue Schlüssel erhalten beide Lese-Scopes (Zeiten + Mitarbeiter-Export).
+        scopes: [...API_DEFAULT_SCOPES],
         isActive: true,
         expiresAt: expires,
         createdById: req.user!.id,
