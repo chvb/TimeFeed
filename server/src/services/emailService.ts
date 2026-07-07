@@ -82,7 +82,7 @@ export async function renderBrandedEmail(opts: BrandedEmailOptions): Promise<str
             <hr style="border:none;border-top:1px solid #E5E7EB;margin:28px 0 16px;" />
             <p style="color:#9CA3AF;font-size:12px;text-align:center;margin:0;">
               Diese E-Mail wurde von TimeFeed gesendet · <a href="${base}" style="color:#9CA3AF;">${base.replace(/^https?:\/\//, '')}</a><br />
-              © ${copyrightYears()} TimeFeed
+              © ${copyrightYears()} TimeFeed · Teil der <a href="https://feedapps.de" style="color:#9CA3AF;">FeedApps.de</a>-Familie
             </p>
           </td>
         </tr>

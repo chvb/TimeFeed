@@ -69,6 +69,10 @@ export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog
           <OnlineStatusBadge />
         </span>
       </div>
+      {/* Dachmarke der Feed-Familie */}
+      <p className={`mt-1 text-[10px] ${onP ? 'text-white/40' : 'text-slate-300'}`}>
+        <a href="https://feedapps.de" target="_blank" rel="noopener noreferrer" className={linkCls}>{t('ui.footerFamily')}</a>
+      </p>
     </footer>
   );
 }
