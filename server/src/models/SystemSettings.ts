@@ -74,6 +74,17 @@ interface SystemSettingsAttributes {
   autoBackupTime: string;
   backupRetentionDays: number;
   backupNotifyOnFailure: boolean;
+  // Periodische Berichts-Mails (FIRMEN-scoped wie breakMode): täglicher Tick um
+  // 05:00 verschickt die Berichte der jeweils abgelaufenen Periode (Vortag /
+  // Vormonat / letztes Quartal / Vorjahr) an reportRecipients (Komma-Liste)
+  // bzw. — wenn leer — an alle aktiven Admins der Firma.
+  reportDailyEnabled: boolean;
+  reportMonthlyEnabled: boolean;
+  reportQuarterlyEnabled: boolean;
+  reportYearlyEnabled: boolean;
+  reportRecipients?: string | null;
+  // Doppelversand-Schutz (JSON): {day:'YYYY-MM-DD', month:'YYYY-MM', quarter:'YYYY-Qn', year:'YYYY'}
+  reportLastSent?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -84,7 +95,9 @@ interface SystemSettingsCreationAttributes extends Optional<SystemSettingsAttrib
   | 'retentionMonthsEntries' | 'retentionMonthsGps'
   | 'terminalAlertEnabled' | 'terminalAlertMinutes' | 'terminalAlertEmails' | 'terminalPingSeconds'
   | 'sendTimesheetOnClose'
-  | 'autoBackupEnabled' | 'autoBackupTime' | 'backupRetentionDays' | 'backupNotifyOnFailure'> {}
+  | 'autoBackupEnabled' | 'autoBackupTime' | 'backupRetentionDays' | 'backupNotifyOnFailure'
+  | 'reportDailyEnabled' | 'reportMonthlyEnabled' | 'reportQuarterlyEnabled' | 'reportYearlyEnabled'
+  | 'reportRecipients' | 'reportLastSent'> {}
 
 export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettingsCreationAttributes> implements SystemSettingsAttributes {
   public id!: number;
@@ -132,6 +145,12 @@ export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettin
   public autoBackupTime!: string;
   public backupRetentionDays!: number;
   public backupNotifyOnFailure!: boolean;
+  public reportDailyEnabled!: boolean;
+  public reportMonthlyEnabled!: boolean;
+  public reportQuarterlyEnabled!: boolean;
+  public reportYearlyEnabled!: boolean;
+  public reportRecipients?: string | null;
+  public reportLastSent?: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -374,6 +393,35 @@ SystemSettings.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true,
+    },
+    // Periodische Berichts-Mails (firmen-scoped).
+    reportDailyEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    reportMonthlyEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    reportQuarterlyEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    reportYearlyEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    reportRecipients: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    reportLastSent: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
   },
   {

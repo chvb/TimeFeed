@@ -102,6 +102,12 @@ export class SettingsController {
       autoBackupTime: settings.autoBackupTime,
       backupRetentionDays: settings.backupRetentionDays,
       backupNotifyOnFailure: settings.backupNotifyOnFailure,
+      // Periodische Berichts-Mails (firmen-scoped; reportLastSent bleibt intern)
+      reportDailyEnabled: settings.reportDailyEnabled,
+      reportMonthlyEnabled: settings.reportMonthlyEnabled,
+      reportQuarterlyEnabled: settings.reportQuarterlyEnabled,
+      reportYearlyEnabled: settings.reportYearlyEnabled,
+      reportRecipients: settings.reportRecipients,
     };
   }
 
@@ -168,6 +174,9 @@ export class SettingsController {
         'sendTimesheetOnClose',
         // Automatisches Backup-System (nur globale Vorlage relevant)
         'autoBackupEnabled', 'autoBackupTime', 'backupRetentionDays', 'backupNotifyOnFailure',
+        // Periodische Berichts-Mails (firmen-scoped)
+        'reportDailyEnabled', 'reportMonthlyEnabled', 'reportQuarterlyEnabled', 'reportYearlyEnabled',
+        'reportRecipients',
       ];
       const updateData: any = {};
       for (const key of ALLOWED_FIELDS) {
@@ -220,6 +229,23 @@ export class SettingsController {
             throw new AppError(400, 'terminalAlertEmails muss eine Komma-Liste gültiger E-Mail-Adressen sein');
           }
           updateData.terminalAlertEmails = list.join(', ');
+        }
+      }
+      // Periodische Berichts-Mails validieren (Toggles + Empfänger-Liste wie terminalAlertEmails).
+      for (const f of ['reportDailyEnabled', 'reportMonthlyEnabled', 'reportQuarterlyEnabled', 'reportYearlyEnabled']) {
+        if (f in updateData) updateData[f] = Boolean(updateData[f]);
+      }
+      if ('reportRecipients' in updateData) {
+        const raw = updateData.reportRecipients;
+        if (raw === null || raw === '') {
+          updateData.reportRecipients = null;
+        } else {
+          const list = String(raw).split(',').map((e: string) => e.trim()).filter(Boolean);
+          const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (list.length === 0 || list.some((e: string) => !emailRe.test(e))) {
+            throw new AppError(400, 'reportRecipients muss eine Komma-Liste gültiger E-Mail-Adressen sein');
+          }
+          updateData.reportRecipients = list.join(', ');
         }
       }
       // Automatisches Backup-System validieren (Felder wirken nur über die globale Vorlage).

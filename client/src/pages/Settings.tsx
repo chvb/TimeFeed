@@ -71,6 +71,12 @@ interface SystemSettings {
   autoBackupTime?: string;
   backupRetentionDays?: number;
   backupNotifyOnFailure?: boolean;
+  // Periodische Berichts-Mails (firmen-scoped)
+  reportDailyEnabled?: boolean;
+  reportMonthlyEnabled?: boolean;
+  reportQuarterlyEnabled?: boolean;
+  reportYearlyEnabled?: boolean;
+  reportRecipients?: string | null;
 }
 
 // Status des automatischen Backup-Systems (GET /api/storage/auto-backup-status)
@@ -179,7 +185,12 @@ const Settings: React.FC = () => {
     autoBackupEnabled: true,
     autoBackupTime: '02:30',
     backupRetentionDays: 30,
-    backupNotifyOnFailure: true
+    backupNotifyOnFailure: true,
+    reportDailyEnabled: false,
+    reportMonthlyEnabled: false,
+    reportQuarterlyEnabled: false,
+    reportYearlyEnabled: false,
+    reportRecipients: ''
   });
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     smtpHost: '',
@@ -456,11 +467,14 @@ const Settings: React.FC = () => {
       try {
         const [settingsResponse, emailResponse] = await Promise.all([
           api.get(`/settings${companyQuery}`),
-          api.get('/settings/email')
+          // /settings/email ist superAdmin-only → Firmen-Admins bekommen 403.
+          // Das darf das Laden der übrigen Einstellungen nicht verhindern
+          // (sonst zeigt die Seite für Firmen-Admins nur Defaults an).
+          api.get('/settings/email').catch(() => null)
         ]);
 
         setSettings(settingsResponse.data);
-        setEmailSettings(emailResponse.data);
+        if (emailResponse) setEmailSettings(emailResponse.data);
       } catch (error: any) {
         console.error('Error loading settings:', error);
         toast.error(error.response?.data?.error || t('settings.loadError'));
@@ -482,6 +496,34 @@ const Settings: React.FC = () => {
       toast.error(error.response?.data?.error || t('settings.saveError'));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // ---- Berichts-Mails: Testversand („Jetzt senden") -------------------------
+  // Sendet den Bericht der jeweils LETZTEN abgelaufenen Periode sofort an die
+  // konfigurierten Empfänger (Server setzt den Doppelversand-Merker NICHT).
+  const [reportSending, setReportSending] = useState<string | null>(null);
+  const sendTestReport = async (period: 'day' | 'month' | 'quarter' | 'year') => {
+    setReportSending(period);
+    try {
+      const body: Record<string, unknown> = { period };
+      // Firmen-Kontext aus dem Kopf-Wechsler (Super-/Tenant-Admin) mitgeben.
+      const m = companyQuery.match(/companyId=(\d+)/);
+      if (m) body.companyId = Number(m[1]);
+      const r = await api.post('/reports/send-test', body);
+      if (r.data?.sent) {
+        toast.success(t('settings.notifications.reports.sendSuccess', { count: r.data.recipients ?? 0 }));
+      } else if (r.data?.reason === 'SMTP_INACTIVE') {
+        toast.error(t('settings.notifications.reports.smtpInactive'));
+      } else if (r.data?.reason === 'NO_RECIPIENTS') {
+        toast.error(t('settings.notifications.reports.noRecipients'));
+      } else {
+        toast.error(t('settings.notifications.reports.sendError'));
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.response?.data?.error || t('settings.notifications.reports.sendError'));
+    } finally {
+      setReportSending(null);
     }
   };
 
@@ -1581,6 +1623,72 @@ const Settings: React.FC = () => {
                   className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                 />
               </div>
+            </div>
+
+            {/* Periodische Berichts-Mails (Tag/Monat/Quartal/Jahr, pro Firma) */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200">
+              <h4 className="text-lg font-medium text-slate-900 mb-1">
+                {t('settings.notifications.reports.heading')}
+              </h4>
+              <p className="text-sm text-slate-600 mb-4">
+                {t('settings.notifications.reports.desc')}
+              </p>
+
+              <div className="space-y-3">
+                {([
+                  { period: 'day' as const, field: 'reportDailyEnabled' as const },
+                  { period: 'month' as const, field: 'reportMonthlyEnabled' as const },
+                  { period: 'quarter' as const, field: 'reportQuarterlyEnabled' as const },
+                  { period: 'year' as const, field: 'reportYearlyEnabled' as const },
+                ]).map(({ period, field }) => (
+                  <div key={period} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border border-gray-200 rounded-lg">
+                    <label className="flex items-start gap-3 flex-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        aria-label={t(`settings.notifications.reports.${period}Title`)}
+                        checked={!!settings[field]}
+                        onChange={(e) => setSettings({ ...settings, [field]: e.target.checked })}
+                        className="h-4 w-4 mt-0.5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-slate-900">
+                          {t(`settings.notifications.reports.${period}Title`)}
+                        </span>
+                        <span className="block text-sm text-slate-600">
+                          {t(`settings.notifications.reports.${period}Desc`)}
+                        </span>
+                      </span>
+                    </label>
+                    {/* Testversand ist bewusst IMMER möglich (auch bei deaktivierter Periode). */}
+                    <button
+                      type="button"
+                      onClick={() => sendTestReport(period)}
+                      disabled={reportSending !== null}
+                      className="btn-secondary text-sm whitespace-nowrap self-start sm:self-center disabled:opacity-50"
+                    >
+                      {reportSending === period
+                        ? t('settings.notifications.reports.sending')
+                        : t('settings.notifications.reports.sendNow')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  {t('settings.notifications.reports.recipients')}
+                </label>
+                <input
+                  type="text"
+                  value={settings.reportRecipients || ''}
+                  onChange={(e) => setSettings({ ...settings, reportRecipients: e.target.value })}
+                  placeholder={t('settings.notifications.reports.recipientsPlaceholder')}
+                  className="input-field"
+                />
+                <p className="text-xs text-slate-500 mt-1">{t('settings.notifications.reports.recipientsHint')}</p>
+              </div>
+
+              <p className="text-xs text-slate-500 mt-3">{t('settings.notifications.reports.sendNowHint')}</p>
             </div>
           </div>
         );

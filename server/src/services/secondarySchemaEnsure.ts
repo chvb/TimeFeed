@@ -61,4 +61,12 @@ export async function ensureSecondaryAndRetentionColumns(): Promise<void> {
   await addIfMissing(SystemSettings, 'auto_backup_time', { type: DataTypes.STRING, allowNull: false, defaultValue: '02:30' });
   await addIfMissing(SystemSettings, 'backup_retention_days', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 30 });
   await addIfMissing(SystemSettings, 'backup_notify_on_failure', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true });
+
+  // system_settings — Periodische Berichts-Mails (Tag/Monat/Quartal/Jahr, firmen-scoped)
+  await addIfMissing(SystemSettings, 'report_daily_enabled', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+  await addIfMissing(SystemSettings, 'report_monthly_enabled', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+  await addIfMissing(SystemSettings, 'report_quarterly_enabled', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+  await addIfMissing(SystemSettings, 'report_yearly_enabled', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+  await addIfMissing(SystemSettings, 'report_recipients', { type: DataTypes.STRING, allowNull: true });
+  await addIfMissing(SystemSettings, 'report_last_sent', { type: DataTypes.TEXT, allowNull: true });
 }

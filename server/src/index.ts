@@ -36,6 +36,7 @@ import externalRoutes from './routes/external.routes';
 import integrationRoutes from './routes/integration.routes';
 import pushRoutes from './routes/push.routes';
 import absenceTypeRoutes from './routes/absenceType.routes';
+import reportRoutes from './routes/report.routes';
 import { brandingController } from './controllers/branding.controller';
 import { errorHandler } from './middleware/errorHandler';
 import './models'; // Import models to set up associations
@@ -195,6 +196,7 @@ app.use('/api/external', externalRoutes);
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/absence-types', absenceTypeRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.get('/health', async (_req, res) => {
   let uptime30d: number | null = null;
@@ -278,6 +280,11 @@ const startServer = async () => {
     // Terminal-Überwachung: Störungs-/Entwarnungs-Mails (pro Firma konfigurierbar).
     const { startTerminalAlertService } = await import('./services/terminalAlertService');
     startTerminalAlertService();
+
+    // Periodische Berichts-Mails (Tag/Monat/Quartal/Jahr, pro Firma): täglicher
+    // Tick um 05:00 (nach Recalc 02:00 und Auto-Backup ~02:30).
+    const { startReportMailJob } = await import('./services/reportMailService');
+    startReportMailJob();
     
     const { seedDatabase } = await import('./db/seedData');
     const userCount = await import('./models/User').then(m => m.User.count());

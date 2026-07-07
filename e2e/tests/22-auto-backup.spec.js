@@ -58,12 +58,14 @@ test.describe('Automatische Backups', () => {
 
     // Abschnitt „Automatische Backups" mit Einstellungs- und Status-Card.
     await expect(page.getByRole('heading', { name: 'Automatische Backups', exact: true })).toBeVisible();
+    // .last(): der gesamte Tab-Inhalt steckt in einer äußeren .card — ohne
+    // .last() matcht der Filter äußere UND innere Card (strict mode violation).
     const settingsCard = page.locator('.card').filter({
       has: page.getByLabel('Automatische Backups aktivieren'),
-    });
+    }).last();
     const statusCard = page.locator('.card').filter({
       has: page.getByRole('button', { name: 'Jetzt sichern', exact: true }),
-    });
+    }).last();
     await expect(settingsCard).toBeVisible();
     await expect(statusCard).toBeVisible();
 
