@@ -36,7 +36,7 @@ export const en = {
     forgot: 'Forgot password?',
     submit: 'Sign in',
     submitting: 'Signing in …',
-    terminalAppDownload: 'Android Terminal App',
+    terminalAppDownload: 'Android Terminal-App',
   },
   roles: {
     admin: 'Admin',
