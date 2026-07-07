@@ -35,6 +35,9 @@
 - E2E: Spec 19 Mitarbeiter-Abgleich (Suite: 19 Specs / 58 Tests grün)
 - API-Schlüssel als Tab in den Einstellungen (Super-Admin), Menüpunkt entfernt
 - Stempeluhr: laufende Arbeitszeit live anzeigen
+- DATEV Paket 1: Abwesenheitsarten-Katalog + Lohnartnummern, LuG kalendertäglich (Yellowfox-Referenz)
+- API-Schlüssel: Mandant beim Erzeugen automatisch auflösen
+- Terminal-Logo (pro Gerät, Fallback Firmen-Logo/Branding) + Kiosk-Header umgebaut
 
 ## [1.1.0] - 2026-07-06
 
