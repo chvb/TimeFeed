@@ -150,6 +150,17 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 // mit ?tenant=<id> gebrandet (Name/Farbe/Icons des Mandanten).
 app.get('/manifest.webmanifest', (req, res, next) => brandingController.manifest(req, res, next));
 
+// Downloads (z. B. TimeFeed-Terminal.apk) — liegen AUSSERHALB von public/,
+// damit Client-Builds (--emptyOutDir) sie nicht wegräumen.
+app.use('/downloads', express.static(path.join(__dirname, '../../downloads'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.apk')) {
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', 'attachment');
+    }
+  },
+}));
+
 // Statische Assets sind content-hash-benannt → lange cachebar. index.html jedoch
 // NIE cachen, damit Clients nach einem Deploy sofort die neuen Bundle-Hashes laden
 // (Voraussetzung für das Auto-Update-Banner – kein manuelles Hard-Reload nötig).

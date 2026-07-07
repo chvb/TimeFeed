@@ -136,7 +136,9 @@ export default function Terminal() {
   const reachableRef = useRef(true);
   const lastScanRef = useRef<{ v: string; ts: number }>({ v: '', ts: 0 });
 
-  const nfcSupported = 'NDEFReader' in window;
+  // Läuft die Seite in der nativen TimeFeed-Terminal-App? (User-Agent-Suffix)
+  const nativeApp = navigator.userAgent.includes('TimeFeedTerminalApp');
+  const nfcSupported = 'NDEFReader' in window || nativeApp;
   const qrSupported = 'BarcodeDetector' in window;
   const methods = info?.methods ?? [];
 
@@ -340,6 +342,8 @@ export default function Terminal() {
     };
   }, []);
 
+
+
   /* ---------- Wake-Lock (Tablet nicht einschlafen lassen) ---------- */
   useEffect(() => {
     let lock: any = null;
@@ -442,6 +446,20 @@ export default function Terminal() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [screen, methods, pendingCred, handleIdentify]);
+
+  /* ---------- Native NFC-Brücke (TimeFeed-Terminal-App) ----------
+     Die Android-App liest Tags nativ und ruft window.__tfNativeNfc({text, uid})
+     auf: Text-Record = Stempel-Code, sonst Tag-UID als nfcTagUid. */
+  useEffect(() => {
+    (window as any).__tfNativeNfc = (payload: { text?: string | null; uid?: string | null }) => {
+      if (busyRef.current || screenRef.current !== 'idle') return;
+      const text = typeof payload?.text === 'string' ? payload.text.trim() : '';
+      const uid = typeof payload?.uid === 'string' ? payload.uid.trim() : '';
+      if (text) handleIdentify({ stampCode: text });
+      else if (uid) handleIdentify({ nfcTagUid: uid });
+    };
+    return () => { delete (window as any).__tfNativeNfc; };
+  }, [handleIdentify]);
 
   // Scan-Quellen (NFC/QR) rufen immer die aktuelle Handler-Version auf,
   // mit Dedupe gegen Mehrfach-Erkennung desselben Tags/Codes.

@@ -36,6 +36,7 @@ export const de = {
     forgot: 'Passwort vergessen?',
     submit: 'Anmelden',
     submitting: 'Anmeldung läuft …',
+    terminalAppDownload: 'Terminal-App für Android herunterladen',
   },
   roles: {
     admin: 'Admin',
