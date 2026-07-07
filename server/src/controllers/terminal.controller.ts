@@ -66,6 +66,18 @@ async function parseSettingsPassword(value: any): Promise<string | null | undefi
   return bcrypt.hash(value, 10);
 }
 
+
+/** Geräte-Logo aus dem Body: undefined = unverändert, ''/null = entfernen, sonst Data-URL-Bild <= ~500 KB. */
+function parseLogo(value: any): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const v = String(value);
+  if (!/^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v) || v.length > 700_000) {
+    throw new AppError(400, 'logo muss eine Bild-Data-URL (PNG/JPEG/WebP/SVG) bis ca. 500 KB sein');
+  }
+  return v;
+}
+
 export class TerminalController {
   /** GET /api/terminals — Terminals im Firmen-Scope (ohne tokenHash, mit tokenPrefix/lastSeenAt). */
   async list(req: Request, res: Response, next: NextFunction) {
@@ -123,6 +135,7 @@ export class TerminalController {
         lng: parseCoord(req.body.lng, 'lng'),
         isActive: req.body.isActive !== undefined ? Boolean(req.body.isActive) : true,
         settingsPasswordHash: (await parseSettingsPassword(req.body.settingsPassword)) ?? null,
+        logo: parseLogo(req.body.logo) ?? null,
         config: sanitizeConfig(req.body.config, { methods: ['nfc', 'code', 'qr'], requirePin: false }),
       });
 
@@ -170,6 +183,7 @@ export class TerminalController {
       if (req.body.lat !== undefined) data.lat = parseCoord(req.body.lat, 'lat');
       if (req.body.lng !== undefined) data.lng = parseCoord(req.body.lng, 'lng');
       if (req.body.isActive !== undefined) data.isActive = Boolean(req.body.isActive);
+      if (req.body.logo !== undefined) data.logo = parseLogo(req.body.logo);
       if (req.body.config !== undefined) data.config = sanitizeConfig(req.body.config, terminal.getConfig());
       // settingsPassword: undefined = unverändert, ''/null = Schutz entfernen, sonst neuer Hash.
       const spHash = await parseSettingsPassword(req.body.settingsPassword);

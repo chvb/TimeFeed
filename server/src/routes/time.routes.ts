@@ -21,6 +21,8 @@ router.get('/balance', timeController.balance.bind(timeController));
 const manage = authorize(UserRole.ADMIN, UserRole.BUCHHALTUNG, UserRole.VERWALTUNG);
 router.post('/manual', manage, timeController.manual.bind(timeController));
 router.post('/entries/:id/cancel', manage, timeController.cancelEntry.bind(timeController));
+// Manuelle Tages-Abwesenheit (Katalog-Key setzen/entfernen, 423 bei Abschluss).
+router.put('/days/:userId/:date/absence', manage, timeController.setDayAbsence.bind(timeController));
 router.get('/month-overview', manage, timeController.monthOverview.bind(timeController));
 router.get('/presence', manage, timeController.presence.bind(timeController));
 // Monatsabschluss nur buchhaltung+admin; Wiedereröffnung nur admin.

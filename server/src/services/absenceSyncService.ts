@@ -4,6 +4,7 @@ import { Op, literal } from 'sequelize';
 import { IntegrationSettings } from '../models/IntegrationSettings';
 import { User } from '../models/User';
 import { WorkDay } from '../models/WorkDay';
+import { AbsenceType, randomPaletteColor } from '../models/AbsenceType';
 import { calcWorkDay } from './timeCalcService';
 
 /**
@@ -35,8 +36,48 @@ interface RemoteAbsence {
   email: string;
   employeeNumber?: string | null;
   type: 'vacation' | 'sick' | string;
+  // Antragsart-Schlüssel/-Label aus UrlaubsFeed (Feld kommt demnächst; DEFENSIV:
+  // fehlt es, wird wie bisher nur nach type 'vacation'/'sick' gemappt).
+  leaveTypeKey?: string | null;
+  leaveTypeLabel?: string | null;
   startDate: string;
   endDate: string;
+}
+
+/**
+ * leaveTypeKey aus UrlaubsFeed auf einen Katalog-Key mappen. UrlaubsFeed ist
+ * FÜHREND für Antragsarten: existiert (noch) keine Abwesenheitsart mit diesem
+ * Key, wird automatisch eine AKTIVE, nicht-eingebaute Art als globale Vorlage
+ * angelegt (label = leaveTypeLabel || key, Zufallsfarbe aus der Palette).
+ * Eine vorhandene, aber deaktivierte Art wird reaktiviert (sonst liefen
+ * gelieferte Abwesenheiten ins Leere). 'sick' bleibt 'sick'.
+ */
+export async function resolveAbsenceTypeKey(
+  leaveTypeKey: string | null | undefined,
+  type: string,
+  leaveTypeLabel?: string | null
+): Promise<string> {
+  const fallback = type === 'sick' ? 'sick' : 'vacation';
+  const key = String(leaveTypeKey || '').trim().toLowerCase();
+  // Defensiv: fehlender/unbrauchbarer Key (auch 'holiday' ist reserviert) → wie bisher.
+  if (!key || key === 'holiday' || !/^[a-z0-9][a-z0-9_-]*$/.test(key)) return fallback;
+
+  const existing = await AbsenceType.findOne({ where: { key } });
+  if (existing) {
+    if (!existing.isActive) await existing.update({ isActive: true });
+    return existing.key;
+  }
+  await AbsenceType.create({
+    companyId: null, // globale Vorlage — Sync läuft mandantenweit über Firmen hinweg
+    key,
+    label: String(leaveTypeLabel || '').trim() || key,
+    color: randomPaletteColor(),
+    datevKennzeichen: '1',
+    isBuiltin: false,
+    isActive: true,
+    sortOrder: 100,
+  });
+  return key;
 }
 
 /**
@@ -168,13 +209,20 @@ export async function syncTenantAbsences(tenantId: number): Promise<AbsenceSyncR
   const byEmail = new Map<string, number>();
   users.forEach((u) => byEmail.set(u.email.toLowerCase(), u.id));
 
-  // Gewünschter Zustand: (userId, date) → 'vacation' | 'sick' ('sick' gewinnt bei Überlappung).
-  const desired = new Map<string, { userId: number; date: string; type: 'vacation' | 'sick' }>();
+  // Gewünschter Zustand: (userId, date) → Katalog-Key ('sick' gewinnt bei Überlappung).
+  const desired = new Map<string, { userId: number; date: string; type: string }>();
   const unmatched = new Set<string>();
   const matchedUserIds = new Set<number>();
+  // Auflösungs-Cache je Lauf: leaveTypeKey → Katalog-Key (spart DB-Roundtrips).
+  const keyCache = new Map<string, string>();
 
   for (const a of absences) {
-    const type = a.type === 'sick' ? 'sick' : 'vacation';
+    const cacheKey = `${a.leaveTypeKey ?? ''}|${a.type}`;
+    let type = keyCache.get(cacheKey);
+    if (!type) {
+      type = await resolveAbsenceTypeKey(a.leaveTypeKey, a.type, a.leaveTypeLabel);
+      keyCache.set(cacheKey, type);
+    }
     const userId = byEmail.get(String(a.email || '').toLowerCase());
     if (!userId) {
       if (a.email) unmatched.add(a.email);

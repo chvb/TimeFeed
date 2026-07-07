@@ -34,6 +34,8 @@ interface TerminalDto {
   tokenPrefix?: string | null;
   /** Kiosk-Einstellungen (Zahnrad) sind per Passwort geschützt. */
   hasSettingsPassword: boolean;
+  /** Geräte-eigenes Logo (Data-URL); null = Firmen-Logo/Branding. */
+  logo?: string | null;
   config?: { methods?: Method[]; requirePin?: boolean } | null;
 }
 
@@ -49,6 +51,8 @@ interface FormState {
   settingsPassword: string;
   /** Beim Bearbeiten: vorhandenen Schutz entfernen. */
   removeSettingsPassword: boolean;
+  /** Geräte-Logo (Data-URL); null = Firmen-Logo/Branding verwenden. */
+  logo: string | null;
 }
 
 const emptyForm = (): FormState => ({
@@ -61,6 +65,7 @@ const emptyForm = (): FormState => ({
   isActive: true,
   settingsPassword: '',
   removeSettingsPassword: false,
+  logo: null,
 });
 
 /** Server-Antworten tolerant normalisieren (config kann JSON-String sein). */
@@ -77,6 +82,7 @@ function normalizeTerminal(raw: any): TerminalDto {
     lastSeenAt: raw.lastSeenAt ?? raw.lastSeen ?? null,
     tokenPrefix: raw.tokenPrefix ?? raw.tokenHint ?? null,
     hasSettingsPassword: !!raw.hasSettingsPassword,
+    logo: raw.logo ?? null,
     config: {
       methods: Array.isArray(config.methods) ? config.methods.filter((m: string) => (ALL_METHODS as string[]).includes(m)) : undefined,
       requirePin: !!config.requirePin,
@@ -143,6 +149,7 @@ export default function Terminals() {
       isActive: term.isActive,
       settingsPassword: '',
       removeSettingsPassword: false,
+      logo: term.logo || null,
     });
     setShowModal(true);
   };
@@ -154,6 +161,16 @@ export default function Terminals() {
       ...f,
       methods: f.methods.includes(m) ? f.methods.filter((x) => x !== m) : [...f.methods, m],
     }));
+  };
+
+  const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 500 * 1024) { toast.error(t('terminals.logoTooLarge')); return; }
+    const reader = new FileReader();
+    reader.onload = () => setForm((f) => ({ ...f, logo: String(reader.result) }));
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +194,7 @@ export default function Terminals() {
       lng,
       isActive: form.isActive,
       config: { methods: form.methods, requirePin: form.requirePin },
+      logo: form.logo,
     };
     // Einstellungs-Passwort: nur mitsenden, wenn es gesetzt/entfernt werden soll
     // (weglassen = unverändert; null = Schutz entfernen).
@@ -585,6 +603,28 @@ export default function Terminals() {
                           <span className="text-sm font-medium text-slate-700">{t('terminals.settingsPasswordRemove')}</span>
                         </label>
                       )}
+                    </div>
+
+                    {/* Geräte-Logo: leer = Firmen-Logo bzw. Mandanten-Branding */}
+                    <div className="rounded-lg border border-slate-200 p-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">{t('terminals.logo')}</label>
+                      <div className="flex items-center gap-3">
+                        {form.logo ? (
+                          <img src={form.logo} alt="" className="h-12 w-12 object-contain rounded-lg border border-slate-200 bg-white" />
+                        ) : (
+                          <div className="h-12 w-12 rounded-lg border border-dashed border-slate-300 flex items-center justify-center text-slate-300 text-xs">–</div>
+                        )}
+                        <label className="btn-secondary text-sm cursor-pointer">
+                          {t('terminals.logoUpload')}
+                          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={handleLogoFile} />
+                        </label>
+                        {form.logo && (
+                          <button type="button" onClick={() => setForm({ ...form, logo: null })} className="text-sm text-red-600 hover:text-red-800">
+                            {t('terminals.logoRemove')}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">{t('terminals.logoHint')}</p>
                     </div>
 
                     {editing && (

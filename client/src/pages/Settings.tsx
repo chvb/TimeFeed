@@ -27,6 +27,7 @@ import TrashSettings from './TrashSettings';
 import api from '../lib/api';
 import { matchesSearch } from '../lib/normalize';
 import { useConfirm } from '../components/common/ConfirmProvider';
+import AbsenceTypesSection from '../components/settings/AbsenceTypesSection';
 import { useT } from '../i18n';
 
 interface SystemSettings {
@@ -904,6 +905,9 @@ const Settings: React.FC = () => {
               </label>
               <p className="text-xs text-slate-500 mt-2">{t('settings.time.sendTimesheetOnCloseHint')}</p>
             </div>
+
+            {/* Abwesenheitsarten-Katalog (eigener CRUD-Bereich, speichert direkt) */}
+            <AbsenceTypesSection />
           </div>
         );
 

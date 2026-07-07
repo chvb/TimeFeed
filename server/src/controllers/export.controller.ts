@@ -9,6 +9,7 @@ import {
   collectExportData,
   DEFAULT_PROFILE,
   resolveFormat,
+  rowLohnarten,
 } from '../services/exportService';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -29,6 +30,18 @@ async function resolveCompanyId(req: Request): Promise<number> {
   return raw;
 }
 
+/** absenceLohnarten defensiv als Objekt lesen (JSON-Spalte kann String sein). */
+const parseMapping = (raw: any): Record<string, string> => {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+    } catch { /* ignore */ }
+  }
+  return {};
+};
+
 const profileJson = (companyId: number, p: any) => ({
   companyId,
   format: p.format,
@@ -37,6 +50,9 @@ const profileJson = (companyId: number, p: any) => ({
   personalNrSource: p.personalNrSource,
   lohnartNormal: p.lohnartNormal,
   lohnartOvertime: p.lohnartOvertime || null,
+  lohnartFeiertag: p.lohnartFeiertag || null,
+  feiertagKennzeichen: p.feiertagKennzeichen || '1',
+  absenceLohnarten: parseMapping(p.absenceLohnarten),
   overtimeMode: p.overtimeMode,
   exportOnlyClosed: !!p.exportOnlyClosed,
   decimalComma: !!p.decimalComma,
@@ -104,6 +120,28 @@ export class ExportController {
       }
       // lohnartOvertime: leer/null = Überstunden nicht separat exportieren.
       if (b.lohnartOvertime !== undefined) updates.lohnartOvertime = str(b.lohnartOvertime) || null;
+      // lohnartFeiertag: leer/null = Feiertage nicht separat exportieren
+      // (LuG: Fallback auf lohnartNormal, LODAS/CSV: Hinweis in der Vorschau).
+      if (b.lohnartFeiertag !== undefined) updates.lohnartFeiertag = str(b.lohnartFeiertag) || null;
+      if (b.feiertagKennzeichen !== undefined) {
+        updates.feiertagKennzeichen = str(b.feiertagKennzeichen).slice(0, 1) || '1';
+      }
+      // absenceLohnarten: { absenceKey: lohnartNr } — leere Werte entfernen.
+      if (b.absenceLohnarten !== undefined) {
+        if (b.absenceLohnarten === null) {
+          updates.absenceLohnarten = {};
+        } else if (typeof b.absenceLohnarten !== 'object' || Array.isArray(b.absenceLohnarten)) {
+          return next(new AppError(400, 'absenceLohnarten muss ein Objekt { absenceKey: lohnartNr } sein'));
+        } else {
+          const cleaned: Record<string, string> = {};
+          for (const [key, value] of Object.entries(b.absenceLohnarten)) {
+            const k = String(key).trim().toLowerCase();
+            const v = str(value);
+            if (k && v) cleaned[k] = v;
+          }
+          updates.absenceLohnarten = cleaned;
+        }
+      }
       if (b.exportOnlyClosed !== undefined) {
         if (typeof b.exportOnlyClosed !== 'boolean') return next(new AppError(400, 'exportOnlyClosed muss boolean sein'));
         updates.exportOnlyClosed = b.exportOnlyClosed;
@@ -141,7 +179,10 @@ export class ExportController {
    * GET /api/exports/preview?companyId=&month=YYYY-MM&format= (admin/buchhaltung)
    * — JSON-Vorschau für die UI. Antwort:
    * { month, format, rows:[{personalNr,name,istHours,sollHours,saldoHours,
-   *   overtimeHours}], warnings, closedAll }.
+   *   overtimeHours, lohnarten:[{lohnart,hours,source}]}], warnings, closedAll }.
+   * source: 'work' | 'overtime' | 'holiday' | Abwesenheits-Key.
+   * warnings enthält zusätzlich {type:'NO_LOHNART', absenceKey, days} für
+   * Abwesenheitsarten ohne Lohnart-Mapping (werden nicht exportiert).
    */
   async preview(req: Request, res: Response, next: NextFunction) {
     try {
@@ -163,6 +204,11 @@ export class ExportController {
           sollHours: toH(r.sollMinutes),
           saldoHours: toH(r.saldoMinutes),
           overtimeHours: toH(r.overtimeMinutes),
+          lohnarten: rowLohnarten(data.profile, r).entries.map((e) => ({
+            lohnart: e.lohnart,
+            hours: toH(e.minutes),
+            source: e.source,
+          })),
         })),
         warnings: data.warnings,
         closedAll: data.closedAll,

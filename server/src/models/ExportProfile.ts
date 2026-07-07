@@ -29,6 +29,16 @@ interface ExportProfileAttributes {
   personalNrSource: PersonalNrSource;
   lohnartNormal: string;
   lohnartOvertime?: string | null;
+  // Lohnart für Feiertage (absence='holiday'); leer = LODAS/CSV: nicht separat
+  // exportiert (Hinweis in der Vorschau), LuG: Sollstunden auf lohnartNormal
+  // (exakt wie die Yellowfox-Referenzdatei).
+  lohnartFeiertag?: string | null;
+  // DATEV-LuG-Kennzeichen (Feld 3) für Feiertagszeilen (Default '1').
+  feiertagKennzeichen?: string | null;
+  // Mapping Abwesenheitsart → Lohnart-Nummer: { absenceKey: lohnartNr }.
+  // Arten OHNE Eintrag werden NICHT exportiert (Yellowfox-Verhalten) und
+  // erscheinen als NO_LOHNART-Hinweis in der Vorschau.
+  absenceLohnarten?: Record<string, string> | null;
   overtimeMode: OvertimeMode;
   // true = Export nur, wenn der Monat für ALLE betroffenen User abgeschlossen ist
   // (409 MONTH_NOT_CLOSED, per force=true übersteuerbar — wird auditiert).
@@ -41,7 +51,8 @@ interface ExportProfileAttributes {
 
 interface ExportProfileCreationAttributes extends Optional<ExportProfileAttributes,
   'id' | 'createdAt' | 'updatedAt' | 'format' | 'beraterNr' | 'mandantenNr'
-  | 'personalNrSource' | 'lohnartNormal' | 'lohnartOvertime' | 'overtimeMode'
+  | 'personalNrSource' | 'lohnartNormal' | 'lohnartOvertime' | 'lohnartFeiertag'
+  | 'feiertagKennzeichen' | 'absenceLohnarten' | 'overtimeMode'
   | 'exportOnlyClosed' | 'decimalComma'> {}
 
 export class ExportProfile extends Model<ExportProfileAttributes, ExportProfileCreationAttributes>
@@ -54,6 +65,9 @@ export class ExportProfile extends Model<ExportProfileAttributes, ExportProfileC
   public personalNrSource!: PersonalNrSource;
   public lohnartNormal!: string;
   public lohnartOvertime?: string | null;
+  public lohnartFeiertag?: string | null;
+  public feiertagKennzeichen?: string | null;
+  public absenceLohnarten?: Record<string, string> | null;
   public overtimeMode!: OvertimeMode;
   public exportOnlyClosed!: boolean;
   public decimalComma!: boolean;
@@ -103,6 +117,20 @@ ExportProfile.init(
     lohnartOvertime: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    lohnartFeiertag: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    feiertagKennzeichen: {
+      type: DataTypes.STRING(1),
+      allowNull: true,
+      defaultValue: '1',
+    },
+    absenceLohnarten: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: {},
     },
     overtimeMode: {
       type: DataTypes.STRING,

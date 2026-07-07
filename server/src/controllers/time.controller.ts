@@ -22,6 +22,7 @@ import {
 } from '../services/timeCalcService';
 import { isDayLocked, isMonthClosed, monthEndDate, monthOf, MONTH_LOCKED_RESPONSE } from '../services/monthLockService';
 import { sendTimesheetsForClosedMonth } from '../services/timesheetPdfService';
+import { AbsenceType } from '../models/AbsenceType';
 
 const settingsController = new SettingsController();
 
@@ -382,6 +383,83 @@ export class TimeController {
       }, req);
 
       res.json({ entry, workDay });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/time/days/:userId/:date/absence — manuelle Tages-Abwesenheit
+   * (admin/buchhaltung/verwaltung im Scope). Body: { absenceKey: string | null }.
+   * absenceKey muss eine AKTIVE Abwesenheitsart des Katalogs sein (globale
+   * Vorlage oder Art der Firma des Mitarbeiters) → setzt absence +
+   * absenceSource='manual' und berechnet den Tag neu (Sollzeit-Gutschrift).
+   * null entfernt NUR manuell/per UrlaubsFeed gesetzte Abwesenheiten —
+   * automatische Feiertage setzt der Recalc ohnehin wieder.
+   * 423 MONTH_LOCKED bei abgeschlossenem Monat/gesperrtem Tag.
+   */
+  async setDayAbsence(req: Request, res: Response, next: NextFunction) {
+    try {
+      const targetUserId = Number(req.params.userId);
+      const date = String(req.params.date || '').trim();
+      if (!Number.isFinite(targetUserId) || targetUserId <= 0) {
+        return next(new AppError(400, 'Ungültige userId'));
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(localDayStart(date).getTime())) {
+        return next(new AppError(400, 'date muss das Format YYYY-MM-DD haben'));
+      }
+      if (!(await canActorAccessUser(req.user!, targetUserId))) {
+        return next(new AppError(403, 'Kein Zugriff auf diesen Mitarbeiter'));
+      }
+      const user = await User.findByPk(targetUserId, { attributes: ['id', 'companyId'] });
+      if (!user) return next(new AppError(404, 'Mitarbeiter nicht gefunden'));
+
+      if (await isDayLocked(targetUserId, user.companyId ?? null, date)) {
+        return res.status(423).json(MONTH_LOCKED_RESPONSE);
+      }
+
+      const rawKey = req.body?.absenceKey;
+      const existing = await WorkDay.findOne({ where: { userId: targetUserId, date } });
+      // Abgenommene/gesperrte Tage NIE anfassen (locked deckt isDayLocked ab).
+      if (existing && existing.status === 'approved') {
+        return res.status(423).json(MONTH_LOCKED_RESPONSE);
+      }
+      const oldValues = { absence: existing?.absence ?? null, absenceSource: existing?.absenceSource ?? null };
+
+      let workDay: WorkDay | null;
+      if (rawKey == null || rawKey === '') {
+        // Entfernen: nur manuelle/urlaubsfeed-Quellen zurücksetzen.
+        if (existing && existing.absence && (existing.absenceSource === 'manual' || existing.absenceSource === 'urlaubsfeed')) {
+          await existing.update({ absence: null, absenceSource: null });
+        }
+        workDay = await calcWorkDay(targetUserId, date);
+      } else {
+        const key = String(rawKey).trim().toLowerCase();
+        const scopes: any[] = [{ companyId: null }];
+        if (user.companyId != null) scopes.push({ companyId: user.companyId });
+        const type = await AbsenceType.findOne({ where: { key, isActive: true, [Op.or]: scopes } });
+        if (!type) {
+          return next(new AppError(400, `Unbekannte oder inaktive Abwesenheitsart '${key}'`));
+        }
+        // Tag ggf. über den regulären Berechnungsweg anlegen (setzt Soll/Status).
+        let wd = existing ?? await calcWorkDay(targetUserId, date);
+        if (!wd) return next(new AppError(404, 'Tag konnte nicht berechnet werden'));
+        await wd.update({ absence: type.key, absenceSource: 'manual' });
+        // Recalc übernimmt die gesetzte absence (Sollzeit-Gutschrift, Flags).
+        workDay = await calcWorkDay(targetUserId, date);
+      }
+
+      await AuditService.log({
+        userId: req.user!.id,
+        action: AuditAction.UPDATE,
+        category: AuditCategory.DATA_MANAGEMENT,
+        entity: 'WorkDay',
+        entityId: workDay?.id,
+        oldValues,
+        newValues: { userId: targetUserId, date, absence: workDay?.absence ?? null, absenceSource: workDay?.absenceSource ?? null },
+      }, req);
+
+      res.json({ workDay });
     } catch (error) {
       next(error);
     }

@@ -24,6 +24,7 @@ import { ApiKey } from './ApiKey';
 import { IntegrationSettings } from './IntegrationSettings';
 import { PushSubscription } from './PushSubscription';
 import { VapidKeys } from './VapidKeys';
+import { AbsenceType } from './AbsenceType';
 
 // Tenant (Mandant) → Firma.
 Tenant.hasMany(Company, { foreignKey: 'tenantId', as: 'companies' });
@@ -115,4 +116,8 @@ IntegrationSettings.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 User.hasMany(PushSubscription, { foreignKey: 'userId', as: 'pushSubscriptions' });
 PushSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-export { User, Group, GroupManager, Department, EmailSettings, PasswordResetToken, SystemSettings, AuditLog, StorageSettings, TrashItem, Heartbeat, Company, Tenant, Holiday, TimeModel, TimeEntry, WorkDay, TerminalDevice, CorrectionRequest, MonthClosure, TimesheetDocument, ExportProfile, ApiKey, IntegrationSettings, PushSubscription, VapidKeys };
+// Abwesenheitsarten-Katalog: companyId null = globale Vorlage, sonst firmenspezifisch.
+Company.hasMany(AbsenceType, { foreignKey: 'companyId', as: 'absenceTypes' });
+AbsenceType.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+
+export { User, Group, GroupManager, Department, EmailSettings, PasswordResetToken, SystemSettings, AuditLog, StorageSettings, TrashItem, Heartbeat, Company, Tenant, Holiday, TimeModel, TimeEntry, WorkDay, TerminalDevice, CorrectionRequest, MonthClosure, TimesheetDocument, ExportProfile, ApiKey, IntegrationSettings, PushSubscription, VapidKeys, AbsenceType };

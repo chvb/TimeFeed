@@ -2,6 +2,7 @@ import { DataTypes } from 'sequelize';
 import { sequelize } from './database';
 import { Tenant } from '../models/Tenant';
 import { WorkDay } from '../models/WorkDay';
+import { ExportProfile } from '../models/ExportProfile';
 import { ApiKey, API_SCOPE_USERS_READ } from '../models/ApiKey';
 
 /**
@@ -43,4 +44,29 @@ export async function ensureFeatureColumns(): Promise<void> {
       console.log(`Migration: API-Key ${key.keyPrefix}… um Scope '${API_SCOPE_USERS_READ}' ergänzt.`);
     }
   }
+
+  await ensureExportProfileColumns();
+}
+
+/**
+ * Spalten-Migration für die Lohnartnummern je Abwesenheitsart im DATEV-Export
+ * (Abwesenheitsarten-Katalog, Yellowfox-Parität). Eigene Funktion nach dem
+ * addIfMissing-Muster — die absence_types-Tabelle selbst legt sequelize.sync an.
+ */
+export async function ensureExportProfileColumns(): Promise<void> {
+  const qi = sequelize.getQueryInterface();
+
+  const addIfMissing = async (model: any, column: string, spec: any) => {
+    const table = model.getTableName();
+    const desc = await qi.describeTable(table);
+    if (!desc[column]) {
+      await qi.addColumn(table, column, spec);
+      const name = typeof table === 'string' ? table : table.tableName;
+      console.log(`Migration: Spalte ${name}.${column} ergänzt.`);
+    }
+  };
+
+  await addIfMissing(ExportProfile, 'lohnart_feiertag', { type: DataTypes.STRING, allowNull: true });
+  await addIfMissing(ExportProfile, 'feiertag_kennzeichen', { type: DataTypes.STRING(1), allowNull: true, defaultValue: '1' });
+  await addIfMissing(ExportProfile, 'absence_lohnarten', { type: DataTypes.JSON, allowNull: true, defaultValue: {} });
 }

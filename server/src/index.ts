@@ -34,6 +34,7 @@ import apiKeyRoutes from './routes/apiKey.routes';
 import externalRoutes from './routes/external.routes';
 import integrationRoutes from './routes/integration.routes';
 import pushRoutes from './routes/push.routes';
+import absenceTypeRoutes from './routes/absenceType.routes';
 import { brandingController } from './controllers/branding.controller';
 import { errorHandler } from './middleware/errorHandler';
 import './models'; // Import models to set up associations
@@ -191,6 +192,7 @@ app.use('/api/api-keys', apiKeyRoutes);
 app.use('/api/external', externalRoutes);
 app.use('/api/integrations', integrationRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/absence-types', absenceTypeRoutes);
 
 app.get('/health', async (_req, res) => {
   let uptime30d: number | null = null;
@@ -245,6 +247,10 @@ const startServer = async () => {
     // Neue Spalten in bestehenden Tabellen ergänzen (sync alteriert nicht).
     const { ensureColumns } = await import('./db/ensureColumns');
     await ensureColumns();
+
+    // Eingebaute Abwesenheitsarten (globale Vorlagen) seeden — idempotent.
+    const { seedBuiltinAbsenceTypes } = await import('./models/AbsenceType');
+    await seedBuiltinAbsenceTypes();
 
     // Web-Push: VAPID-Keys laden bzw. beim ersten Start generieren.
     const { initPush } = await import('./services/pushService');

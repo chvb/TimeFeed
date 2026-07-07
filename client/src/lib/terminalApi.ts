@@ -19,6 +19,8 @@ export interface TerminalInfo {
   requirePin: boolean;
   /** Zahnrad/Einstellungen am Kiosk sind passwortgeschützt (verify-settings nötig). */
   settingsProtected: boolean;
+  /** Aufgelöstes Logo (Gerät → Firma), null = Branding/Standard nutzen. */
+  logo?: string | null;
   /** Mandanten-Branding (Feld `branding` aus GET /api/terminal/info), falls gesetzt. */
   branding?: TerminalBranding | null;
 }
@@ -123,6 +125,7 @@ export async function fetchTerminalInfo(token: string): Promise<TerminalInfo> {
     methods: methods.length ? methods : [...VALID_METHODS],
     requirePin: !!(cfg.requirePin ?? raw.requirePin ?? d.requirePin),
     settingsProtected: !!(d.settingsProtected ?? raw.settingsProtected),
+    logo: d.logo ?? raw.logo ?? null,
     branding,
   };
 }

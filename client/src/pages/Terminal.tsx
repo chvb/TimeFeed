@@ -662,6 +662,9 @@ export default function Terminal() {
 
   // Mandanten-Branding aus GET /api/terminal/info (Header-Logo/-Name/-Farbe im Kiosk).
   const branding = info?.branding || null;
+  // Logo-Kette: Geräte-Logo → Firmen-Logo (liefert der Server aufgelöst als info.logo)
+  // → Mandanten-Branding → Standard-TimeFeed-Logo.
+  const terminalLogo = info?.logo || branding?.brandLogo || null;
   const headerBg = branding?.brandColor
     ? branding.brandColor
     : `linear-gradient(90deg, ${BRAND_GRADIENT_FROM}, ${BRAND_GRADIENT_TO})`;
@@ -673,22 +676,27 @@ export default function Terminal() {
         className="flex items-center justify-between h-16 px-4 sm:px-6 flex-shrink-0 shadow-md"
         style={{ background: headerBg }}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          {branding?.brandLogo ? (
+        {/* Links: Logo (Gerät → Firma → Branding → Standard) + App-Name */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {terminalLogo ? (
             <span className="flex rounded-2xl bg-white p-1 shadow-sm flex-shrink-0">
-              <img src={branding.brandLogo} alt={branding.brandName || BRAND_NAME} className="h-8 w-8 object-contain" />
+              <img src={terminalLogo} alt={branding?.brandName || BRAND_NAME} className="h-8 w-8 object-contain" />
             </span>
           ) : (
             <Logo size="small" light iconOnly />
           )}
-          <div className="min-w-0 leading-tight">
-            <p className="font-bold truncate">{info?.name || branding?.brandName || BRAND_NAME}</p>
-            {(info?.companyName || branding?.brandName) && (
-              <p className="text-xs text-white/80 truncate">{info?.companyName || branding?.brandName}</p>
-            )}
-          </div>
+          <p className="font-bold truncate">{branding?.brandName || BRAND_NAME}</p>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Mitte: Terminal-Name + Firma */}
+        <div className="min-w-0 leading-tight text-center px-2 flex-shrink">
+          <p className="font-bold truncate">{info?.name || ''}</p>
+          {info?.companyName && (
+            <p className="text-xs text-white/80 truncate">{info.companyName}</p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 flex-1">
           {(!isOnline || !serverReachable) && (
             <span className="flex items-center gap-1.5 rounded-full bg-black/25 px-3 py-1.5 text-xs font-semibold">
               <SignalSlashIcon className="h-4 w-4" /> {t('terminal.offline')}

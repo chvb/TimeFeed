@@ -15,6 +15,7 @@ import api from '../lib/api';
 import ErrorBanner from '../components/ErrorBanner';
 import { useAuthStore } from '../store/authStore';
 import { useI18n } from '../i18n';
+import { useAbsenceTypes } from '../hooks/useAbsenceTypes';
 
 // ---- Contract (Phase 5) — Feldnamen exakt wie server/src/models/ExportProfile.ts
 // bzw. server/src/services/exportService.ts (ExportData). ----
@@ -32,9 +33,19 @@ interface ExportProfile {
   personalNrSource: PersonalNrSource;
   lohnartNormal: string;
   lohnartOvertime: string;
+  lohnartFeiertag: string;
+  feiertagKennzeichen: string;
+  // Mapping Abwesenheitsart-Key → Lohnart-Nummer (leer = wird nicht exportiert).
+  absenceLohnarten: Record<string, string>;
   overtimeMode: OvertimeMode;
   exportOnlyClosed: boolean;
   decimalComma: boolean;
+}
+
+interface PreviewLohnart {
+  lohnart: string;
+  hours: number;
+  source: string; // 'work' | 'overtime' | 'holiday' | Abwesenheits-Key
 }
 
 interface PreviewRow {
@@ -44,6 +55,7 @@ interface PreviewRow {
   istHours: number;
   saldoHours: number;
   overtimeHours: number;
+  lohnarten: PreviewLohnart[];
 }
 
 interface PreviewData {
@@ -65,6 +77,12 @@ function normalizeFormat(v: unknown): ExportFormat {
 /** Server-Antwort (GET /export-profile) normalisieren. */
 function normalizeProfile(raw: any): ExportProfile {
   const p = raw?.profile ?? raw ?? {};
+  const mapping: Record<string, string> = {};
+  if (p.absenceLohnarten && typeof p.absenceLohnarten === 'object' && !Array.isArray(p.absenceLohnarten)) {
+    for (const [k, v] of Object.entries(p.absenceLohnarten)) {
+      if (v != null && String(v).trim()) mapping[k] = String(v);
+    }
+  }
   return {
     format: normalizeFormat(p.format),
     beraterNr: String(p.beraterNr ?? ''),
@@ -72,6 +90,9 @@ function normalizeProfile(raw: any): ExportProfile {
     personalNrSource: p.personalNrSource === 'userId' ? 'userId' : 'employeeNumber',
     lohnartNormal: String(p.lohnartNormal ?? '200'),
     lohnartOvertime: String(p.lohnartOvertime ?? ''),
+    lohnartFeiertag: String(p.lohnartFeiertag ?? ''),
+    feiertagKennzeichen: String(p.feiertagKennzeichen ?? '1'),
+    absenceLohnarten: mapping,
     overtimeMode: (p.overtimeMode === 'balance' ? 'balance' : 'none') as OvertimeMode,
     exportOnlyClosed: !!(p.exportOnlyClosed ?? true),
     decimalComma: p.decimalComma == null ? true : !!p.decimalComma,
@@ -87,8 +108,12 @@ function hoursOf(r: any, base: 'soll' | 'ist' | 'saldo' | 'overtime'): number {
   return 0;
 }
 
-/** GET /exports/preview normalisieren (Warnungen: Strings oder {name, reason}-Objekte). */
-function normalizePreview(raw: any, t: (k: string, v?: Record<string, string | number>) => string): PreviewData {
+/** GET /exports/preview normalisieren (Warnungen: Strings oder Objekte, inkl. NO_LOHNART). */
+function normalizePreview(
+  raw: any,
+  t: (k: string, v?: Record<string, string | number>) => string,
+  absenceLabel: (key: string) => string
+): PreviewData {
   const rows: PreviewRow[] = (raw?.rows ?? raw?.preview ?? (Array.isArray(raw) ? raw : [])).map((r: any) => ({
     personalNr: String(r.personalNr ?? ''),
     name: String(r.name ?? ''),
@@ -96,10 +121,18 @@ function normalizePreview(raw: any, t: (k: string, v?: Record<string, string | n
     istHours: hoursOf(r, 'ist'),
     saldoHours: hoursOf(r, 'saldo'),
     overtimeHours: hoursOf(r, 'overtime'),
+    lohnarten: (Array.isArray(r.lohnarten) ? r.lohnarten : []).map((e: any) => ({
+      lohnart: String(e.lohnart ?? ''),
+      hours: Number(e.hours) || 0,
+      source: String(e.source ?? ''),
+    })),
   }));
   const warnings: string[] = (Array.isArray(raw?.warnings) ? raw.warnings : []).map((w: any) => {
     if (typeof w === 'string') return w;
     if (w?.reason === 'NO_EMPLOYEE_NUMBER') return t('exports.warnReason.NO_EMPLOYEE_NUMBER', { name: w.name || '' });
+    if (w?.type === 'NO_LOHNART') {
+      return t('exports.warnReason.NO_LOHNART', { label: absenceLabel(String(w.absenceKey || '')), days: Number(w.days) || 0 });
+    }
     return w?.message || w?.reason || JSON.stringify(w);
   });
   return {
@@ -126,6 +159,20 @@ export default function Exports() {
   const { user } = useAuthStore();
   const { t, lang } = useI18n();
   const locale = lang === 'de' ? 'de-DE' : 'en-GB';
+  const { types: absenceTypes } = useAbsenceTypes();
+
+  // Label einer Abwesenheitsart (Katalog; 'holiday' = Feiertag; sonst roher Key).
+  const absenceLabel = useCallback((key: string): string => {
+    if (key === 'holiday') return t('time.absence.holiday');
+    return absenceTypes.find((x) => x.key === key)?.label || key;
+  }, [absenceTypes, t]);
+
+  // Quelle einer Lohnarten-Position lesbar machen (work/overtime/holiday/Abwesenheit).
+  const sourceLabel = useCallback((source: string): string => {
+    if (source === 'work') return t('exports.lohnartSource.work');
+    if (source === 'overtime') return t('exports.lohnartSource.overtime');
+    return absenceLabel(source);
+  }, [absenceLabel, t]);
 
   const canAccess = !!user && (user.isSuperAdmin || ['admin', 'buchhaltung'].includes(user.role));
 
@@ -183,6 +230,11 @@ export default function Exports() {
     if (!profile || !companyId || savingProfile) return;
     setSavingProfile(true);
     try {
+      // Mapping bereinigen: leere Lohnart-Nummern nicht mitschicken.
+      const mapping: Record<string, string> = {};
+      for (const [k, v] of Object.entries(profile.absenceLohnarten)) {
+        if (String(v).trim()) mapping[k] = String(v).trim();
+      }
       await api.put(`/export-profile?companyId=${companyId}`, {
         format: profile.format,
         beraterNr: profile.beraterNr.trim(),
@@ -190,6 +242,9 @@ export default function Exports() {
         personalNrSource: profile.personalNrSource,
         lohnartNormal: profile.lohnartNormal.trim(),
         lohnartOvertime: profile.lohnartOvertime.trim() || null,
+        lohnartFeiertag: profile.lohnartFeiertag.trim() || null,
+        feiertagKennzeichen: profile.feiertagKennzeichen.trim().slice(0, 1) || '1',
+        absenceLohnarten: mapping,
         overtimeMode: profile.overtimeMode,
         exportOnlyClosed: profile.exportOnlyClosed,
         decimalComma: profile.decimalComma,
@@ -214,11 +269,13 @@ export default function Exports() {
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState('');
+  // Aufgeklappte Vorschau-Zeile (Lohnarten-Aufschlüsselung je Mitarbeiter).
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [force, setForce] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
   // Kontext-/Monats-/Formatwechsel → alte Vorschau verwerfen.
-  useEffect(() => { setPreview(null); setPreviewError(''); setForce(false); }, [companyId, month, formatOverride]);
+  useEffect(() => { setPreview(null); setPreviewError(''); setForce(false); setExpandedRow(null); }, [companyId, month, formatOverride]);
 
   const effectiveFormat: ExportFormat = formatOverride || profile?.format || 'csv';
 
@@ -230,7 +287,7 @@ export default function Exports() {
       const params: Record<string, string | number> = { companyId, month };
       if (formatOverride) params.format = formatOverride;
       const r = await api.get('/exports/preview', { params });
-      setPreview(normalizePreview(r.data, t));
+      setPreview(normalizePreview(r.data, t, absenceLabel));
       setForce(false);
     } catch (error: any) {
       console.error('Error loading export preview:', error);
@@ -466,6 +523,76 @@ export default function Exports() {
                       </div>
                     </div>
 
+                    {/* Lohnartnummern je Abwesenheitsart + Feiertage */}
+                    <div className="rounded-lg border border-slate-200 dark:border-gray-700 p-4">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-gray-200 mb-1">{t('exports.absenceMappingTitle')}</p>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mb-3">{t('exports.absenceMappingHint')}</p>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                          <thead>
+                            <tr>
+                              <th className="py-2 pr-4 text-left text-xs font-medium text-slate-600 dark:text-gray-400 uppercase tracking-wider">{t('exports.colAbsenceType')}</th>
+                              <th className="py-2 pr-4 text-left text-xs font-medium text-slate-600 dark:text-gray-400 uppercase tracking-wider">{t('exports.colKennzeichen')}</th>
+                              <th className="py-2 text-left text-xs font-medium text-slate-600 dark:text-gray-400 uppercase tracking-wider">{t('exports.colLohnartNr')}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {absenceTypes.filter((x) => x.isActive).map((x) => (
+                              <tr key={x.key}>
+                                <td className="py-2 pr-4 whitespace-nowrap text-sm text-slate-800 dark:text-gray-200">
+                                  <span className="inline-block h-3 w-3 rounded-full mr-2 align-middle" style={{ backgroundColor: x.color }} />
+                                  {x.label}
+                                </td>
+                                <td className="py-2 pr-4 whitespace-nowrap text-sm font-mono text-slate-500 dark:text-gray-400">{x.datevKennzeichen}</td>
+                                <td className="py-2">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    aria-label={t('exports.lohnartFor', { label: x.label })}
+                                    value={profile.absenceLohnarten[x.key] ?? ''}
+                                    onChange={(e) => setP({
+                                      absenceLohnarten: { ...profile.absenceLohnarten, [x.key]: e.target.value },
+                                    })}
+                                    className="input-field tabular-nums w-32"
+                                    placeholder="—"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                            {/* Feiertage (Sonderwert 'holiday') */}
+                            <tr>
+                              <td className="py-2 pr-4 whitespace-nowrap text-sm text-slate-800 dark:text-gray-200">
+                                <span className="inline-block h-3 w-3 rounded-full mr-2 align-middle bg-green-500" />
+                                {t('exports.holidayRow')}
+                              </td>
+                              <td className="py-2 pr-4">
+                                <input
+                                  type="text"
+                                  aria-label={t('exports.holidayKennzeichen')}
+                                  value={profile.feiertagKennzeichen}
+                                  onChange={(e) => setP({ feiertagKennzeichen: e.target.value.slice(0, 1) })}
+                                  className="input-field w-16 text-center font-mono"
+                                  maxLength={1}
+                                />
+                              </td>
+                              <td className="py-2">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  aria-label={t('exports.wageTypeHoliday')}
+                                  value={profile.lohnartFeiertag}
+                                  onChange={(e) => setP({ lohnartFeiertag: e.target.value })}
+                                  className="input-field tabular-nums w-32"
+                                  placeholder="—"
+                                />
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">{t('exports.wageTypeHolidayHint')}</p>
+                    </div>
+
                     {/* Überstunden-Modus */}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('exports.overtimeMode')}</label>
@@ -627,18 +754,50 @@ export default function Exports() {
                         <th className="px-4 py-3 text-right text-xs font-medium text-slate-600 dark:text-gray-400 uppercase tracking-wider">{t('exports.colIst')}</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-slate-600 dark:text-gray-400 uppercase tracking-wider">{t('exports.colSaldo')}</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-slate-600 dark:text-gray-400 uppercase tracking-wider">{t('exports.colOvertime')}</th>
+                        <th className="px-4 py-3" />
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-gray-700">
                       {preview.rows.map((r, i) => (
-                        <tr key={`${r.personalNr}-${i}`} className="hover:bg-slate-50 dark:hover:bg-gray-800">
-                          <td className="px-4 py-2.5 whitespace-nowrap text-sm font-mono text-slate-700 dark:text-gray-300">{r.personalNr || '–'}</td>
-                          <td className="px-4 py-2.5 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-gray-100">{r.name}</td>
-                          <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums text-slate-700 dark:text-gray-300">{fmtHours(r.sollHours)}</td>
-                          <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums text-slate-700 dark:text-gray-300">{fmtHours(r.istHours)}</td>
-                          <td className={clsx('px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums', r.saldoHours < 0 ? 'text-red-600' : 'text-slate-700 dark:text-gray-300')}>{fmtHours(r.saldoHours)}</td>
-                          <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums text-slate-700 dark:text-gray-300">{fmtHours(r.overtimeHours)}</td>
-                        </tr>
+                        <React.Fragment key={`${r.personalNr}-${i}`}>
+                          <tr
+                            className="hover:bg-slate-50 dark:hover:bg-gray-800 cursor-pointer"
+                            onClick={() => setExpandedRow(expandedRow === i ? null : i)}
+                            title={t('exports.toggleLohnarten')}
+                          >
+                            <td className="px-4 py-2.5 whitespace-nowrap text-sm font-mono text-slate-700 dark:text-gray-300">{r.personalNr || '–'}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-gray-100">{r.name}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums text-slate-700 dark:text-gray-300">{fmtHours(r.sollHours)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums text-slate-700 dark:text-gray-300">{fmtHours(r.istHours)}</td>
+                            <td className={clsx('px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums', r.saldoHours < 0 ? 'text-red-600' : 'text-slate-700 dark:text-gray-300')}>{fmtHours(r.saldoHours)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums text-slate-700 dark:text-gray-300">{fmtHours(r.overtimeHours)}</td>
+                            <td className="px-2 py-2.5 text-right">
+                              <ChevronDownIcon className={clsx('h-4 w-4 inline text-slate-500 transition-transform', expandedRow === i && 'rotate-180')} />
+                            </td>
+                          </tr>
+                          {expandedRow === i && (
+                            <tr>
+                              <td colSpan={7} className="px-6 py-3 bg-slate-50 dark:bg-gray-800/50">
+                                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-gray-400 mb-2">{t('exports.lohnartenTitle')}</p>
+                                {r.lohnarten.length === 0 ? (
+                                  <p className="text-sm text-slate-500 dark:text-gray-400">{t('exports.lohnartenEmpty')}</p>
+                                ) : (
+                                  <table className="text-sm">
+                                    <tbody>
+                                      {r.lohnarten.map((e, li) => (
+                                        <tr key={li} data-testid="lohnart-row">
+                                          <td className="pr-6 py-0.5 font-mono text-slate-700 dark:text-gray-300">{t('exports.lohnartPrefix')} {e.lohnart}</td>
+                                          <td className="pr-6 py-0.5 text-slate-600 dark:text-gray-400">{sourceLabel(e.source)}</td>
+                                          <td className="py-0.5 text-right tabular-nums font-medium text-slate-900 dark:text-gray-100">{fmtHours(e.hours)} h</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </tbody>
                     <tfoot className="bg-slate-50 dark:bg-gray-800 border-t-2 border-gray-300 dark:border-gray-600">
@@ -648,6 +807,7 @@ export default function Exports() {
                         <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums font-semibold text-slate-900 dark:text-gray-100">{fmtHours(sums.ist)}</td>
                         <td className={clsx('px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums font-semibold', sums.saldo < 0 ? 'text-red-600' : 'text-slate-900 dark:text-gray-100')}>{fmtHours(sums.saldo)}</td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-sm text-right tabular-nums font-semibold text-slate-900 dark:text-gray-100">{fmtHours(sums.overtime)}</td>
+                        <td />
                       </tr>
                     </tfoot>
                   </table>

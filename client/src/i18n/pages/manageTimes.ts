@@ -35,6 +35,12 @@ export const manageTimes = {
       cancelError: 'Stornierung fehlgeschlagen.',
       monthLockedError: 'Der Monat ist abgeschlossen — Änderungen sind nicht möglich.',
 
+      // Manuelle Tages-Abwesenheit
+      setAbsence: 'Abwesenheit setzen',
+      absenceNone: 'keine',
+      absenceSaved: 'Abwesenheit gespeichert.',
+      absenceError: 'Abwesenheit konnte nicht gespeichert werden.',
+
       // Nachbuchen-Modal
       manualTitle: 'Stempelung nachbuchen',
       manualDate: 'Datum',
@@ -141,6 +147,12 @@ export const manageTimes = {
       entryCancelled: 'Stamp cancelled.',
       cancelError: 'Cancellation failed.',
       monthLockedError: 'The month is closed — changes are not possible.',
+
+      // Manual day absence
+      setAbsence: 'Set absence',
+      absenceNone: 'none',
+      absenceSaved: 'Absence saved.',
+      absenceError: 'Absence could not be saved.',
 
       // Manual entry modal
       manualTitle: 'Add manual stamp',

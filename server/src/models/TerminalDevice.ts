@@ -53,13 +53,15 @@ interface TerminalDeviceAttributes {
   settingsPasswordHash?: string | null;
   /** Zeitpunkt der letzten gesendeten Störungs-Mail (null = keine offene Störung). */
   alertedAt?: Date | null;
+  /** Geräte-eigenes Logo (Data-URL); null = Firmen-Logo bzw. Mandanten-Branding. */
+  logo?: string | null;
   config: TerminalConfig;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface TerminalDeviceCreationAttributes extends Optional<TerminalDeviceAttributes,
-  'id' | 'locationLabel' | 'lat' | 'lng' | 'isActive' | 'lastSeenAt' | 'settingsPasswordHash' | 'alertedAt' | 'config' | 'createdAt' | 'updatedAt'> {}
+  'id' | 'locationLabel' | 'lat' | 'lng' | 'isActive' | 'lastSeenAt' | 'settingsPasswordHash' | 'alertedAt' | 'logo' | 'config' | 'createdAt' | 'updatedAt'> {}
 
 export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDeviceCreationAttributes> implements TerminalDeviceAttributes {
   public id!: number;
@@ -74,6 +76,7 @@ export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDevi
   public lastSeenAt?: Date | null;
   public settingsPasswordHash?: string | null;
   public alertedAt?: Date | null;
+  public logo?: string | null;
   public config!: TerminalConfig;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -124,6 +127,10 @@ export class TerminalDevice extends Model<TerminalDeviceAttributes, TerminalDevi
           allowNull: true,
         });
         console.log('Migration: Spalte terminal_devices.settings_password_hash ergänzt.');
+      }
+      if (!desc['logo']) {
+        await qi.addColumn('terminal_devices', 'logo', { type: DataTypes.TEXT, allowNull: true });
+        console.log('Migration: Spalte terminal_devices.logo ergänzt.');
       }
       if (!desc['alerted_at']) {
         await qi.addColumn('terminal_devices', 'alerted_at', {
@@ -177,6 +184,10 @@ TerminalDevice.init(
     },
     alertedAt: {
       type: DataTypes.DATE,
+      allowNull: true,
+    },
+    logo: {
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     lastSeenAt: {

@@ -94,7 +94,7 @@ export class TerminalApiController {
     try {
       const terminal = req.terminal!;
       const [company, settings] = await Promise.all([
-        Company.findByPk(terminal.companyId, { attributes: ['id', 'name', 'tenantId'] }),
+        Company.findByPk(terminal.companyId, { attributes: ['id', 'name', 'tenantId', 'logo'] }),
         settingsController.getOrCreateSettings(terminal.companyId),
       ]);
       // Branding des Mandanten der Terminal-Firma (für gebrandete Kiosk-Oberfläche).
@@ -108,6 +108,9 @@ export class TerminalApiController {
         pingSeconds: settings.terminalPingSeconds || 20,
         // Zahnrad/Einstellungen am Kiosk passwortgeschützt? (nie der Hash selbst)
         settingsProtected: !!terminal.settingsPasswordHash,
+        // Logo-Kette: Geräte-Logo → Firmen-Logo; Mandanten-Branding/Standard
+        // entscheidet der Client (branding.brandLogo unten).
+        logo: terminal.logo || company?.logo || null,
         branding: {
           brandName: tenant?.brandName ?? null,
           brandColor: tenant?.brandColor ?? null,

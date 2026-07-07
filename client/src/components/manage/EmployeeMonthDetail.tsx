@@ -22,6 +22,7 @@ import { printMonthTimesheet } from '../../lib/printMonthSheet';
 import ManualEntryModal from './ManualEntryModal';
 import TimesheetSection from './TimesheetSection';
 import AbsenceBadge from '../common/AbsenceBadge';
+import { useAbsenceTypes } from '../../hooks/useAbsenceTypes';
 
 interface WorkDayRow {
   id: number;
@@ -152,6 +153,61 @@ function DayJournal({ userId, date, locked, onChanged }: { userId: number; date:
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Manuelle Tages-Abwesenheit (Katalog-Select + „keine"): PUT
+ * /api/time/days/:userId/:date/absence — setzt absenceSource='manual' und
+ * recalct den Tag (Sollzeit-Gutschrift), null entfernt manuelle/Sync-Quellen.
+ */
+function DayAbsenceControl({ userId, day, onChanged }: {
+  userId: number;
+  day: WorkDayRow;
+  onChanged: () => void;
+}) {
+  const t = useT();
+  const { types } = useAbsenceTypes();
+  const [saving, setSaving] = useState(false);
+  const active = types.filter((x) => x.isActive);
+  // 'holiday' ist automatisch (Feiertagsservice) und nicht manuell wählbar.
+  const current = day.absence && day.absence !== 'holiday' ? day.absence : '';
+
+  const save = async (value: string) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await api.put(`/time/days/${userId}/${day.date}/absence`, { absenceKey: value || null });
+      toast.success(t('manage.absenceSaved'));
+      onChanged();
+    } catch (e: any) {
+      if (e.response?.status === 423 || e.response?.data?.error === 'MONTH_LOCKED') {
+        toast.error(t('manage.monthLockedError'));
+      } else {
+        toast.error(e.response?.data?.message || e.response?.data?.error || t('manage.absenceError'));
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <label htmlFor={`absence-${day.date}`} className="text-sm font-medium text-slate-700 dark:text-gray-300">
+        {t('manage.setAbsence')}
+      </label>
+      <select
+        id={`absence-${day.date}`}
+        value={current}
+        disabled={saving}
+        onChange={(e) => save(e.target.value)}
+        className="input-field w-56"
+      >
+        <option value="">{t('manage.absenceNone')}</option>
+        {active.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+      </select>
+      <AbsenceBadge absence={day.absence} />
     </div>
   );
 }
@@ -410,13 +466,16 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
                           <td colSpan={9} className="px-4 py-3 bg-slate-50 dark:bg-gray-800/50">
                             <DayJournal userId={userId} date={d.date} locked={closed || d.status === 'locked'} onChanged={refresh} />
                             {!closed && d.status !== 'locked' && (
-                              <button
-                                type="button"
-                                onClick={() => { setManualDate(d.date); setManualOpen(true); }}
-                                className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 hover:underline"
-                              >
-                                <PlusIcon className="h-4 w-4" /> {t('manage.addManual')}
-                              </button>
+                              <>
+                                <DayAbsenceControl userId={userId} day={d} onChanged={refresh} />
+                                <button
+                                  type="button"
+                                  onClick={() => { setManualDate(d.date); setManualOpen(true); }}
+                                  className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 hover:underline"
+                                >
+                                  <PlusIcon className="h-4 w-4" /> {t('manage.addManual')}
+                                </button>
+                              </>
                             )}
                           </td>
                         </tr>
@@ -469,13 +528,16 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
                   <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <DayJournal userId={userId} date={d.date} locked={closed || d.status === 'locked'} onChanged={refresh} />
                     {!closed && d.status !== 'locked' && (
-                      <button
-                        type="button"
-                        onClick={() => { setManualDate(d.date); setManualOpen(true); }}
-                        className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 hover:underline"
-                      >
-                        <PlusIcon className="h-4 w-4" /> {t('manage.addManual')}
-                      </button>
+                      <>
+                        <DayAbsenceControl userId={userId} day={d} onChanged={refresh} />
+                        <button
+                          type="button"
+                          onClick={() => { setManualDate(d.date); setManualOpen(true); }}
+                          className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-800 hover:underline"
+                        >
+                          <PlusIcon className="h-4 w-4" /> {t('manage.addManual')}
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
