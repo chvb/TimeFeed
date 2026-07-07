@@ -25,6 +25,7 @@
 
 ### Improved
 - Speicher-Einstellungen: Sekundärer-S3-Abschnitt in der UI nachgereicht
+- Watchdog: Autostart + Selbstheilung für TimeFeed und UrlaubsFeed
 
 ## [1.1.0] - 2026-07-06
 
