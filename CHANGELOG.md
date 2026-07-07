@@ -51,6 +51,7 @@
 - Terminal-App-Anbindung: native NFC-Brücke, Download-Route, Login-Link
 - Login-Seite: Footer wie FotoFeed/UrlaubsFeed, App-Link dezent
 - Login: App-Link-Text auf 'Android Terminal App' gekürzt
+- Login: App-Link-Text 'Android Terminal-App' (mit Bindestrich)
 
 ## [1.1.0] - 2026-07-06
 
