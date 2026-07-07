@@ -108,8 +108,9 @@ const cspDirectives: Record<string, (string)[] | null> = {
   scriptSrc: ["'self'"],
   // Google Fonts: Stylesheet von fonts.googleapis.com, Schriften von fonts.gstatic.com
   styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-  imgSrc: ["'self'", 'data:', 'blob:'],
-  connectSrc: ["'self'"],
+  // OSM-Kartenkacheln (Standort-Wahl der Terminals) + Nominatim-Adresssuche.
+  imgSrc: ["'self'", 'data:', 'blob:', 'https://tile.openstreetmap.org', 'https://*.tile.openstreetmap.org'],
+  connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
   fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
   objectSrc: ["'none'"],
   frameAncestors: ["'none'"],
@@ -139,8 +140,10 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body-Limit: Logos (Terminal/Mandant) kommen als Data-URL bis ~500 KB im JSON —
+// das Express-Standardlimit (100 KB) würde Uploads mit 500 quittieren.
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Dynamisches PWA-Manifest — MUSS vor dem Static-Handler stehen, sonst liefert
 // dieser die statische Datei aus. Ohne ?tenant identisch zur statischen Datei,

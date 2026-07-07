@@ -16,8 +16,10 @@ import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import api from '../lib/api';
 import ErrorBanner from '../components/ErrorBanner';
+const LocationPicker = lazy(() => import('../components/common/LocationPicker'));
 import { useConfirm } from '../components/common/ConfirmProvider';
 import { useAuthStore } from '../store/authStore';
+import { lazy, Suspense } from 'react';
 import { useI18n } from '../i18n';
 
 type Method = 'nfc' | 'code' | 'qr';
@@ -162,6 +164,8 @@ export default function Terminals() {
       methods: f.methods.includes(m) ? f.methods.filter((x) => x !== m) : [...f.methods, m],
     }));
   };
+
+  const [mapOpen, setMapOpen] = useState(false);
 
   const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -545,6 +549,26 @@ export default function Terminals() {
                           />
                         </div>
                       </div>
+
+                      {/* Adresssuche + Karte mit verschiebbarem Marker (Leaflet/OSM) */}
+                      <button
+                        type="button"
+                        onClick={() => setMapOpen((o) => !o)}
+                        className="mt-3 text-sm text-primary-600 hover:text-primary-800 font-medium"
+                      >
+                        {mapOpen ? t('terminals.mapHide') : t('terminals.mapShow')}
+                      </button>
+                      {mapOpen && (
+                        <div className="mt-3">
+                          <Suspense fallback={<div className="h-64 rounded-lg bg-slate-100 animate-pulse" />}>
+                            <LocationPicker
+                              lat={form.lat.trim() !== '' && !Number.isNaN(Number(form.lat.replace(',', '.'))) ? Number(form.lat.replace(',', '.')) : null}
+                              lng={form.lng.trim() !== '' && !Number.isNaN(Number(form.lng.replace(',', '.'))) ? Number(form.lng.replace(',', '.')) : null}
+                              onChange={(la, ln) => setForm((f) => ({ ...f, lat: String(la), lng: String(ln) }))}
+                            />
+                          </Suspense>
+                        </div>
+                      )}
                     </div>
 
                     <div className="rounded-lg border border-slate-200 p-4">

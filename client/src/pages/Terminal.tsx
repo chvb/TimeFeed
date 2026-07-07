@@ -13,7 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import Logo from '../components/common/Logo';
-import { BRAND_GRADIENT_FROM, BRAND_GRADIENT_TO, BRAND_NAME } from '../components/common/brand';
+import { BRAND_NAME, BRAND_PRIMARY } from '../components/common/brand';
 import { useI18n } from '../i18n';
 import {
   fetchTerminalInfo,
@@ -665,9 +665,8 @@ export default function Terminal() {
   // Logo-Kette: Geräte-Logo → Firmen-Logo (liefert der Server aufgelöst als info.logo)
   // → Mandanten-Branding → Standard-TimeFeed-Logo.
   const terminalLogo = info?.logo || branding?.brandLogo || null;
-  const headerBg = branding?.brandColor
-    ? branding.brandColor
-    : `linear-gradient(90deg, ${BRAND_GRADIENT_FROM}, ${BRAND_GRADIENT_TO})`;
+  // Einheitlich zur Hauptfarbe der App (Haupt-Header = primary-600) statt Verlauf.
+  const headerBg = branding?.brandColor || BRAND_PRIMARY;
 
   return (
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-white select-none overflow-hidden">
