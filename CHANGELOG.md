@@ -31,6 +31,7 @@
 - Watchdog: Autostart + Selbstheilung für TimeFeed und UrlaubsFeed
 - Mitarbeiter-Abgleich UrlaubsFeed ↔ TimeFeed (Pull mit Auswahl)
 - Header: Firmen-/Mandanten-Wechsler überlappt nicht mehr (Muster UrlaubsFeed)
+- Betriebs-Scripts: PID-Verifikation statt pattern-kill, Zombie-Erkennung im Update
 
 ## [1.1.0] - 2026-07-06
 
