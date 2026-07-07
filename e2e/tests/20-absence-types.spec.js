@@ -48,15 +48,18 @@ test.describe('Abwesenheitsarten', () => {
     await expectToast(page, 'Abwesenheitsart gespeichert.');
     await expect(page.getByRole('row', { name: /Mobiles Arbeiten/ })).toBeVisible();
 
-    // --- Aktiv-Toggle ---
+    // --- Aktiv-Toggle (kontrolliertes React-Input: click + Zustand abwarten,
+    // uncheck() würde die sofortige Zustandsänderung erwarten) ---
     const editedRow = page.getByRole('row', { name: /Mobiles Arbeiten/ });
-    await editedRow.getByRole('checkbox').uncheck();
+    await editedRow.getByRole('checkbox').click();
     await expect(editedRow.getByRole('checkbox')).not.toBeChecked();
-    await editedRow.getByRole('checkbox').check();
+    await editedRow.getByRole('checkbox').click();
+    await expect(editedRow.getByRole('checkbox')).toBeChecked();
 
     // --- Löschen (mit Bestätigung) ---
     await editedRow.getByRole('button', { name: 'Löschen' }).click();
-    await page.getByRole('button', { name: 'OK', exact: true }).click();
+    // Bestätigungsdialog (confirm() nutzt dialog.confirm, nicht 'OK' wie prompts).
+    await page.getByRole('button', { name: 'Bestätigen', exact: true }).click();
     await expectToast(page, 'Abwesenheitsart gelöscht.');
     await expect(page.getByRole('row', { name: /Mobiles Arbeiten/ })).toHaveCount(0);
 
@@ -95,8 +98,9 @@ test.describe('Abwesenheitsarten', () => {
     await row.click();
     await expect(page.getByRole('button', { name: 'Nachbuchen' })).toBeVisible();
 
-    // Tag aufklappen → „Abwesenheit setzen"-Select erscheint.
-    const absenceSelect = page.locator(`#absence-${slot.date}`);
+    // Tag aufklappen → „Abwesenheit setzen"-Select erscheint (Desktop-Variante;
+    // die Mobile-Karten sind parallel im DOM, aber per CSS ausgeblendet).
+    const absenceSelect = page.locator(`#absence-desktop-${slot.date}`);
     const dateRow = page.getByRole('row', { name: fmtDayCell(slot.date) }).first();
     await dateRow.click();
     await expect(absenceSelect).toBeVisible();

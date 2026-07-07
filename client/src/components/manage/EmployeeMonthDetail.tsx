@@ -162,9 +162,12 @@ function DayJournal({ userId, date, locked, onChanged }: { userId: number; date:
  * /api/time/days/:userId/:date/absence — setzt absenceSource='manual' und
  * recalct den Tag (Sollzeit-Gutschrift), null entfernt manuelle/Sync-Quellen.
  */
-function DayAbsenceControl({ userId, day, onChanged }: {
+function DayAbsenceControl({ userId, day, variant, onChanged }: {
   userId: number;
   day: WorkDayRow;
+  // Eindeutige Element-IDs: die Detailseite rendert Desktop-Tabelle UND
+  // Mobile-Karten parallel (CSS blendet eine Variante aus).
+  variant: 'desktop' | 'mobile';
   onChanged: () => void;
 }) {
   const t = useT();
@@ -194,11 +197,11 @@ function DayAbsenceControl({ userId, day, onChanged }: {
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
-      <label htmlFor={`absence-${day.date}`} className="text-sm font-medium text-slate-700 dark:text-gray-300">
+      <label htmlFor={`absence-${variant}-${day.date}`} className="text-sm font-medium text-slate-700 dark:text-gray-300">
         {t('manage.setAbsence')}
       </label>
       <select
-        id={`absence-${day.date}`}
+        id={`absence-${variant}-${day.date}`}
         value={current}
         disabled={saving}
         onChange={(e) => save(e.target.value)}
@@ -467,7 +470,7 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
                             <DayJournal userId={userId} date={d.date} locked={closed || d.status === 'locked'} onChanged={refresh} />
                             {!closed && d.status !== 'locked' && (
                               <>
-                                <DayAbsenceControl userId={userId} day={d} onChanged={refresh} />
+                                <DayAbsenceControl userId={userId} day={d} variant="desktop" onChanged={refresh} />
                                 <button
                                   type="button"
                                   onClick={() => { setManualDate(d.date); setManualOpen(true); }}
@@ -529,7 +532,7 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
                     <DayJournal userId={userId} date={d.date} locked={closed || d.status === 'locked'} onChanged={refresh} />
                     {!closed && d.status !== 'locked' && (
                       <>
-                        <DayAbsenceControl userId={userId} day={d} onChanged={refresh} />
+                        <DayAbsenceControl userId={userId} day={d} variant="mobile" onChanged={refresh} />
                         <button
                           type="button"
                           onClick={() => { setManualDate(d.date); setManualOpen(true); }}
