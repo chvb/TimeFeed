@@ -11,6 +11,7 @@ import ResetPassword from './pages/ResetPassword';
 import AppDocPage from './components/common/AppDocPage';
 import ImpressumContent from './components/legal/ImpressumContent';
 import DatenschutzContent from './components/legal/DatenschutzContent';
+import KontaktContent from './components/legal/KontaktContent';
 import InfoContent from './components/legal/InfoContent';
 import DokumentationContent from './components/legal/DokumentationContent';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -35,9 +36,8 @@ const Settings = lazy(() => import('./pages/Settings'));
 const SystemUpdate = lazy(() => import('./pages/SystemUpdate'));
 const StorageSettings = lazy(() => import('./pages/StorageSettings'));
 const Impressum = lazy(() => import('./pages/Impressum'));
+const Kontakt = lazy(() => import('./pages/Kontakt'));
 const Datenschutz = lazy(() => import('./pages/Datenschutz'));
-const Info = lazy(() => import('./pages/Info'));
-const Dokumentation = lazy(() => import('./pages/Dokumentation'));
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -59,8 +59,7 @@ function App() {
           <>
             <Route path="/impressum" element={<Impressum />} />
             <Route path="/datenschutz" element={<Datenschutz />} />
-            <Route path="/info" element={<Info />} />
-            <Route path="/dokumentation" element={<Dokumentation />} />
+            <Route path="/kontakt" element={<Kontakt />} />
           </>
         )}
 
@@ -86,6 +85,7 @@ function App() {
             {/* Rechts-/Info-Seiten als echte Seiten im App-Layout (statt Popup). */}
             <Route path="/impressum" element={<AppDocPage title="Impressum"><ImpressumContent /></AppDocPage>} />
             <Route path="/datenschutz" element={<AppDocPage title="Datenschutzerklärung"><DatenschutzContent /></AppDocPage>} />
+            <Route path="/kontakt" element={<AppDocPage title="Kontakt"><KontaktContent /></AppDocPage>} />
             <Route path="/info" element={<AppDocPage title="Informationen"><InfoContent /></AppDocPage>} />
             <Route path="/dokumentation" element={<AppDocPage title="Dokumentation"><DokumentationContent /></AppDocPage>} />
           </Route>

@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpenIcon, InformationCircleIcon, ShieldCheckIcon, IdentificationIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, InformationCircleIcon, ShieldCheckIcon, IdentificationIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { APP_VERSION } from '../../constants/version';
 import { copyrightYears } from '../../lib/dateUtils';
 import OnlineStatusBadge from './OnlineStatusBadge';
@@ -17,9 +17,12 @@ interface AppFooterProps {
   tone?: 'default' | 'onPrimary';
 }
 
-const LINKS: { key: LegalKey; href: string; labelKey: string; icon: any }[] = [
-  { key: 'dokumentation', href: '/dokumentation', labelKey: 'ui.footerDocs', icon: BookOpenIcon },
-  { key: 'info', href: '/info', labelKey: 'ui.footerInfo', icon: InformationCircleIcon },
+// appOnly: nur im eingeloggten Bereich zeigen (nicht öffentlich/Login) — Dokumentation
+// und Informationen sollen nicht ohne Login erreichbar sein (Muster UrlaubsFeed/FotoFeed).
+const LINKS: { key: LegalKey; href: string; labelKey: string; icon: any; appOnly?: boolean }[] = [
+  { key: 'dokumentation', href: '/dokumentation', labelKey: 'ui.footerDocs', icon: BookOpenIcon, appOnly: true },
+  { key: 'info', href: '/info', labelKey: 'ui.footerInfo', icon: InformationCircleIcon, appOnly: true },
+  { key: 'kontakt', href: '/kontakt', labelKey: 'ui.footerContact', icon: EnvelopeIcon },
   { key: 'datenschutz', href: '/datenschutz', labelKey: 'ui.footerPrivacy', icon: ShieldCheckIcon },
   { key: 'impressum', href: '/impressum', labelKey: 'ui.footerImprint', icon: IdentificationIcon },
 ];
@@ -39,7 +42,7 @@ export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog
   return (
     <footer className={`text-center ${className}`}>
       <div className={`flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[11px] ${textCls}`}>
-        {LINKS.map((l, i) => (
+        {LINKS.filter((l) => onOpenLegal || !l.appOnly).map((l, i) => (
           <Fragment key={l.key}>
             {i > 0 && <span className={sepCls}>·</span>}
             {onOpenLegal ? (

@@ -5,15 +5,17 @@ import { LEGAL_PROSE } from './contentStyle';
 import ImpressumContent from './ImpressumContent';
 import DatenschutzContent from './DatenschutzContent';
 import InfoContent from './InfoContent';
+import KontaktContent from './KontaktContent';
 import DokumentationContent from './DokumentationContent';
 
-export type LegalKey = 'impressum' | 'datenschutz' | 'info' | 'dokumentation';
+export type LegalKey = 'impressum' | 'datenschutz' | 'info' | 'dokumentation' | 'kontakt';
 
 const META: Record<LegalKey, { title: string; Content: React.ComponentType }> = {
   impressum: { title: 'Impressum', Content: ImpressumContent },
   datenschutz: { title: 'Datenschutzerklärung', Content: DatenschutzContent },
   info: { title: 'Informationen', Content: InfoContent },
   dokumentation: { title: 'Dokumentation', Content: DokumentationContent },
+  kontakt: { title: 'Kontakt', Content: KontaktContent },
 };
 
 interface LegalModalProps {
