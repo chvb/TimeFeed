@@ -53,6 +53,7 @@
 - Login: App-Link-Text auf 'Android Terminal App' gekürzt
 - Login: App-Link-Text 'Android Terminal-App' (mit Bindestrich)
 - Kiosk: Geräte-/Firmen-Logo mittig über der Uhr statt im Header
+- Kiosk: Marken-Footer unten mittig (www.timefeed.de / FeedApps.de-Familie)
 
 ## [1.1.0] - 2026-07-06
 
