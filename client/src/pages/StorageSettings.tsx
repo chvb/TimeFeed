@@ -10,12 +10,16 @@ import { useT } from '../i18n';
 interface StorageForm {
   s3Endpoint: string; s3Region: string; s3Bucket: string;
   s3AccessKey: string; s3SecretKey: string; s3BackupPrefix: string; s3AttachmentPrefix: string; isActive: boolean;
+  secondaryEnabled: boolean; secondaryEndpoint: string; secondaryRegion: string; secondaryBucket: string;
+  secondaryAccessKey: string; secondarySecretKey: string; secondaryPrefix: string; secondaryFailoverTimeoutMs: number;
 }
 interface S3Backup { key: string; size: number; lastModified: string | null; }
 
 const EMPTY: StorageForm = {
   s3Endpoint: '', s3Region: 'eu-central-1', s3Bucket: '',
   s3AccessKey: '', s3SecretKey: '', s3BackupPrefix: 'timefeed/backups/', s3AttachmentPrefix: 'timefeed/attachments/', isActive: false,
+  secondaryEnabled: false, secondaryEndpoint: '', secondaryRegion: 'eu-central-1', secondaryBucket: '',
+  secondaryAccessKey: '', secondarySecretKey: '', secondaryPrefix: 'timefeed/', secondaryFailoverTimeoutMs: 3000,
 };
 
 export default function StorageSettings({ section = 'all' }: { section?: 'config' | 'backups' | 'all' }) {
@@ -27,6 +31,11 @@ export default function StorageSettings({ section = 'all' }: { section?: 'config
   const [showAccess, setShowAccess] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [testingSecondary, setTestingSecondary] = useState(false);
+  const [showSecAccess, setShowSecAccess] = useState(false);
+  const [showSecSecret, setShowSecSecret] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ pendingSecondary?: number; pendingBackfill?: number } | null>(null);
   const [backups, setBackups] = useState<S3Backup[]>([]);
   const [busy, setBusy] = useState(false);
   const [loadingBackups, setLoadingBackups] = useState(false);
@@ -40,6 +49,7 @@ export default function StorageSettings({ section = 'all' }: { section?: 'config
       if (showBackups && data.settings?.isActive) {
         loadBackups();
       }
+      if (data.settings?.secondaryEnabled) loadSyncStatus();
     } catch (e: any) {
       toast.error(e.response?.data?.message || t('storage.loadError'));
     }
@@ -57,6 +67,34 @@ export default function StorageSettings({ section = 'all' }: { section?: 'config
     } catch (e: any) {
       toast.error(e.response?.data?.message || t('storage.saveError'));
     } finally { setSaving(false); }
+  };
+
+  const testSecondary = async () => {
+    setTestingSecondary(true);
+    try {
+      await api.post('/storage/test-secondary', form);
+      toast.success(t('storage.secondaryTestSuccess'));
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || e.response?.data?.message || t('storage.secondaryTestError'));
+    } finally { setTestingSecondary(false); }
+  };
+
+  const loadSyncStatus = async () => {
+    try {
+      const { data } = await api.get('/storage/secondary-sync');
+      setSyncStatus(data || {});
+    } catch { /* Anzeige optional */ }
+  };
+
+  const triggerSync = async () => {
+    setSyncing(true);
+    try {
+      await api.post('/storage/secondary-sync');
+      toast.success(t('storage.secondarySyncStarted'));
+      setTimeout(loadSyncStatus, 1500);
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || t('storage.secondarySyncError'));
+    } finally { setSyncing(false); }
   };
 
   const test = async () => {
@@ -174,6 +212,76 @@ export default function StorageSettings({ section = 'all' }: { section?: 'config
             <ArrowPathIcon className={`h-5 w-5 ${testing ? 'animate-spin' : ''}`} /> {t('storage.testConnection')}
           </button>
           <button onClick={save} disabled={saving} className="btn-primary">{saving ? t('storage.saving') : t('storage.save')}</button>
+        </div>
+      </div>
+
+      {/* Sekundärer S3-Backup-Server: Dual-Write, Failover, automatischer Rück-Sync */}
+      <div className="card space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">{t('storage.secondaryHeading')}</h2>
+          <p className="text-sm text-slate-500">{t('storage.secondaryHint')}</p>
+        </div>
+        <label className="flex items-center gap-3">
+          <input type="checkbox" checked={form.secondaryEnabled} onChange={(e) => set('secondaryEnabled', e.target.checked)} className="h-4 w-4" />
+          <span className="font-medium">{t('storage.secondaryEnable')}</span>
+        </label>
+
+        {form.secondaryEnabled && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('storage.endpoint')}</label>
+              <input className="input-field" placeholder={t('storage.endpointPlaceholder')} value={form.secondaryEndpoint} onChange={(e) => set('secondaryEndpoint', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('storage.region')}</label>
+              <input className="input-field" placeholder="eu-central-1" value={form.secondaryRegion} onChange={(e) => set('secondaryRegion', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('storage.bucket')}</label>
+              <input className="input-field" value={form.secondaryBucket} onChange={(e) => set('secondaryBucket', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('storage.secondaryPrefix')}</label>
+              <input className="input-field" placeholder="timefeed/" value={form.secondaryPrefix} onChange={(e) => set('secondaryPrefix', e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('storage.accessKey')}</label>
+              <div className="relative">
+                <input className="input-field pr-10" type={showSecAccess ? 'text' : 'password'} value={form.secondaryAccessKey} onChange={(e) => set('secondaryAccessKey', e.target.value)} />
+                <button type="button" onClick={() => setShowSecAccess((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">
+                  {showSecAccess ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('storage.secretKey')}</label>
+              <div className="relative">
+                <input className="input-field pr-10" type={showSecSecret ? 'text' : 'password'} value={form.secondarySecretKey} onChange={(e) => set('secondarySecretKey', e.target.value)} />
+                <button type="button" onClick={() => setShowSecSecret((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">
+                  {showSecSecret ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">{t('storage.secondaryFailover')}</label>
+              <input className="input-field" type="number" min={500} max={30000} step={500} value={form.secondaryFailoverTimeoutMs} onChange={(e) => set('secondaryFailoverTimeoutMs', parseInt(e.target.value) || 3000)} />
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={testSecondary} disabled={testingSecondary || !form.secondaryEnabled} className="btn-secondary inline-flex items-center gap-2">
+            <ArrowPathIcon className={`h-5 w-5 ${testingSecondary ? 'animate-spin' : ''}`} /> {t('storage.secondaryTest')}
+          </button>
+          <button onClick={triggerSync} disabled={syncing || !form.secondaryEnabled} className="btn-secondary inline-flex items-center gap-2">
+            <CloudArrowUpIcon className="h-5 w-5" /> {t('storage.secondarySyncNow')}
+          </button>
+          <button onClick={save} disabled={saving} className="btn-primary">{saving ? t('storage.saving') : t('storage.save')}</button>
+          {syncStatus && (
+            <span className="text-xs text-slate-500 ml-auto">
+              {t('storage.secondaryPending', { mirror: syncStatus.pendingSecondary ?? 0, backfill: syncStatus.pendingBackfill ?? 0 })}
+            </span>
+          )}
         </div>
       </div>
       </>)}
