@@ -26,6 +26,9 @@
 ### Added
 - E2E: 8 neue Specs für v1.1.0-Features (53 Tests gesamt, grün)
 
+### Fixed
+- Responsive-Audit: 6 Fixes (375px/768px, 53/53 Viewport-Checks grün)
+
 ### Improved
 - Speicher-Einstellungen: Sekundärer-S3-Abschnitt in der UI nachgereicht
 - Watchdog: Autostart + Selbstheilung für TimeFeed und UrlaubsFeed
@@ -38,6 +41,7 @@
 - DATEV Paket 1: Abwesenheitsarten-Katalog + Lohnartnummern, LuG kalendertäglich (Yellowfox-Referenz)
 - API-Schlüssel: Mandant beim Erzeugen automatisch auflösen
 - Terminal-Logo (pro Gerät, Fallback Firmen-Logo/Branding) + Kiosk-Header umgebaut
+- DATEV Paket 2: Zuschlagsprofile für Zeitspannen (Nachtarbeit etc.)
 
 ## [1.1.0] - 2026-07-06
 
