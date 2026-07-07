@@ -42,6 +42,8 @@
 - API-Schlüssel: Mandant beim Erzeugen automatisch auflösen
 - Terminal-Logo (pro Gerät, Fallback Firmen-Logo/Branding) + Kiosk-Header umgebaut
 - DATEV Paket 2: Zuschlagsprofile für Zeitspannen (Nachtarbeit etc.)
+- Berichts-Mails: Tag/Monat/Quartal/Jahr pro Firma konfigurierbar
+- Auto-Backup-System (FotoFeed-Muster), über die UI verwaltbar
 
 ## [1.1.0] - 2026-07-06
 
