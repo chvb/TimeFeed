@@ -266,14 +266,14 @@ export default function Profile() {
             </h2>
             <p className="text-slate-600 mb-4">{t(`roles.${user.role}`) !== `roles.${user.role}` ? t(`roles.${user.role}`) : user.role}</p>
             <div className="space-y-2 text-sm text-slate-600">
-              <div className="flex items-center justify-center">
-                <EnvelopeIcon className="h-4 w-4 mr-2" />
-                {user.email}
+              <div className="flex items-center justify-center min-w-0">
+                <EnvelopeIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                <span className="break-all">{user.email}</span>
               </div>
               {user.phoneNumber && (
-                <div className="flex items-center justify-center">
-                  <PhoneIcon className="h-4 w-4 mr-2" />
-                  {user.phoneNumber}
+                <div className="flex items-center justify-center min-w-0">
+                  <PhoneIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span className="break-all">{user.phoneNumber}</span>
                 </div>
               )}
             </div>

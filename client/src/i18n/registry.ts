@@ -6,6 +6,7 @@ import { companiesPages } from './pages/companies';
 import { uiPages } from './pages/ui';
 import { time } from './pages/time';
 import { timeModels } from './pages/timeModels';
+import { surcharges } from './pages/surcharges';
 import { terminal } from './pages/terminal';
 import { manageTimes } from './pages/manageTimes';
 import { corrections } from './pages/corrections';

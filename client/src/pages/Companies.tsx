@@ -139,6 +139,7 @@ export default function Companies() {
       <div className="mb-3 max-w-sm"><SearchInput value={search} onChange={setSearch} placeholder={t('companies.searchPlaceholder')} /></div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
@@ -171,6 +172,7 @@ export default function Companies() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Transition appear show={modalOpen} as={Fragment}>

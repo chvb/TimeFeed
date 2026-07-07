@@ -1975,14 +1975,15 @@ const Settings: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar with tabs */}
         <div className="lg:col-span-1">
-          <nav className="space-y-1">
+          {/* Mobile/Tablet: horizontal scrollbare Tab-Leiste; Desktop (lg+): vertikale Sidebar */}
+          <nav className="flex gap-1 overflow-x-auto pb-2 -mb-2 lg:flex-col lg:gap-0 lg:space-y-1 lg:overflow-visible lg:pb-0 lg:mb-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  className={`flex-shrink-0 lg:w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-primary-600 text-white shadow-sm'
                       : 'text-slate-700 hover:bg-slate-100 '

@@ -152,7 +152,9 @@ export default function ApiKeys({ embedded = false }: { embedded?: boolean } = {
             <p className="text-sm text-slate-400 mt-1">{t('apiKeys.emptyHint')}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Desktop: Tabelle */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="min-w-full divide-y divide-slate-200">
               <thead className="bg-slate-50">
                 <tr>
@@ -190,6 +192,39 @@ export default function ApiKeys({ embedded = false }: { embedded?: boolean } = {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile: Card-Liste */}
+          <ul className="md:hidden divide-y divide-slate-100">
+            {keys.map((k) => (
+              <li key={k.id} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900 truncate">{k.name}</p>
+                    <code className="mt-1 inline-block text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded font-mono">
+                      {k.keyPrefix ? `${k.keyPrefix}…` : '••••••••'}
+                    </code>
+                  </div>
+                  <span className="flex-shrink-0">{statusBadge(k)}</span>
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <dt className="text-slate-500">{t('apiKeys.colLastUsed')}</dt>
+                  <dd className="text-right text-slate-700">{k.lastUsedAt ? fmtDateTime(k.lastUsedAt) : t('apiKeys.never')}</dd>
+                  <dt className="text-slate-500">{t('apiKeys.colCreated')}</dt>
+                  <dd className="text-right text-slate-700">{fmtDate(k.createdAt)}</dd>
+                  <dt className="text-slate-500">{t('apiKeys.colExpires')}</dt>
+                  <dd className="text-right text-slate-700">{k.expiresAt ? fmtDate(k.expiresAt) : t('apiKeys.noExpiry')}</dd>
+                </dl>
+                {k.isActive && (
+                  <div className="mt-3 flex justify-end">
+                    <button onClick={() => revoke(k)} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-red-600" title={t('apiKeys.revoke')}>
+                      <NoSymbolIcon className="h-5 w-5" /> {t('apiKeys.revoke')}
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+          </>
         )}
       </div>
 

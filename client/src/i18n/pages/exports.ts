@@ -57,6 +57,7 @@ export const exportsPage = {
       lohnartSource: {
         work: 'Normalstunden',
         overtime: 'Überstunden',
+        surcharge: 'Zuschlag {{label}}',
       },
       overtimeMode: 'Überstunden-Modus',
       overtimeModeOption: {
@@ -163,6 +164,7 @@ export const exportsPage = {
       lohnartSource: {
         work: 'Regular hours',
         overtime: 'Overtime',
+        surcharge: 'Surcharge {{label}}',
       },
       overtimeMode: 'Overtime mode',
       overtimeModeOption: {

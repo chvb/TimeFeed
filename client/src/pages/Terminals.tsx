@@ -457,7 +457,7 @@ export default function Terminals() {
                     {term.isActive ? t('terminals.active') : t('terminals.inactive')}
                   </span>
                 </div>
-                <div className="mt-3 flex justify-end gap-3">
+                <div className="mt-3 flex flex-wrap justify-end gap-x-3 gap-y-2">
                   <button onClick={() => openEdit(term)} className="text-primary-600 flex items-center gap-1 text-sm">
                     <PencilIcon className="h-4 w-4" /> {t('terminals.editTitle')}
                   </button>
