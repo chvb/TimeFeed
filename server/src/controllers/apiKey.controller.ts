@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiKey, API_DEFAULT_SCOPES, generateApiKey, hashApiKey } from '../models/ApiKey';
 import { Tenant } from '../models/Tenant';
+import { Company } from '../models/Company';
 import { User } from '../models/User';
 import { AppError } from '../middleware/errorHandler';
 import { AuditService } from '../services/auditService';
@@ -58,8 +59,19 @@ export class ApiKeyController {
       const { name, expiresAt } = req.body;
       if (!name || !String(name).trim()) return next(new AppError(400, 'Name erforderlich'));
 
-      const tenantId = resolveTenantId(req, req.body.tenantId);
-      if (!tenantId) return next(new AppError(400, 'tenantId erforderlich'));
+      // Mandant auflösen: eigener Tenant → explizite Angabe → Tenant der eigenen
+      // Firma → einziger vorhandener Mandant (typischer Selfhost-Fall). Erst wenn
+      // all das fehlschlägt (mehrere Mandanten, kein Kontext) ist die Angabe Pflicht.
+      let tenantId = resolveTenantId(req, req.body.tenantId);
+      if (!tenantId && req.user!.companyId) {
+        const company = await Company.findByPk(req.user!.companyId, { attributes: ['id', 'tenantId'] });
+        tenantId = company?.tenantId ?? null;
+      }
+      if (!tenantId) {
+        const tenants = await Tenant.findAll({ attributes: ['id'], limit: 2 });
+        if (tenants.length === 1) tenantId = tenants[0].id;
+      }
+      if (!tenantId) return next(new AppError(400, 'tenantId erforderlich (bitte oben im Kopf-Wechsler einen Mandanten wählen)'));
       const tenant = await Tenant.findByPk(tenantId);
       if (!tenant) return next(new AppError(404, 'Mandant nicht gefunden'));
 
