@@ -20,7 +20,6 @@ import {
   DeviceTabletIcon,
   ClipboardDocumentListIcon,
   ArrowDownTrayIcon,
-  KeyIcon,
   NewspaperIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore, isTenantAdmin as isTenantAdminFn } from '../store/authStore';
@@ -55,8 +54,6 @@ const navigation: NavItem[] = [
   { name: 'Mandanten', tKey: 'nav.tenants', href: '/tenants', icon: BuildingLibraryIcon, companyManager: true },
   { name: 'Firmen', tKey: 'nav.companies', href: '/companies', icon: BuildingOffice2Icon, companyManager: true },
   { name: 'Einstellungen', tKey: 'nav.settings', href: '/settings', icon: Cog6ToothIcon, roles: ['admin'] },
-  // Direkt unter den Einstellungen, nur für den Super-Admin sichtbar.
-  { name: 'API-Schlüssel', tKey: 'nav.apiKeys', href: '/api-keys', icon: KeyIcon, superAdmin: true },
 ];
 
 function NavGroup({ item, onNavigate }: { item: NavItem; onNavigate: () => void }) {

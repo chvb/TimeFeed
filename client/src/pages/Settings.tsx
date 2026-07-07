@@ -18,11 +18,11 @@ import {
   ClockIcon,
   LinkIcon,
   CheckCircleIcon,
-  UsersIcon
-} from '@heroicons/react/24/outline';
+  UsersIcon, KeyIcon} from '@heroicons/react/24/outline';
 import { useAuthStore } from '../store/authStore';
 import SystemUpdate from './SystemUpdate';
 import StorageSettings from './StorageSettings';
+import ApiKeysPage from './ApiKeys';
 import TrashSettings from './TrashSettings';
 import api from '../lib/api';
 import { matchesSearch } from '../lib/normalize';
@@ -401,6 +401,7 @@ const Settings: React.FC = () => {
     { id: 'notifications', name: 'Benachrichtigungen', icon: BellIcon },
     { id: 'security', name: 'Sicherheit', icon: ShieldCheckIcon, superAdmin: true },
     { id: 'integrations', name: 'Integrationen', icon: LinkIcon },
+    { id: 'apiKeys', name: 'API-Schlüssel', icon: KeyIcon, superAdmin: true },
     // Auswertung & Export
     { id: 'audit', name: 'Audit Log', icon: ClipboardDocumentCheckIcon },
     // System & Wartung
@@ -609,6 +610,9 @@ const Settings: React.FC = () => {
         return <SystemUpdate />;
       case 'storage':
         return <StorageSettings section="config" />;
+
+      case 'apiKeys':
+        return <ApiKeysPage embedded />;
       case 'system':
         return (
           <div className="card">

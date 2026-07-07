@@ -1,7 +1,8 @@
 // @ts-check
-// Navigation & Berechtigungen (v1.1.0): Dashboard steht über Feed; „API-Schlüssel"
-// nur für Super-Admins sichtbar (unter „Einstellungen"); normaler Firmen-Admin
-// sieht den Punkt nicht und bekommt auf /api-keys „Kein Zugriff".
+// Navigation & Berechtigungen: Dashboard steht über Feed; „API-Schlüssel" ist
+// KEIN eigener Menüpunkt mehr, sondern ein Tab in den Einstellungen — sichtbar
+// nur für Super-Admins; normaler Firmen-Admin sieht den Tab nicht und bekommt
+// auf /api-keys „Kein Zugriff".
 const { test, expect } = require('@playwright/test');
 const { login, uiLogin } = require('./helpers');
 
@@ -14,20 +15,24 @@ async function navTexts(page) {
 }
 
 test.describe('Navigation & API-Schlüssel-Berechtigung', () => {
-  test('Super-Admin: Dashboard über Feed, „API-Schlüssel" unter „Einstellungen"', async ({ page }) => {
+  test('Super-Admin: Dashboard über Feed, „API-Schlüssel" als Einstellungs-Tab', async ({ page }) => {
     await uiLogin(page, 'admin'); // Seed-Admin IST Super-Admin
     await page.goto('/dashboard');
-    await expect(nav(page).getByRole('link', { name: 'API-Schlüssel' })).toBeVisible();
 
     const texts = await navTexts(page);
     expect(texts.indexOf('Dashboard')).toBeGreaterThanOrEqual(0);
     expect(texts.indexOf('Dashboard')).toBeLessThan(texts.indexOf('Feed'));
-    // „API-Schlüssel" folgt direkt auf „Einstellungen".
-    const idxSettings = texts.indexOf('Einstellungen');
-    expect(idxSettings).toBeGreaterThanOrEqual(0);
-    expect(texts[idxSettings + 1]).toBe('API-Schlüssel');
+    // Kein eigener Menüpunkt mehr — der Bereich lebt als Tab in den Einstellungen.
+    expect(texts).not.toContain('API-Schlüssel');
 
-    // Seite ist für den Super-Admin erreichbar.
+    await page.goto('/settings');
+    const apiTab = page.getByRole('button', { name: 'API-Schlüssel' });
+    await expect(apiTab).toBeVisible();
+    await apiTab.click();
+    await expect(page.getByRole('heading', { name: 'API-Schlüssel' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Neuer Schlüssel|Neuen Schlüssel/ })).toBeVisible();
+
+    // Direktaufruf der Standalone-Route bleibt für Super-Admins erlaubt.
     await page.goto('/api-keys');
     await expect(page.getByRole('heading', { name: 'API-Schlüssel' })).toBeVisible();
     await expect(page.getByText('Kein Zugriff auf die API-Schlüssel-Verwaltung.')).toHaveCount(0);
@@ -43,7 +48,7 @@ test.describe('Navigation & API-Schlüssel-Berechtigung', () => {
     expect(texts).not.toContain('API-Schlüssel');
   });
 
-  test('Admin ohne Super-Admin-Flag: kein Nav-Punkt, /api-keys → „Kein Zugriff", API → 403', async ({ page, request }) => {
+  test('Admin ohne Super-Admin-Flag: kein Einstellungs-Tab, /api-keys → „Kein Zugriff", API → 403', async ({ page, request }) => {
     const admin = await login(request, 'admin');
     const created = await request.post('/api/users', {
       headers: admin.headers,
@@ -56,9 +61,9 @@ test.describe('Navigation & API-Schlüssel-Berechtigung', () => {
     expect([201, 400]).toContain(created.status()); // 400 = existiert bereits
 
     await uiLogin(page, NAV_ADMIN);
-    await page.goto('/dashboard');
-    await expect(nav(page).getByRole('link', { name: 'Einstellungen' })).toBeVisible();
-    await expect(nav(page).getByRole('link', { name: 'API-Schlüssel' })).toHaveCount(0);
+    await page.goto('/settings');
+    await expect(page.getByRole('button', { name: 'Allgemein' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'API-Schlüssel' })).toHaveCount(0);
 
     // Direktaufruf → Kein Zugriff.
     await page.goto('/api-keys');

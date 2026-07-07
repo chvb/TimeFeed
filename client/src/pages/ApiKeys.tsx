@@ -28,7 +28,7 @@ interface ApiKey {
  * Verwaltung der API-Schlüssel (/api-keys): Liste, Erzeugen mit Einmal-Anzeige
  * des Vollschlüssels (tfk_…), Widerrufen. Nur für Admins.
  */
-export default function ApiKeys() {
+export default function ApiKeys({ embedded = false }: { embedded?: boolean } = {}) {
   const t = useT();
   const { lang } = useI18n();
   const locale = lang === 'en' ? 'en-GB' : 'de-DE';
@@ -130,8 +130,8 @@ export default function ApiKeys() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-          <KeyIcon className="h-8 w-8 text-primary-600" /> {t('apiKeys.title')}
+        <h1 className={embedded ? "text-lg font-semibold text-slate-900 flex items-center gap-2" : "text-3xl font-bold text-slate-900 flex items-center gap-2"}>
+          <KeyIcon className={embedded ? "h-5 w-5 text-primary-600" : "h-8 w-8 text-primary-600"} /> {t('apiKeys.title')}
         </h1>
         <button onClick={openCreate} className="btn-primary flex items-center gap-2">
           <PlusIcon className="h-5 w-5" /> {t('apiKeys.new')}
