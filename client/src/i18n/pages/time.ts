@@ -63,6 +63,7 @@ export const time = {
       withGps: 'Mit Standort',
       withoutGps: 'Ohne Standort',
       openMap: 'Standort auf Karte öffnen',
+      runningWorkTime: 'Laufende Arbeitszeit (heute)',
       status: {
         open: 'Offen',
         incomplete: 'Unvollständig',
@@ -162,6 +163,7 @@ export const time = {
       withGps: 'With location',
       withoutGps: 'Without location',
       openMap: 'Open location on map',
+      runningWorkTime: 'Running work time (today)',
       status: {
         open: 'Open',
         incomplete: 'Incomplete',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ClockIcon,
@@ -220,6 +220,24 @@ export default function Dashboard() {
     state === 'break' ? t('time.stateBreak', { time: sinceLabel }) :
     t('time.stateOut');
 
+  // Live mitlaufende Arbeitszeit: abgeschlossene Schichten des Tages
+  // (today.workedMinutes) + aktuelle offene Schicht (jetzt − Einstempelzeit).
+  // In der Pause friert der Zähler auf dem letzten Wert ein (Ref); automatische
+  // Pausenabzüge rechnet erst der Tagesabschluss — hier läuft die Brutto-Zeit.
+  const fmtHMS = (sec: number) =>
+    `${Math.floor(sec / 3600)}:${String(Math.floor((sec % 3600) / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  const frozenRunningRef = useRef<number | null>(null);
+  let runningSeconds: number | null = null;
+  if (state === 'in' && since) {
+    runningSeconds = (today?.workedMinutes ?? 0) * 60 + Math.max(0, Math.floor((now.getTime() - since.getTime()) / 1000));
+    frozenRunningRef.current = runningSeconds;
+  } else if (state === 'break') {
+    runningSeconds = frozenRunningRef.current; // eingefroren; nach Reload unbekannt → ausblenden
+  } else {
+    frozenRunningRef.current = null;
+  }
+  const runningTimeLabel = runningSeconds != null ? fmtHMS(runningSeconds) : '';
+
   const showBreakButtons = breakMode === 'manual' || breakMode === 'combined';
   const totalBreak = (today?.breakMinutes ?? 0) + (today?.autoBreakMinutes ?? 0);
 
@@ -253,6 +271,13 @@ export default function Dashboard() {
           />
           <span className="text-base sm:text-lg font-semibold text-slate-800 dark:text-gray-200">{stateLabel}</span>
         </div>
+
+        {runningSeconds != null && (
+          <div className="mt-2">
+            <p className="text-2xl sm:text-3xl font-bold tabular-nums text-primary-600 dark:text-primary-400">{runningTimeLabel}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-gray-500 mt-0.5">{t('time.runningWorkTime')}</p>
+          </div>
+        )}
 
         <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 px-4">
           {loading ? (
