@@ -54,6 +54,7 @@
 - Login: App-Link-Text 'Android Terminal-App' (mit Bindestrich)
 - Kiosk: Geräte-/Firmen-Logo mittig über der Uhr statt im Header
 - Kiosk: Marken-Footer unten mittig (www.timefeed.de / FeedApps.de-Familie)
+- Dachmarke: 'Teil der FeedApps.de-Familie' im App-Footer und Mail-Footer
 
 ## [1.1.0] - 2026-07-06
 
