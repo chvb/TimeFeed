@@ -142,8 +142,8 @@ app.use(cors({
 }));
 // Body-Limit: Logos (Terminal/Mandant) kommen als Data-URL bis ~500 KB im JSON —
 // das Express-Standardlimit (100 KB) würde Uploads mit 500 quittieren.
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // Dynamisches PWA-Manifest — MUSS vor dem Static-Handler stehen, sonst liefert
 // dieser die statische Datei aus. Ohne ?tenant identisch zur statischen Datei,

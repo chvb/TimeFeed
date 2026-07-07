@@ -109,7 +109,7 @@ export default function Tenants() {
   const onLogoFile = (file: File | null) => {
     if (!file) return;
     if (!['image/png', 'image/svg+xml'].includes(file.type)) { toast.error(t('tenants.brandLogoWrongType')); return; }
-    if (file.size > 500 * 1024) { toast.error(t('tenants.brandLogoTooBig')); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error(t('tenants.brandLogoTooBig')); return; }
     const reader = new FileReader();
     reader.onload = () => setBranding((b) => ({ ...b, brandLogo: String(reader.result || '') }));
     reader.readAsDataURL(file);

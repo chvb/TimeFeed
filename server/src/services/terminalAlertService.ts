@@ -27,6 +27,10 @@ let running = false;
 async function recipientsForCompany(settings: SystemSettings, companyId: number): Promise<string[]> {
   const configured = (settings.terminalAlertEmails || '').split(',').map((e) => e.trim()).filter(Boolean);
   if (configured.length > 0) return configured;
+  // Fallback auf die globale Vorlage (gleiche Logik wie bei den Berichts-Mails).
+  const globalSettings = await SystemSettings.findOne({ where: { companyId: null } });
+  const globalConfigured = (globalSettings?.terminalAlertEmails || '').split(',').map((e) => e.trim()).filter(Boolean);
+  if (globalConfigured.length > 0) return globalConfigured;
   const admins = await User.findAll({
     where: { companyId, isActive: true, role: UserRole.ADMIN },
     attributes: ['email'],

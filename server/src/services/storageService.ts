@@ -390,8 +390,10 @@ class StorageService {
         return { ok: true, via: 'HeadBucket' };
       } catch (headErr: any) {
         const status = headErr?.$metadata?.httpStatusCode;
-        // Manche S3-kompatible Anbieter erlauben kein HeadBucket → PUT/DELETE-Marker.
-        if (status === 403 || status === 405) {
+        // Manche S3-kompatible Anbieter beantworten HeadBucket nicht sauber
+        // (403/405, teils auch 404/ohne Status trotz korrekter Zugangsdaten) →
+        // aussagekräftiger ist der PUT/DELETE-Marker.
+        if (status === 403 || status === 405 || status === 404 || status == null) {
           const markerKey = normalizePrefix(cfg.secondaryPrefix) + '.timefeed-healthcheck';
           await client.send(new PutObjectCommand({
             Bucket: cfg.secondaryBucket,

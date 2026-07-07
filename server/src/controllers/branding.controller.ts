@@ -7,7 +7,7 @@ import { AppError } from '../middleware/errorHandler';
 
 // Maximale Größe des Logos als Data-URL-String (~500 KB Binärdaten entsprechen
 // ca. 683k Base64-Zeichen; wir kappen den STRING bei 700k Zeichen).
-export const MAX_BRAND_LOGO_CHARS = 700_000;
+export const MAX_BRAND_LOGO_CHARS = 2_900_000; // ~2 MB Binärdaten als Data-URL
 
 // Erlaubte Logo-Formate (Data-URL-Präfixe). SVG darf base64- ODER utf8/url-kodiert sein.
 const LOGO_DATA_URL_RE = /^data:image\/(png|jpeg|webp|svg\+xml)[;,]/i;

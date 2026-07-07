@@ -435,6 +435,11 @@ export interface SendReportResult {
 async function resolveRecipients(settings: SystemSettings, companyId: number): Promise<string[]> {
   const configured = parseRecipients(settings.reportRecipients);
   if (configured.length > 0) return configured;
+  // Fallback auf die GLOBALE Vorlage: Super-Admins ohne Firmen-Kontext pflegen
+  // ihre Empfänger dort — die Firmen-Zeile wurde ggf. vorher geklont und ist leer.
+  const globalSettings = await SystemSettings.findOne({ where: { companyId: null } });
+  const globalConfigured = parseRecipients(globalSettings?.reportRecipients ?? null);
+  if (globalConfigured.length > 0) return globalConfigured;
   const admins = await User.findAll({
     where: { companyId, isActive: true, role: UserRole.ADMIN },
     attributes: ['email'],

@@ -64,7 +64,7 @@ export default function Companies() {
   // Logo-Datei → Data-URL (max ~200 KB, wird im Druck/PDF-Kopf verwendet).
   const onLogoFile = (file?: File) => {
     if (!file) return;
-    if (file.size > 200 * 1024) { toast.error(t('companies.tLogoTooBig')); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error(t('companies.tLogoTooBig')); return; }
     const reader = new FileReader();
     reader.onload = () => setForm((f) => ({ ...f, logo: String(reader.result) }));
     reader.readAsDataURL(file);

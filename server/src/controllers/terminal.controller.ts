@@ -72,8 +72,8 @@ function parseLogo(value: any): string | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === '') return null;
   const v = String(value);
-  if (!/^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v) || v.length > 700_000) {
-    throw new AppError(400, 'logo muss eine Bild-Data-URL (PNG/JPEG/WebP/SVG) bis ca. 500 KB sein');
+  if (!/^data:image\/(png|jpeg|webp|svg\+xml);base64,/.test(v) || v.length > 2_900_000) {
+    throw new AppError(400, 'logo muss eine Bild-Data-URL (PNG/JPEG/WebP/SVG) bis ca. 2 MB sein');
   }
   return v;
 }

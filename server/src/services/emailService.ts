@@ -14,6 +14,22 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+
+// Logo als Inline-Anhang (CID): Remote-Bilder werden von Mail-Clients standardmäßig
+// geblockt — eingebettet wird das Logo überall angezeigt. Pfad relativ zu dist/services.
+import fs from 'fs';
+import path from 'path';
+let cachedLogo: Buffer | null | undefined;
+function getLogoBuffer(): Buffer | null {
+  if (cachedLogo !== undefined) return cachedLogo;
+  try {
+    cachedLogo = fs.readFileSync(path.join(__dirname, '../../public/icons/icon-192.png'));
+  } catch {
+    cachedLogo = null; // Fallback: Mail geht ohne Logo raus (alt-Text bleibt)
+  }
+  return cachedLogo;
+}
+
 // ---------------------------------------------------------------------------
 // Einheitliches Marken-Layout für ALLE ausgehenden Mails (Feed-Familie):
 // Orange-Kopf mit Logo, gebrandeter Button, einheitlicher Footer.
@@ -53,7 +69,7 @@ export async function renderBrandedEmail(opts: BrandedEmailOptions): Promise<str
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
         <tr>
           <td align="center" bgcolor="${MAIL_PRIMARY}" style="background:${MAIL_GRADIENT};padding:28px 20px;border-radius:14px 14px 0 0;">
-            <img src="${base}/icons/icon-192.png" width="52" height="52" alt="TimeFeed" style="display:inline-block;vertical-align:middle;border-radius:12px;border:0;" />
+            <img src="cid:timefeed-logo" width="52" height="52" alt="TimeFeed" style="display:inline-block;vertical-align:middle;border-radius:12px;border:0;" />
             <span style="display:inline-block;vertical-align:middle;margin-left:14px;color:#ffffff;font-size:28px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;letter-spacing:-0.5px;">TimeFeed</span>
           </td>
         </tr>
@@ -125,17 +141,31 @@ class EmailService {
         throw new Error('Email settings not found');
       }
 
+      // Logo-Inline-Anhang automatisch ergänzen, wenn das Marken-Layout genutzt wird.
+      const mailAttachments: any[] = (attachments || []).map(attachment => ({
+        filename: attachment.filename,
+        content: attachment.content,
+        contentType: attachment.contentType
+      }));
+      if (html.includes('cid:timefeed-logo')) {
+        const logo = getLogoBuffer();
+        if (logo) {
+          mailAttachments.push({
+            filename: 'timefeed-logo.png',
+            content: logo,
+            contentType: 'image/png',
+            cid: 'timefeed-logo',
+            contentDisposition: 'inline',
+          });
+        }
+      }
       const mailOptions = {
         from: `${fromName || settings.fromName} <${settings.fromEmail}>`,
         to: Array.isArray(to) ? to.join(', ') : to,
         subject,
         html,
         text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
-        attachments: attachments?.map(attachment => ({
-          filename: attachment.filename,
-          content: attachment.content,
-          contentType: attachment.contentType
-        }))
+        attachments: mailAttachments.length > 0 ? mailAttachments : undefined
       };
 
       const result = await transporter.sendMail(mailOptions);

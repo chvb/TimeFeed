@@ -171,7 +171,7 @@ export default function Terminals() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 500 * 1024) { toast.error(t('terminals.logoTooLarge')); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error(t('terminals.logoTooLarge')); return; }
     const reader = new FileReader();
     reader.onload = () => setForm((f) => ({ ...f, logo: String(reader.result) }));
     reader.readAsDataURL(file);

@@ -19,7 +19,7 @@ export const errorHandler = (
 ) => {
   // body-parser: Payload über dem Limit → 413 statt generischem 500.
   if ((err as any)?.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'PAYLOAD_TOO_LARGE', message: 'Die Datei ist zu groß (max. ca. 500 KB für Logos).' });
+    return res.status(413).json({ error: 'PAYLOAD_TOO_LARGE', message: 'Die Datei ist zu groß (max. ca. 2 MB für Logos).' });
   }
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
