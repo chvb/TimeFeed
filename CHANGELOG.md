@@ -50,6 +50,7 @@
 - TimeFeed Terminal: eigene Android-Kiosk-App (WebView, nativer NFC)
 - Terminal-App-Anbindung: native NFC-Brücke, Download-Route, Login-Link
 - Login-Seite: Footer wie FotoFeed/UrlaubsFeed, App-Link dezent
+- Login: App-Link-Text auf 'Android Terminal App' gekürzt
 
 ## [1.1.0] - 2026-07-06
 
