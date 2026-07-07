@@ -32,6 +32,7 @@
 - Mitarbeiter-Abgleich UrlaubsFeed ↔ TimeFeed (Pull mit Auswahl)
 - Header: Firmen-/Mandanten-Wechsler überlappt nicht mehr (Muster UrlaubsFeed)
 - Betriebs-Scripts: PID-Verifikation statt pattern-kill, Zombie-Erkennung im Update
+- E2E: Spec 19 Mitarbeiter-Abgleich (Suite: 19 Specs / 58 Tests grün)
 
 ## [1.1.0] - 2026-07-06
 
