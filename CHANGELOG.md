@@ -49,6 +49,7 @@
 - Mail-Logo eingebettet, Berichts-Empfänger-Fallback, Logo-Limits 2 MB, Sekundär-Test robuster
 - TimeFeed Terminal: eigene Android-Kiosk-App (WebView, nativer NFC)
 - Terminal-App-Anbindung: native NFC-Brücke, Download-Route, Login-Link
+- Login-Seite: Footer wie FotoFeed/UrlaubsFeed, App-Link dezent
 
 ## [1.1.0] - 2026-07-06
 
