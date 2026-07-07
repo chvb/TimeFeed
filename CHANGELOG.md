@@ -34,6 +34,7 @@
 - Betriebs-Scripts: PID-Verifikation statt pattern-kill, Zombie-Erkennung im Update
 - E2E: Spec 19 Mitarbeiter-Abgleich (Suite: 19 Specs / 58 Tests grün)
 - API-Schlüssel als Tab in den Einstellungen (Super-Admin), Menüpunkt entfernt
+- Stempeluhr: laufende Arbeitszeit live anzeigen
 
 ## [1.1.0] - 2026-07-06
 
