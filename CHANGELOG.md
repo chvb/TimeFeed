@@ -29,6 +29,7 @@
 ### Fixed
 - Responsive-Audit: 6 Fixes (375px/768px, 53/53 Viewport-Checks grün)
 - Terminal-Standort per Karte + Fixes: Body-Limit, Kiosk-Farbe
+- Kiosk 24/7-Selbstheilung: nächtlicher Auto-Reload + Fehler-Watchdog
 
 ### Improved
 - Speicher-Einstellungen: Sekundärer-S3-Abschnitt in der UI nachgereicht
