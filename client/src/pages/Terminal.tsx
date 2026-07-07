@@ -302,6 +302,44 @@ export default function Terminal() {
   }, []);
 
 
+  /* ---------- 24/7-Selbstheilung ----------
+     (1) Nächtlicher Auto-Reload (03:45): räumt Speicherlecks langer Browser-
+         Sessions ab und zieht neue App-Versionen — nur am Idle-Screen, damit
+         niemand mitten in einer Eingabe unterbrochen wird (sonst nächster Tick).
+     (2) Fehler-Zähler: häufen sich unbehandelte JS-Fehler (kaputter Zustand),
+         lädt der Kiosk sich selbst neu statt weiß/eingefroren hängenzubleiben. */
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  useEffect(() => {
+    if (!token) return;
+    const RELOAD_HOUR = 3, RELOAD_MINUTE = 45;
+    const id = window.setInterval(() => {
+      const n = new Date();
+      if (n.getHours() === RELOAD_HOUR && n.getMinutes() === RELOAD_MINUTE && screenRef.current === 'idle') {
+        window.location.reload();
+      }
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [token]);
+
+  useEffect(() => {
+    let errorCount = 0;
+    let firstErrorAt = 0;
+    const onError = () => {
+      const n = Date.now();
+      if (n - firstErrorAt > 120_000) { errorCount = 0; firstErrorAt = n; }
+      errorCount += 1;
+      // 8 unbehandelte Fehler binnen 2 Minuten = kaputter Zustand → Neustart der App.
+      if (errorCount >= 8) window.location.reload();
+    };
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onError);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onError);
+    };
+  }, []);
+
   /* ---------- Wake-Lock (Tablet nicht einschlafen lassen) ---------- */
   useEffect(() => {
     let lock: any = null;
