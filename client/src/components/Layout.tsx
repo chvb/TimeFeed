@@ -208,6 +208,40 @@ export default function Layout() {
         : (!item.roles || item.roles.includes(user?.role || ''))
   );
 
+  // Firmen-/Mandanten-Wechsler: eine Render-Funktion für Header (nur lg+) und
+  // Mobile-Sidebar (volle Breite) — verhindert Überlappung mit den Header-Icons.
+  const renderScopeSelect = (className: string) => (
+    <select
+      value={companyCtx}
+      onChange={(e) => onCompanyCtxChange(e.target.value)}
+      title={t('nav.switchScope')}
+      className={className}
+    >
+              <option value="" className="text-slate-900">{t('nav.allCompanies')}</option>
+              {tenantOptions.length > 1 ? (
+                <>
+                  {tenantOptions.map((tn) => (
+                    <optgroup key={tn.id} label={tn.name} className="text-slate-900">
+                      <option value={`tenant:${tn.id}`} className="text-slate-900">▸ {t('nav.wholeTenant', { name: tn.name })}</option>
+                      {companyOptions.filter((c) => c.tenantId === tn.id).map((c) => (
+                        <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                  {companyOptions.some((c) => !c.tenantId) && (
+                    <optgroup label={t('nav.noTenant')} className="text-slate-900">
+                      {companyOptions.filter((c) => !c.tenantId).map((c) => (
+                        <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </>
+              ) : (
+                companyOptions.map((c) => <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>)
+              )}
+    </select>
+  );
+
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {newVersion && <UpdateBanner version={newVersion} onReload={() => window.location.reload()} />}
@@ -245,37 +279,8 @@ export default function Layout() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {canSwitchCompany && companyOptions.length > 0 && (
-            <select
-              value={companyCtx}
-              onChange={(e) => onCompanyCtxChange(e.target.value)}
-              title={t('nav.switchScope')}
-              className="mr-1 px-2 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors text-sm font-medium max-w-[12rem]"
-            >
-              <option value="" className="text-slate-900">{t('nav.allCompanies')}</option>
-              {tenantOptions.length > 1 ? (
-                <>
-                  {tenantOptions.map((tn) => (
-                    <optgroup key={tn.id} label={tn.name} className="text-slate-900">
-                      <option value={`tenant:${tn.id}`} className="text-slate-900">▸ {t('nav.wholeTenant', { name: tn.name })}</option>
-                      {companyOptions.filter((c) => c.tenantId === tn.id).map((c) => (
-                        <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {companyOptions.some((c) => !c.tenantId) && (
-                    <optgroup label={t('nav.noTenant')} className="text-slate-900">
-                      {companyOptions.filter((c) => !c.tenantId).map((c) => (
-                        <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </>
-              ) : (
-                companyOptions.map((c) => <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>)
-              )}
-            </select>
-          )}
+          {canSwitchCompany && companyOptions.length > 0 &&
+            renderScopeSelect('hidden lg:block mr-1 px-2 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors text-sm font-medium max-w-[15rem] xl:max-w-[22rem]')}
           <button
             onClick={() => setLang(lang === 'de' ? 'en' : 'de')}
             aria-label={t('header.language')}
@@ -338,6 +343,11 @@ export default function Layout() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}>
           <div className="flex flex-col h-full">
+            {canSwitchCompany && companyOptions.length > 0 && (
+              <div className="lg:hidden px-4 pt-4">
+                {renderScopeSelect('w-full px-2 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium')}
+              </div>
+            )}
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
             {filteredNavigation.map((item) =>
               item.children ? (
