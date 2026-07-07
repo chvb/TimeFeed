@@ -47,6 +47,8 @@
 - Berichts-Mails: Tag/Monat/Quartal/Jahr pro Firma konfigurierbar
 - Auto-Backup-System (FotoFeed-Muster), über die UI verwaltbar
 - Mail-Logo eingebettet, Berichts-Empfänger-Fallback, Logo-Limits 2 MB, Sekundär-Test robuster
+- TimeFeed Terminal: eigene Android-Kiosk-App (WebView, nativer NFC)
+- Terminal-App-Anbindung: native NFC-Brücke, Download-Route, Login-Link
 
 ## [1.1.0] - 2026-07-06
 
