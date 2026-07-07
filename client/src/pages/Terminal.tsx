@@ -731,11 +731,12 @@ export default function Terminal() {
         className="flex items-center justify-between h-16 px-4 sm:px-6 flex-shrink-0 shadow-md"
         style={{ background: headerBg }}
       >
-        {/* Links: Logo (Gerät → Firma → Branding → Standard) + App-Name */}
+        {/* Links: App-Logo (Mandanten-Branding oder Standard) + App-Name —
+            das Geräte-/Firmen-Logo erscheint mittig auf dem Idle-Screen. */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          {terminalLogo ? (
+          {branding?.brandLogo ? (
             <span className="flex rounded-2xl bg-white p-1 shadow-sm flex-shrink-0">
-              <img src={terminalLogo} alt={branding?.brandName || BRAND_NAME} className="h-8 w-8 object-contain" />
+              <img src={branding.brandLogo} alt={branding?.brandName || BRAND_NAME} className="h-8 w-8 object-contain" />
             </span>
           ) : (
             <Logo size="small" light iconOnly />
@@ -878,6 +879,12 @@ export default function Terminal() {
         {/* ---------- Idle ---------- */}
         {screen === 'idle' && (
           <div className="flex-1 flex flex-col items-center justify-center gap-8 p-6">
+            {/* Geräte-/Firmen-Logo: prominent über der Uhr (Kette Gerät → Firma) */}
+            {terminalLogo && (
+              <div className="flex rounded-3xl bg-white px-6 py-4 shadow-lg">
+                <img src={terminalLogo} alt="" className="h-20 sm:h-24 max-w-[16rem] sm:max-w-[20rem] object-contain" />
+              </div>
+            )}
             <div className="text-center">
               <p className="text-6xl sm:text-8xl font-bold tabular-nums tracking-tight">{timeStr}</p>
               <p className="mt-2 text-xl sm:text-2xl text-white/70 capitalize">{dateStr}</p>
