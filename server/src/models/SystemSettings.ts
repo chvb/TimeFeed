@@ -68,6 +68,12 @@ interface SystemSettingsAttributes {
   // Monats-Stundenzettel beim Monatsabschluss automatisch per E-Mail an die
   // Mitarbeiter senden (Firmen-Default; je Nutzer über User.timesheetEmailMode übersteuerbar).
   sendTimesheetOnClose: boolean;
+  // Automatisches Backup-System (nur GLOBALE Vorlage relevant, companyId=null):
+  // täglicher JSON-Vollbackup-Lauf zur autoBackupTime (lokal + optional S3).
+  autoBackupEnabled: boolean;
+  autoBackupTime: string;
+  backupRetentionDays: number;
+  backupNotifyOnFailure: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -77,7 +83,8 @@ interface SystemSettingsCreationAttributes extends Optional<SystemSettingsAttrib
   | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired' | 'gpsMode'
   | 'retentionMonthsEntries' | 'retentionMonthsGps'
   | 'terminalAlertEnabled' | 'terminalAlertMinutes' | 'terminalAlertEmails' | 'terminalPingSeconds'
-  | 'sendTimesheetOnClose'> {}
+  | 'sendTimesheetOnClose'
+  | 'autoBackupEnabled' | 'autoBackupTime' | 'backupRetentionDays' | 'backupNotifyOnFailure'> {}
 
 export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettingsCreationAttributes> implements SystemSettingsAttributes {
   public id!: number;
@@ -121,6 +128,10 @@ export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettin
   public terminalAlertEmails?: string | null;
   public terminalPingSeconds!: number;
   public sendTimesheetOnClose!: boolean;
+  public autoBackupEnabled!: boolean;
+  public autoBackupTime!: string;
+  public backupRetentionDays!: number;
+  public backupNotifyOnFailure!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -340,6 +351,29 @@ SystemSettings.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false,
+    },
+    // Automatisches Backup-System (nur globale Vorlage relevant).
+    autoBackupEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+    autoBackupTime: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: '02:30',
+      validate: { is: /^([01]\d|2[0-3]):[0-5]\d$/ },
+    },
+    backupRetentionDays: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 30,
+      validate: { min: 7 },
+    },
+    backupNotifyOnFailure: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
     },
   },
   {

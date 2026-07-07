@@ -3,6 +3,7 @@ import { authenticate, authorizeSuperAdmin } from '../middleware/auth';
 import { StorageSettings } from '../models/StorageSettings';
 import storageService, { isInternalHost } from '../services/storageService';
 import { createAndUploadBackupToS3, restoreBackup } from '../services/backupService';
+import { getAutoBackupStatus, runAutoBackup } from '../services/autoBackupService';
 import { getSecondarySyncStatus, runSecondarySync } from '../services/secondarySyncService';
 import { AuditService } from '../services/auditService';
 import { AuditAction, AuditCategory } from '../models/AuditLog';
@@ -130,6 +131,36 @@ router.post('/secondary-sync', async (_req: Request, res: Response, next: NextFu
   try {
     const result = await runSecondarySync({ force: true });
     return res.json(result);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Status des automatischen Backup-Systems: Inhalt von last-status.json +
+// nächste geplante Laufzeit + aktuelle (globale) Settings.
+router.get('/auto-backup-status', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    return res.json(await getAutoBackupStatus());
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Sofort-Backup („Jetzt sichern"): führt runAutoBackup(force) synchron aus und
+// liefert das Ergebnis. Audit-Log mit entity 'Backup' (fließt in getLastBackupAt ein).
+router.post('/auto-backup-run', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await runAutoBackup(true);
+    if (result.ok && !result.skipped) {
+      await AuditService.log({
+        userId: req.user!.id,
+        action: AuditAction.EXPORT,
+        category: AuditCategory.IMPORT_EXPORT,
+        entity: 'Backup',
+        additionalData: { kind: 'auto-backup-run', target: result.target, file: result.file, sizeBytes: result.sizeBytes },
+      }, req);
+    }
+    return res.status(result.ok ? 200 : 500).json(result);
   } catch (error) {
     return next(error);
   }

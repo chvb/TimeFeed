@@ -55,4 +55,10 @@ export async function ensureSecondaryAndRetentionColumns(): Promise<void> {
 
   // system_settings — Stundenzettel automatisch per E-Mail beim Monatsabschluss (Firmen-Default)
   await addIfMissing(SystemSettings, 'send_timesheet_on_close', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+
+  // system_settings — Automatisches Backup-System (nur globale Vorlage relevant, companyId=null)
+  await addIfMissing(SystemSettings, 'auto_backup_enabled', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true });
+  await addIfMissing(SystemSettings, 'auto_backup_time', { type: DataTypes.STRING, allowNull: false, defaultValue: '02:30' });
+  await addIfMissing(SystemSettings, 'backup_retention_days', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 30 });
+  await addIfMissing(SystemSettings, 'backup_notify_on_failure', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true });
 }

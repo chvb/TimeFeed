@@ -77,14 +77,16 @@ test.describe('Zuschlagsprofile (Nachtarbeit)', () => {
     await page.getByPlaceholder('1010').fill('1010');
     await page.getByPlaceholder('25').fill('25');
     await page.getByPlaceholder('z. B. Nachtzuschlag').fill('Nachtarbeit');
-    await expect(page.getByText('über Mitternacht')).toBeVisible();
+    // exact:true — der Hinweistext des Fenster-Editors enthält die Phrase ebenfalls.
+    await expect(page.getByText('über Mitternacht', { exact: true })).toBeVisible();
 
     await page.getByRole('button', { name: 'Anlegen', exact: true }).click();
     await expectToast(page, 'Zuschlagsprofil gespeichert');
 
-    // Liste zeigt das Profil mit Fenster-Zusammenfassung.
+    // Liste zeigt das Profil mit Fenster-Zusammenfassung (Zelle der Desktop-
+    // Tabelle — getByText würde zusätzlich die versteckte Mobile-Card treffen).
     await expect(page.getByRole('cell', { name: PROFILE_NAME })).toBeVisible();
-    await expect(page.getByText('Nachtarbeit: 20:00–06:00 · 1010 · 25 %')).toBeVisible();
+    await expect(page.getByRole('cell', { name: /Nachtarbeit: 20:00–06:00 · 1010 · 25 %/ })).toBeVisible();
   });
 
   test('Gruppe bekommt das Zuschlagsprofil per UI zugeordnet', async ({ page, request }) => {

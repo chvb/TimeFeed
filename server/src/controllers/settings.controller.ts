@@ -97,6 +97,11 @@ export class SettingsController {
       terminalPingSeconds: settings.terminalPingSeconds,
       // Stundenzettel-Versand beim Monatsabschluss
       sendTimesheetOnClose: settings.sendTimesheetOnClose,
+      // Automatisches Backup-System (nur globale Vorlage relevant)
+      autoBackupEnabled: settings.autoBackupEnabled,
+      autoBackupTime: settings.autoBackupTime,
+      backupRetentionDays: settings.backupRetentionDays,
+      backupNotifyOnFailure: settings.backupNotifyOnFailure,
     };
   }
 
@@ -161,6 +166,8 @@ export class SettingsController {
         'terminalAlertEnabled', 'terminalAlertMinutes', 'terminalAlertEmails', 'terminalPingSeconds',
         // Stundenzettel-Versand beim Monatsabschluss
         'sendTimesheetOnClose',
+        // Automatisches Backup-System (nur globale Vorlage relevant)
+        'autoBackupEnabled', 'autoBackupTime', 'backupRetentionDays', 'backupNotifyOnFailure',
       ];
       const updateData: any = {};
       for (const key of ALLOWED_FIELDS) {
@@ -215,6 +222,22 @@ export class SettingsController {
           updateData.terminalAlertEmails = list.join(', ');
         }
       }
+      // Automatisches Backup-System validieren (Felder wirken nur über die globale Vorlage).
+      if ('autoBackupEnabled' in updateData) updateData.autoBackupEnabled = Boolean(updateData.autoBackupEnabled);
+      if ('backupNotifyOnFailure' in updateData) updateData.backupNotifyOnFailure = Boolean(updateData.backupNotifyOnFailure);
+      if ('autoBackupTime' in updateData) {
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(updateData.autoBackupTime))) {
+          throw new AppError(400, "autoBackupTime muss im Format 'HH:MM' vorliegen (z. B. '02:30')");
+        }
+        updateData.autoBackupTime = String(updateData.autoBackupTime);
+      }
+      if ('backupRetentionDays' in updateData) {
+        const v = Number(updateData.backupRetentionDays);
+        if (!Number.isInteger(v) || v < 7 || v > 3650) {
+          throw new AppError(400, 'backupRetentionDays muss eine ganze Zahl zwischen 7 und 3650 sein');
+        }
+        updateData.backupRetentionDays = v;
+      }
       if (Array.isArray(updateData.workingDays)) {
         updateData.workingDays = JSON.stringify(updateData.workingDays);
       }
@@ -232,6 +255,15 @@ export class SettingsController {
       }
 
       await settings.update(updateData);
+
+      // Geänderte Auto-Backup-Zeit sofort wirksam machen: Timer neu planen
+      // (nur relevant, wenn die GLOBALE Vorlage bearbeitet wurde). Dynamischer
+      // Import, um einen Zyklus autoBackupService ↔ settings.controller zu vermeiden.
+      if (companyId === null && ('autoBackupTime' in updateData || 'autoBackupEnabled' in updateData)) {
+        import('../services/autoBackupService')
+          .then((m) => m.rescheduleAutoBackupJob())
+          .catch(() => { /* Job läuft ggf. nicht (Tests) — unkritisch */ });
+      }
 
       // publicUrl ist INSTANZWEIT (tenant-übergreifend): immer in der globalen Vorlage
       // speichern (einmalig definiert, gilt für alle). Nur Super-Admin darf ihn ändern;
