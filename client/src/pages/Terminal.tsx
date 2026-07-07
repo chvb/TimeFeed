@@ -878,7 +878,7 @@ export default function Terminal() {
 
         {/* ---------- Idle ---------- */}
         {screen === 'idle' && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-8 p-6">
+          <div className="relative flex-1 flex flex-col items-center justify-center gap-8 p-6 pb-16">
             {/* Geräte-/Firmen-Logo: prominent über der Uhr (Kette Gerät → Firma) */}
             {terminalLogo && (
               <div className="flex rounded-3xl bg-white px-6 py-4 shadow-lg">
@@ -950,6 +950,12 @@ export default function Terminal() {
               </p>
             )}
             {busy && <p className="text-white/60 text-lg animate-pulse">{t('terminal.checking')}</p>}
+
+            {/* Dezentes Marken-Branding unten mittig */}
+            <div className="absolute bottom-3 inset-x-0 text-center pointer-events-none select-none">
+              <p className="text-sm font-semibold text-white/60 tracking-wide">www.timefeed.de</p>
+              <p className="text-[11px] text-white/35 mt-0.5">{t('terminal.footerFamily')}</p>
+            </div>
           </div>
         )}
 

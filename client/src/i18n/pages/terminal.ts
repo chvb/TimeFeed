@@ -69,6 +69,7 @@ export const terminal = {
       queuedHint: 'Keine Verbindung — Stempelung wird automatisch nachgereicht.',
 
       // Offline-Modus (identify nicht möglich)
+      footerFamily: 'Teil der FeedApps.de-Familie',
       offlineTitle: 'Offline-Modus',
       offlineText: 'Keine Verbindung zum Server. Stempelung ohne Namensprüfung — sie wird später synchronisiert.',
 
@@ -253,6 +254,7 @@ export const terminal = {
       },
       queuedHint: 'No connection — the stamp will be submitted automatically later.',
 
+      footerFamily: 'Part of the FeedApps.de family',
       offlineTitle: 'Offline mode',
       offlineText: 'No connection to the server. Stamping without name check — it will be synchronised later.',
 
