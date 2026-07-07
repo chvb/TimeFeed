@@ -9,24 +9,33 @@ echo "🚀 Starting TimeFeed Application..."
 echo "🛑 Stopping running services..."
 
 # Stoppe Server anhand der gespeicherten PID falls vorhanden
-if [ -f "logs/server.pid" ]; then
-    SERVER_PID=$(cat logs/server.pid)
-    if kill -0 $SERVER_PID 2>/dev/null; then
-        echo "  - Stopping existing server (PID: $SERVER_PID)..."
-        kill $SERVER_PID 2>/dev/null || true
-        sleep 2
-    fi
-    rm logs/server.pid 2>/dev/null || true
-fi
-
-# Beende nur TimeFeed-spezifische Prozesse
-pkill -f "node.*dist/index.js.*TimeFeed" 2>/dev/null || true
-pkill -f "node.*TimeFeed.*dist/index.js" 2>/dev/null || true
-pkill -f "nodemon.*TimeFeed.*src/index.ts" 2>/dev/null || true
-pkill -f "npm.*TimeFeed.*dev" 2>/dev/null || true
-
-# Prüfe auf Prozesse die im TimeFeed Verzeichnis laufen
-pgrep -f "/opt/TimeFeed" | xargs -r kill 2>/dev/null || true
+# ---------------------------------------------------------------------------
+# Gezielt NUR Prozesse DIESER App beenden. PID-Verifikation über das
+# Prozess-Arbeitsverzeichnis (readlink /proc/<pid>/cwd) — NIEMALS pkill auf
+# 'node dist/index.js': alle Feed-Apps haben identische Prozess-Signaturen!
+# Deckt auch verwaiste node-Kinder von 'npm start' und veraltete PID-Dateien ab.
+# ---------------------------------------------------------------------------
+kill_app_processes() {
+    local app_server_dir="$1"
+    local pids=""
+    [ -f logs/server.pid ] && pids="$(cat logs/server.pid 2>/dev/null)"
+    pids="$pids $(pgrep -f 'node dist/index.js' 2>/dev/null || true)"
+    pids="$pids $(pgrep -f 'npm start' 2>/dev/null || true)"
+    local victims=""
+    for pid in $pids; do
+        [ -n "$pid" ] || continue
+        if [ "$(readlink /proc/$pid/cwd 2>/dev/null)" = "$app_server_dir" ]; then
+            victims="$victims $pid"
+            kill "$pid" 2>/dev/null || true
+        fi
+    done
+    [ -n "$victims" ] && sleep 2
+    for pid in $victims; do
+        kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+    done
+    rm -f logs/server.pid
+}
+kill_app_processes "/opt/TimeFeed/server"
 
 # Warte kurz damit Prozesse sauber beendet werden
 sleep 2
@@ -65,7 +74,7 @@ echo "🌟 Starting application in background..."
 
 # Starte Server im Hintergrund
 cd server
-nohup npm start > ../logs/server.log 2>&1 &
+nohup node dist/index.js > ../logs/server.log 2>&1 &
 SERVER_PID=$!
 
 # Speichere PID für späteres Beenden

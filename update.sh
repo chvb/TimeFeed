@@ -59,20 +59,38 @@ do_update() {
     # 4. Neustart (kein PM2 — Start im Hintergrund wie start.sh)
     log "Server neu starten..."
     cd "$TIMEFEED_DIR"
-    # Laufenden Server beenden
-    if [ -f logs/server.pid ]; then
-        OLD_PID=$(cat logs/server.pid)
-        kill "$OLD_PID" 2>/dev/null || true
-        sleep 2
-        kill -9 "$OLD_PID" 2>/dev/null || true
-        rm -f logs/server.pid
-    fi
-    pkill -f "node.*TimeFeed.*dist/index.js" 2>/dev/null || true
-    pkill -f "/opt/TimeFeed/server/dist/index.js" 2>/dev/null || true
+# ---------------------------------------------------------------------------
+# Gezielt NUR Prozesse DIESER App beenden. PID-Verifikation über das
+# Prozess-Arbeitsverzeichnis (readlink /proc/<pid>/cwd) — NIEMALS pkill auf
+# 'node dist/index.js': alle Feed-Apps haben identische Prozess-Signaturen!
+# Deckt auch verwaiste node-Kinder von 'npm start' und veraltete PID-Dateien ab.
+# ---------------------------------------------------------------------------
+kill_app_processes() {
+    local app_server_dir="$1"
+    local pids=""
+    [ -f logs/server.pid ] && pids="$(cat logs/server.pid 2>/dev/null)"
+    pids="$pids $(pgrep -f 'node dist/index.js' 2>/dev/null || true)"
+    pids="$pids $(pgrep -f 'npm start' 2>/dev/null || true)"
+    local victims=""
+    for pid in $pids; do
+        [ -n "$pid" ] || continue
+        if [ "$(readlink /proc/$pid/cwd 2>/dev/null)" = "$app_server_dir" ]; then
+            victims="$victims $pid"
+            kill "$pid" 2>/dev/null || true
+        fi
+    done
+    [ -n "$victims" ] && sleep 2
+    for pid in $victims; do
+        kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+    done
+    rm -f logs/server.pid
+}
+    # Laufenden Server beenden (cwd-verifiziert, siehe kill_app_processes)
+    kill_app_processes "/opt/TimeFeed/server"
     sleep 1
     mkdir -p logs
     cd server
-    nohup npm start > ../logs/server.log 2>&1 &
+    nohup node dist/index.js > ../logs/server.log 2>&1 &
     echo $! > ../logs/server.pid
     cd ..
     log "Server gestartet (PID $(cat logs/server.pid))"
@@ -82,11 +100,14 @@ do_update() {
     SUCCESS=0
     for i in 1 2 3 4 5 6; do
         sleep 2
-        HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
-        if [ "$HTTP_CODE" = "200" ]; then
-            log "✅ Update erfolgreich — Server antwortet mit 200 nach $((i * 2))s"
+        BODY=$(curl -sf "$HEALTH_URL" 2>/dev/null || echo "")
+        UPSEC=$(printf '%s' "$BODY" | grep -o '"processUptimeSeconds":[0-9]*' | cut -d: -f2)
+        if [ -n "$BODY" ] && [ -n "$UPSEC" ] && [ "$UPSEC" -lt 60 ]; then
+            log "✅ Update erfolgreich — NEUER Prozess antwortet (Uptime ${UPSEC}s) nach $((i * 2))s"
             SUCCESS=1
             break
+        elif [ -n "$BODY" ] && [ -n "$UPSEC" ]; then
+            log "  ⚠️ Es antwortet ein ALTER Prozess (Uptime ${UPSEC}s) — Neustart fehlgeschlagen!"
         fi
         log "  ⏳ HTTP $HTTP_CODE nach $((i * 2))s — warte..."
     done
