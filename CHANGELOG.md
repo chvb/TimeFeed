@@ -23,6 +23,9 @@
 
 ## [1.1.1] - 2026-07-07
 
+### Added
+- E2E: 8 neue Specs für v1.1.0-Features (53 Tests gesamt, grün)
+
 ### Improved
 - Speicher-Einstellungen: Sekundärer-S3-Abschnitt in der UI nachgereicht
 - Watchdog: Autostart + Selbstheilung für TimeFeed und UrlaubsFeed
