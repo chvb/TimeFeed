@@ -25,6 +25,7 @@ import { IntegrationSettings } from './IntegrationSettings';
 import { PushSubscription } from './PushSubscription';
 import { VapidKeys } from './VapidKeys';
 import { AbsenceType } from './AbsenceType';
+import { SurchargeProfile } from './SurchargeProfile';
 
 // Tenant (Mandant) → Firma.
 Tenant.hasMany(Company, { foreignKey: 'tenantId', as: 'companies' });
@@ -66,6 +67,13 @@ Company.hasMany(TimeModel, { foreignKey: 'companyId', as: 'timeModels' });
 TimeModel.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
 Group.belongsTo(TimeModel, { foreignKey: 'timeModelId', as: 'timeModel' });
 User.belongsTo(TimeModel, { foreignKey: 'timeModelId', as: 'timeModel' });
+
+// Zuschlagsprofile (Nachtarbeit u. ä., Yellowfox-Parität Paket 2): Firma → Profile;
+// Zuordnung nach dem Zeitmodell-Muster (Gruppe + User-Override).
+Company.hasMany(SurchargeProfile, { foreignKey: 'companyId', as: 'surchargeProfiles' });
+SurchargeProfile.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
+Group.belongsTo(SurchargeProfile, { foreignKey: 'surchargeProfileId', as: 'surchargeProfile' });
+User.belongsTo(SurchargeProfile, { foreignKey: 'surchargeProfileId', as: 'surchargeProfile' });
 
 // Stempelungen (unveränderliches Journal) + berechnete Tagesaggregate.
 User.hasMany(TimeEntry, { foreignKey: 'userId', as: 'timeEntries' });
@@ -120,4 +128,4 @@ PushSubscription.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Company.hasMany(AbsenceType, { foreignKey: 'companyId', as: 'absenceTypes' });
 AbsenceType.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
 
-export { User, Group, GroupManager, Department, EmailSettings, PasswordResetToken, SystemSettings, AuditLog, StorageSettings, TrashItem, Heartbeat, Company, Tenant, Holiday, TimeModel, TimeEntry, WorkDay, TerminalDevice, CorrectionRequest, MonthClosure, TimesheetDocument, ExportProfile, ApiKey, IntegrationSettings, PushSubscription, VapidKeys, AbsenceType };
+export { User, Group, GroupManager, Department, EmailSettings, PasswordResetToken, SystemSettings, AuditLog, StorageSettings, TrashItem, Heartbeat, Company, Tenant, Holiday, TimeModel, TimeEntry, WorkDay, TerminalDevice, CorrectionRequest, MonthClosure, TimesheetDocument, ExportProfile, ApiKey, IntegrationSettings, PushSubscription, VapidKeys, AbsenceType, SurchargeProfile };

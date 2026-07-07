@@ -21,6 +21,7 @@ interface Group {
   parentGroupId?: number;
   companyId?: number | null;
   timeModelId?: number | null;
+  surchargeProfileId?: number | null;
   createdAt: string;
   updatedAt: string;
   manager?: {
@@ -52,6 +53,7 @@ interface GroupFormData {
   parentGroupId?: number;
   companyId?: number | null;
   timeModelId?: number | null;
+  surchargeProfileId?: number | null;
 }
 
 interface User {
@@ -195,6 +197,7 @@ const Groups: React.FC = () => {
   const [groupSearch, setGroupSearch] = useState('');
   const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
   const [timeModels, setTimeModels] = useState<{ id: number; name: string; isActive: boolean }[]>([]);
+  const [surchargeProfiles, setSurchargeProfiles] = useState<{ id: number; name: string; isActive: boolean }[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,6 +240,11 @@ const Groups: React.FC = () => {
         const tmr = await api.get('/time-models');
         setTimeModels(tmr.data.timeModels || tmr.data.models || (Array.isArray(tmr.data) ? tmr.data : []));
       } catch { /* ignore */ }
+      // Zuschlagsprofile der Firma für die Zuordnung im Formular (Fehler still ignorieren).
+      try {
+        const spr = await api.get('/surcharge-profiles');
+        setSurchargeProfiles(spr.data.surchargeProfiles || []);
+      } catch { /* ignore */ }
       setLoadError('');
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -269,6 +277,8 @@ const Groups: React.FC = () => {
       }
       // Zeitmodell-Zuordnung immer mitsenden (null = kein Zeitmodell).
       submitData.timeModelId = formData.timeModelId ?? null;
+      // Zuschlagsprofil-Zuordnung immer mitsenden (null = kein Zuschlagsprofil).
+      submitData.surchargeProfileId = formData.surchargeProfileId ?? null;
       if (user?.isSuperAdmin) {
         submitData.companyId = formData.companyId ?? null;
       }
@@ -310,7 +320,8 @@ const Groups: React.FC = () => {
       managerIds: group.managerIds || (group.managerId ? [group.managerId] : []),
       parentGroupId: group.parentGroupId,
       companyId: group.companyId ?? null,
-      timeModelId: group.timeModelId ?? null
+      timeModelId: group.timeModelId ?? null,
+      surchargeProfileId: group.surchargeProfileId ?? null
     });
     setShowModal(true);
   };
@@ -325,7 +336,8 @@ const Groups: React.FC = () => {
       managerId: undefined,
       managerIds: [],
       parentGroupId: undefined,
-      timeModelId: null
+      timeModelId: null,
+      surchargeProfileId: null
     });
   };
 
@@ -736,6 +748,25 @@ const Groups: React.FC = () => {
                     ))}
                   </select>
                   <p className="text-xs text-slate-400 mt-1">{t('groups.timeModelHint')}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {t('groups.surchargeProfile')}
+                  </label>
+                  <select
+                    value={formData.surchargeProfileId ?? ''}
+                    onChange={(e) => setFormData({ ...formData, surchargeProfileId: e.target.value ? parseInt(e.target.value) : null })}
+                    className="input-field"
+                  >
+                    <option value="">{t('groups.noSurchargeProfile')}</option>
+                    {surchargeProfiles.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.name}{sp.isActive === false ? ` (${t('groups.surchargeProfileInactive')})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1">{t('groups.surchargeProfileHint')}</p>
                 </div>
 
                 {user?.isSuperAdmin && (

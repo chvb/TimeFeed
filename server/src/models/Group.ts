@@ -10,11 +10,13 @@ interface GroupAttributes {
   parentGroupId?: number;
   // Zeitmodell der Gruppe (Sollzeiten); User.timeModelId überschreibt es je Mitarbeiter.
   timeModelId?: number | null;
+  // Zuschlagsprofil der Gruppe (Nachtarbeit u. ä.); User.surchargeProfileId überschreibt es.
+  surchargeProfileId?: number | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface GroupCreationAttributes extends Optional<GroupAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'timeModelId'> {}
+interface GroupCreationAttributes extends Optional<GroupAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'timeModelId' | 'surchargeProfileId'> {}
 
 export class Group extends Model<GroupAttributes, GroupCreationAttributes> implements GroupAttributes {
   public id!: number;
@@ -24,6 +26,7 @@ export class Group extends Model<GroupAttributes, GroupCreationAttributes> imple
   public managerId?: number;
   public parentGroupId?: number;
   public timeModelId?: number | null;
+  public surchargeProfileId?: number | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -60,6 +63,10 @@ Group.init(
       allowNull: true,
     },
     timeModelId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    surchargeProfileId: {
       type: DataTypes.INTEGER,
       allowNull: true,
     },

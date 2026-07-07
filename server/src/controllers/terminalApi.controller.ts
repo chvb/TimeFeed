@@ -107,7 +107,8 @@ export class TerminalApiController {
         // Heartbeat-Intervall (Sekunden) — pro Firma konfigurierbar.
         pingSeconds: settings.terminalPingSeconds || 20,
         // Zahnrad/Einstellungen am Kiosk passwortgeschützt? (nie der Hash selbst)
-        settingsProtected: !!terminal.settingsPasswordHash,
+        // Schutzkette: Geräte-Passwort ODER zentrales Mandanten-Passwort.
+        settingsProtected: !!terminal.settingsPasswordHash || !!tenant?.terminalSettingsPasswordHash,
         // Logo-Kette: Geräte-Logo → Firmen-Logo; Mandanten-Branding/Standard
         // entscheidet der Client (branding.brandLogo unten).
         logo: terminal.logo || company?.logo || null,
@@ -147,12 +148,19 @@ export class TerminalApiController {
     try {
       const terminal = req.terminal!;
       const password = req.body?.password != null ? String(req.body.password) : '';
-      const hash = terminal.settingsPasswordHash;
-      if (!hash) {
+      // Schutzkette: Geräte-Passwort ODER zentrales Mandanten-Passwort — es
+      // genügt, EINES davon korrekt einzugeben (Admin kennt das zentrale).
+      const company = await Company.findByPk(terminal.companyId, { attributes: ['id', 'tenantId'] });
+      const tenant = company?.tenantId ? await Tenant.findByPk(company.tenantId) : null;
+      const deviceHash = terminal.settingsPasswordHash || null;
+      const tenantHash = tenant?.terminalSettingsPasswordHash || null;
+      if (!deviceHash && !tenantHash) {
         await bcrypt.compare(password, DUMMY_PIN_HASH); // Timing angleichen
         return res.json({ ok: true });
       }
-      if (!(await bcrypt.compare(password, hash))) {
+      const okDevice = deviceHash ? await bcrypt.compare(password, deviceHash) : false;
+      const okTenant = tenantHash ? await bcrypt.compare(password, tenantHash) : (deviceHash ? false : false);
+      if (!okDevice && !okTenant) {
         return res.status(401).json({
           error: 'SETTINGS_PASSWORD_INVALID',
           code: 'SETTINGS_PASSWORD_INVALID',

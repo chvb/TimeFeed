@@ -288,6 +288,79 @@ describe('buildLug (kalendertäglich, Yellowfox-Referenzformat)', () => {
     expect(out3).toContain('9;20;1;1000;2,00;1,00;;;;;');
     expect(out3).toContain('9;20;U;1600;8,00;1,00;;;;;');
   });
+
+  it('Zuschlags-Zusatzzeile (Nachtarbeit) ZUSÄTZLICH zur Ist-Zeile im Referenzformat', () => {
+    // Nachtschicht 22:00–06:00 (8h Ist) mit 8h Fenster-Schnitt auf Lohnart 1010.
+    const out4 = buildLug(lugProfile, '2026-05', [{
+      personalNr: '1026',
+      days: [{
+        date: '2026-05-15',
+        workedMinutes: 480,
+        absence: null,
+        absenceTargetMinutes: 0,
+        surcharges: [{ lohnart: '1010', minutes: 480 }],
+      }],
+    }], kennzeichen);
+    const dataLines = out4.split('\r\n').slice(1).filter(Boolean);
+    expect(dataLines).toEqual([
+      '1026;15;1;1000;8,00;1,00;;;;;', // normale Ist-Zeile
+      '1026;15;1;1010;8,00;1,00;;;;;', // Zuschlags-Zusatzzeile (Yellowfox „Nachtarbeit Zuschlag")
+    ]);
+    // Auch die Zusatzzeile hat exakt 11 Felder.
+    for (const line of dataLines) {
+      expect(line.split(';')).toHaveLength(11);
+    }
+  });
+
+  it('Zuschlag mit 0 Minuten erzeugt KEINE Zusatzzeile', () => {
+    const out5 = buildLug(lugProfile, '2026-05', [{
+      personalNr: '7',
+      days: [{
+        date: '2026-05-15', workedMinutes: 480, absence: null, absenceTargetMinutes: 0,
+        surcharges: [{ lohnart: '1010', minutes: 0 }],
+      }],
+    }], kennzeichen);
+    expect(out5).not.toContain(';1010;');
+  });
+});
+
+describe('rowLohnarten mit Zuschlägen (LODAS/CSV/Vorschau, monatsaggregiert)', () => {
+  it("Zuschläge werden als ZUSÄTZLICHE Positionen mit source 'surcharge:<label>' angehängt", () => {
+    const row: ExportRow = {
+      ...rowMueller,
+      surcharges: [
+        { lohnart: '1010', percent: 25, minutes: 960, label: 'Nachtarbeit' },
+        { lohnart: '1005', percent: 10, minutes: 0, label: 'Spätarbeit' }, // 0 min → keine Position
+      ],
+    };
+    const { entries } = rowLohnarten(profile(), row);
+    // Ist-Stunden bleiben unverändert auf Normal/Überstunden …
+    expect(entries).toContainEqual({ lohnart: '200', minutes: 152 * 60, source: 'work' });
+    expect(entries).toContainEqual({ lohnart: '201', minutes: 8 * 60, source: 'overtime' });
+    // … der Zuschlag kommt ZUSÄTZLICH dazu.
+    expect(entries).toContainEqual({ lohnart: '1010', minutes: 960, source: 'surcharge:Nachtarbeit' });
+    expect(entries.some((e) => e.lohnart === '1005')).toBe(false);
+  });
+
+  it('LODAS erhält eine zusätzliche Bewegungszeile je Zuschlags-Lohnart', () => {
+    const row: ExportRow = {
+      ...rowMueller,
+      surcharges: [{ lohnart: '1010', percent: 25, minutes: 960, label: 'Nachtarbeit' }],
+    };
+    const out = buildLodas(profile(), '2026-06', [row]);
+    expect(out).toContain('1001;200;152,00;');
+    expect(out).toContain('1001;1010;16,00;');
+  });
+
+  it('CSV erhält eine eigene Lohnart-Spalte für den Zuschlag', () => {
+    const row: ExportRow = {
+      ...rowMueller,
+      surcharges: [{ lohnart: '1010', percent: 25, minutes: 960, label: 'Nachtarbeit' }],
+    };
+    const out = buildCsv(profile(), [row]);
+    expect(out).toContain('Lohnart 1010 (h)');
+    expect(out).toContain(';16,00');
+  });
 });
 
 describe('buildCsv', () => {

@@ -18,6 +18,7 @@ interface Tenant {
   companyCount?: number;
   brandName?: string | null;
   brandColor?: string | null;
+  hasTerminalSettingsPassword?: boolean;
   brandLogo?: string | null;
 }
 
@@ -36,6 +37,9 @@ export default function Tenants() {
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [form, setForm] = useState<{ name: string; isActive: boolean }>({ name: '', isActive: true });
   const [branding, setBranding] = useState<BrandingForm>({ brandName: '', brandColor: '', brandLogo: '' });
+  // Zentrales Kiosk-Einstellungs-Passwort ('' = unverändert lassen)
+  const [terminalPass, setTerminalPass] = useState('');
+  const [removeTerminalPass, setRemoveTerminalPass] = useState(false);
   const [saving, setSaving] = useState(false);
   const { confirm } = useConfirm();
   const { user } = useAuthStore();
@@ -79,6 +83,7 @@ export default function Tenants() {
     setEditing(null);
     setForm({ name: '', isActive: true });
     setBranding({ brandName: '', brandColor: '', brandLogo: '' });
+    setTerminalPass(''); setRemoveTerminalPass(false);
     setModalOpen(true);
   };
 
@@ -86,6 +91,7 @@ export default function Tenants() {
     setEditing(tn);
     setForm({ name: tn.name, isActive: tn.isActive });
     setBranding({ brandName: tn.brandName || '', brandColor: tn.brandColor || '', brandLogo: tn.brandLogo || '' });
+    setTerminalPass(''); setRemoveTerminalPass(false);
     setModalOpen(true);
     // Branding-Felder ggf. nachladen (GET /tenants/:id ist Super-Admin-only).
     if (!user?.isSuperAdmin) return;
@@ -134,6 +140,20 @@ export default function Tenants() {
         }
         // Eigenes Branding sofort anwenden (Header/Farbe/Manifest live aktualisieren).
         if (user?.tenantId === id) loadBranding(id);
+        // Zentrales Terminal-Einstellungs-Passwort: nur senden, wenn geändert/entfernt.
+        if (removeTerminalPass || terminalPass) {
+          if (!removeTerminalPass && terminalPass.length < 4) {
+            toast.error(t('tenants.terminalPassTooShort'));
+          } else {
+            try {
+              await api.put(`/tenants/${id}/terminal-settings-password`, {
+                password: removeTerminalPass ? null : terminalPass,
+              });
+            } catch (e: any) {
+              toast.error(e.response?.data?.message || t('tenants.terminalPassSaveError'));
+            }
+          }
+        }
       }
       toast.success(editing ? t('tenants.tSaved') : t('tenants.tCreated'));
       setModalOpen(false);
@@ -341,6 +361,34 @@ export default function Tenants() {
                             )}
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Zentrales Kiosk-Einstellungs-Passwort: schützt das Zahnrad ALLER Terminals des Mandanten */}
+                    {editing && (
+                      <div className="rounded-lg border border-slate-200 p-4">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">{t('tenants.terminalPassLabel')}</label>
+                        <input
+                          type="password"
+                          value={terminalPass}
+                          onChange={(e) => setTerminalPass(e.target.value)}
+                          disabled={removeTerminalPass}
+                          autoComplete="new-password"
+                          className="input-field disabled:opacity-50"
+                          placeholder={editing.hasTerminalSettingsPassword ? t('tenants.terminalPassUnchanged') : t('tenants.terminalPassPlaceholder')}
+                        />
+                        <p className="text-xs text-slate-500 mt-1">{t('tenants.terminalPassHint')}</p>
+                        {editing.hasTerminalSettingsPassword && (
+                          <label className="flex items-center gap-2 mt-3">
+                            <input
+                              type="checkbox"
+                              checked={removeTerminalPass}
+                              onChange={(e) => { setRemoveTerminalPass(e.target.checked); if (e.target.checked) setTerminalPass(''); }}
+                              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                            />
+                            <span className="text-sm font-medium text-slate-700">{t('tenants.terminalPassRemove')}</span>
+                          </label>
+                        )}
                       </div>
                     )}
                   </div>

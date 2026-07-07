@@ -12,11 +12,14 @@ interface TenantAttributes {
   brandName?: string | null;
   brandColor?: string | null;
   brandLogo?: string | null;
+  // Zentrales Kiosk-Einstellungs-Passwort (bcrypt): schützt das Zahnrad ALLER
+  // Terminals des Mandanten (Geräte-Passwort wirkt zusätzlich als Verschärfung).
+  terminalSettingsPasswordHash?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface TenantCreationAttributes extends Optional<TenantAttributes, 'id' | 'isActive' | 'brandName' | 'brandColor' | 'brandLogo' | 'createdAt' | 'updatedAt'> {}
+interface TenantCreationAttributes extends Optional<TenantAttributes, 'id' | 'isActive' | 'brandName' | 'brandColor' | 'brandLogo' | 'terminalSettingsPasswordHash' | 'createdAt' | 'updatedAt'> {}
 
 export class Tenant extends Model<TenantAttributes, TenantCreationAttributes> implements TenantAttributes {
   public id!: number;
@@ -25,8 +28,39 @@ export class Tenant extends Model<TenantAttributes, TenantCreationAttributes> im
   public brandName?: string | null;
   public brandColor?: string | null;
   public brandLogo?: string | null;
+  public terminalSettingsPasswordHash?: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  /** Antworten ohne Geheimnisse: der Hash verlässt den Server nie. */
+  public toJSON(): Record<string, any> {
+    const { terminalSettingsPasswordHash: _hash, ...rest } = super.toJSON() as any;
+    rest.hasTerminalSettingsPassword = !!this.terminalSettingsPasswordHash;
+    return rest;
+  }
+
+  // Schema-Nachrüstung (Bestands-DB): sync alteriert bestehende Tabellen nicht,
+  // und die zentralen Migrationsdateien werden parallel von Feature-Paketen
+  // bearbeitet — deshalb lokal am Modell (Muster TerminalDevice.ensureSchema).
+  private static schemaEnsured = false;
+  public static async ensureSchema(): Promise<void> {
+    if (Tenant.schemaEnsured) return;
+    try {
+      const qi = sequelize.getQueryInterface();
+      const desc = await qi.describeTable('tenants');
+      if (!desc['terminal_settings_password_hash']) {
+        await qi.addColumn('tenants', 'terminal_settings_password_hash', {
+          type: DataTypes.STRING,
+          allowNull: true,
+        });
+        console.log('Migration: Spalte tenants.terminal_settings_password_hash ergänzt.');
+      }
+      Tenant.schemaEnsured = true;
+    } catch {
+      // Tabelle existiert (noch) nicht (frische DB → sync) oder DB gesperrt —
+      // nächster Aufruf versucht es erneut.
+    }
+  }
 }
 
 Tenant.init(
@@ -41,6 +75,11 @@ Tenant.init(
       validate: { is: /^#[0-9a-fA-F]{6}$/ },
     },
     brandLogo: { type: DataTypes.TEXT, allowNull: true },
+    terminalSettingsPasswordHash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'terminal_settings_password_hash',
+    },
   },
   {
     sequelize,
@@ -48,3 +87,7 @@ Tenant.init(
     timestamps: true,
   }
 );
+
+// Beim Modul-Load nachziehen: die Spalte muss vor dem ersten SELECT existieren
+// (das Modell deklariert das Attribut — sonst scheitern Bestands-DBs sofort).
+void Tenant.ensureSchema();

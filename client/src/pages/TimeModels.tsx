@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import api from '../lib/api';
 import ErrorBanner from '../components/ErrorBanner';
+import SurchargeProfileSection from '../components/SurchargeProfileSection';
 import { useConfirm } from '../components/common/ConfirmProvider';
 import { useAuthStore } from '../store/authStore';
 import { useT } from '../i18n';
@@ -274,6 +275,9 @@ export default function TimeModels() {
           </div>
         </>
       )}
+
+      {/* Zuschlagsprofile (Nachtarbeit u. ä.) — zweiter Abschnitt der Seite. */}
+      <SurchargeProfileSection />
 
       {/* Modal: Anlegen/Bearbeiten */}
       <Transition appear show={showModal} as={React.Fragment}>

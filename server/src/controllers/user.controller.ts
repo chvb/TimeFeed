@@ -11,6 +11,7 @@ import { AuditService } from '../services/auditService';
 import { AuditAction, AuditCategory } from '../models/AuditLog';
 import { moveToTrash } from '../services/trashService';
 import { validateTimeModelAssignment } from './timeModel.controller';
+import { validateSurchargeProfileAssignment } from './surchargeProfile.controller';
 import { generateStampCode } from '../models/User';
 import QRCode from 'qrcode';
 
@@ -274,6 +275,10 @@ export class UserController {
       const timeModelId = req.body.timeModelId !== undefined
         ? await validateTimeModelAssignment(req.body.timeModelId, companyId)
         : null;
+      // Zuschlagsprofil-Override (optional; gleiches Muster wie das Zeitmodell).
+      const surchargeProfileId = req.body.surchargeProfileId !== undefined
+        ? await validateSurchargeProfileAssignment(req.body.surchargeProfileId, companyId)
+        : null;
       if (req.body.pin != null && req.body.pin !== '' && !PIN_RE.test(String(req.body.pin))) {
         return next(new AppError(400, 'PIN muss aus 4–8 Ziffern bestehen'));
       }
@@ -305,6 +310,7 @@ export class UserController {
         birthDate: birthDate || null,
         employeeNumber: employeeNumber || null,
         timeModelId,
+        surchargeProfileId,
         nfcTagUid: req.body.nfcTagUid || null,
         pin: req.body.pin ? String(req.body.pin) : null, // wird im Model-Hook bcrypt-gehasht
         timesheetEmailMode,
@@ -420,6 +426,10 @@ export class UserController {
       // gehasht gespeichert, nie zurückgegeben).
       if (req.body.timeModelId !== undefined) {
         user.timeModelId = await validateTimeModelAssignment(req.body.timeModelId, user.companyId ?? null);
+      }
+      // Zuschlagsprofil-Override (null = Gruppenprofil/keins).
+      if (req.body.surchargeProfileId !== undefined) {
+        user.surchargeProfileId = await validateSurchargeProfileAssignment(req.body.surchargeProfileId, user.companyId ?? null);
       }
       if (req.body.nfcTagUid !== undefined) {
         user.nfcTagUid = req.body.nfcTagUid || null;

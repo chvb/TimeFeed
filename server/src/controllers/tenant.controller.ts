@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import bcrypt from 'bcryptjs';
 import { Tenant } from '../models/Tenant';
 import { Company } from '../models/Company';
 import { User, UserRole } from '../models/User';
@@ -71,6 +72,52 @@ export class TenantController {
    * PUT /api/tenants/:id/branding — Body { brandName?, brandColor?, brandLogo? }.
    * Super-Admin ODER Admin des betreffenden Mandanten. null/'' löscht ein Feld.
    */
+
+  /**
+   * PUT /api/tenants/:id/terminal-settings-password — body { password | null }
+   * Zentrales Kiosk-Einstellungs-Passwort des Mandanten (schützt das Zahnrad
+   * ALLER Terminals). ''/null entfernt den Schutz. Auth wie Branding:
+   * Super-Admin oder Admin des eigenen Mandanten.
+   */
+  async updateTerminalSettingsPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = Number(req.params.id);
+      if (!Number.isInteger(tenantId) || tenantId <= 0) return next(new AppError(400, 'Ungültige Mandanten-ID'));
+
+      const u = req.user!;
+      if (!u.isSuperAdmin) {
+        const ownTenantId = await resolveUserTenantId(u);
+        if (u.role !== UserRole.ADMIN || ownTenantId !== tenantId) {
+          return next(new AppError(403, 'Keine Berechtigung für diesen Mandanten'));
+        }
+      }
+      const tenant = await Tenant.findByPk(tenantId);
+      if (!tenant) return next(new AppError(404, 'Mandant nicht gefunden'));
+
+      const raw = req.body?.password;
+      let hash: string | null = null;
+      if (raw !== undefined && raw !== null && raw !== '') {
+        const v = String(raw);
+        if (v.length < 4) return next(new AppError(400, 'Passwort muss mindestens 4 Zeichen haben'));
+        hash = await bcrypt.hash(v, 10);
+      }
+      await tenant.update({ terminalSettingsPasswordHash: hash });
+
+      await AuditService.log({
+        userId: u.id,
+        action: AuditAction.UPDATE,
+        category: AuditCategory.SECURITY,
+        entity: 'Tenant',
+        entityId: tenant.id,
+        additionalData: { terminalSettingsPassword: hash ? 'gesetzt' : 'entfernt' },
+      }, req);
+
+      res.json({ tenant: tenant.toJSON() });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async updateBranding(req: Request, res: Response, next: NextFunction) {
     try {
       const tenantId = Number(req.params.id);

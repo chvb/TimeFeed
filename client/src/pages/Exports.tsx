@@ -167,10 +167,14 @@ export default function Exports() {
     return absenceTypes.find((x) => x.key === key)?.label || key;
   }, [absenceTypes, t]);
 
-  // Quelle einer Lohnarten-Position lesbar machen (work/overtime/holiday/Abwesenheit).
+  // Quelle einer Lohnarten-Position lesbar machen (work/overtime/holiday/
+  // Zuschlag 'surcharge:<label>'/Abwesenheit).
   const sourceLabel = useCallback((source: string): string => {
     if (source === 'work') return t('exports.lohnartSource.work');
     if (source === 'overtime') return t('exports.lohnartSource.overtime');
+    if (source.startsWith('surcharge:')) {
+      return t('exports.lohnartSource.surcharge', { label: source.slice('surcharge:'.length) });
+    }
     return absenceLabel(source);
   }, [absenceLabel, t]);
 

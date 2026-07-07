@@ -8,6 +8,7 @@ import { AppError } from '../middleware/errorHandler';
 import { moveToTrash } from '../services/trashService';
 import { getEffectiveActor, getCompanyScopeWhere, canReadCompanyRecord, canManageCompanyRecord, canActorAccessUser, resolveWritableCompanyId } from '../services/accessScope';
 import { validateTimeModelAssignment } from './timeModel.controller';
+import { validateSurchargeProfileAssignment } from './surchargeProfile.controller';
 
 export class GroupController {
   async getAllGroups(req: Request, res: Response, next: NextFunction) {
@@ -95,12 +96,18 @@ export class GroupController {
       if (req.body.timeModelId !== undefined) {
         timeModelId = await validateTimeModelAssignment(req.body.timeModelId, companyId ?? null);
       }
+      // Zuschlagsprofil (optional): gleiches Muster wie das Zeitmodell.
+      let surchargeProfileId: number | null = null;
+      if (req.body.surchargeProfileId !== undefined) {
+        surchargeProfileId = await validateSurchargeProfileAssignment(req.body.surchargeProfileId, companyId ?? null);
+      }
 
       const group = await Group.create({
         name,
         description,
         companyId,
         timeModelId,
+        surchargeProfileId,
         managerId: managersToSet.length > 0 ? managersToSet[0] : undefined, // Keep first manager for backward compatibility
         parentGroupId,
       });
@@ -216,6 +223,10 @@ export class GroupController {
       // Zeitmodell-Zuordnung (null = entfernen); Modell muss zur (Ziel-)Firma passen.
       if (req.body.timeModelId !== undefined) {
         group.timeModelId = await validateTimeModelAssignment(req.body.timeModelId, targetCompanyId ?? null);
+      }
+      // Zuschlagsprofil-Zuordnung (null = entfernen); Profil muss zur (Ziel-)Firma passen.
+      if (req.body.surchargeProfileId !== undefined) {
+        group.surchargeProfileId = await validateSurchargeProfileAssignment(req.body.surchargeProfileId, targetCompanyId ?? null);
       }
 
       await group.save();

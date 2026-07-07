@@ -47,6 +47,8 @@ interface UserAttributes {
   exitDate?: Date | null;
   // Zeiterfassung: individuelles Zeitmodell (Override; null = Zeitmodell der Gruppe bzw. Fallback).
   timeModelId?: number | null;
+  // Zuschlagsprofil-Override (null = Zuschlagsprofil der Gruppe bzw. keins).
+  surchargeProfileId?: number | null;
   // Stempel-Code (8-stellig numerisch, eindeutig je Firma; steckt im NFC-Chip/QR).
   stampCode?: string | null;
   // Optionale NFC-Tag-UID (zusätzliche Identifikation am Terminal).
@@ -68,7 +70,7 @@ interface UserAttributes {
   updatedAt?: Date;
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'tenantId' | 'isSuperAdmin' | 'workingDaysOverride' | 'hoursPerDayOverride' | 'employmentFactor' | 'exitDate' | 'birthDate' | 'timeModelId' | 'stampCode' | 'nfcTagUid' | 'pin' | 'timesheetEmailMode'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'tenantId' | 'isSuperAdmin' | 'workingDaysOverride' | 'hoursPerDayOverride' | 'employmentFactor' | 'exitDate' | 'birthDate' | 'timeModelId' | 'surchargeProfileId' | 'stampCode' | 'nfcTagUid' | 'pin' | 'timesheetEmailMode'> {}
 
 export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -86,6 +88,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public employmentFactor?: number | null;
   public exitDate?: Date | null;
   public timeModelId?: number | null;
+  public surchargeProfileId?: number | null;
   public stampCode?: string | null;
   public nfcTagUid?: string | null;
   public pin?: string | null;
@@ -182,6 +185,10 @@ User.init(
       allowNull: true,
     },
     timeModelId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    surchargeProfileId: {
       type: DataTypes.INTEGER,
       allowNull: true,
     },

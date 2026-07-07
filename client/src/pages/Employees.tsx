@@ -31,6 +31,7 @@ interface Employee {
   employeeNumber?: string;
   groupId?: number;
   timeModelId?: number | null;
+  surchargeProfileId?: number | null;
   stampCode?: string | null;
   nfcTagUid?: string | null;
   timesheetEmailMode?: 'inherit' | 'on' | 'off';
@@ -60,6 +61,7 @@ interface EmployeeFormData {
   birthDate?: string;
   employeeNumber?: string;
   timeModelId?: number | null;
+  surchargeProfileId?: number | null;
   nfcTagUid?: string;
   pin?: string;
   timesheetEmailMode?: 'inherit' | 'on' | 'off';
@@ -77,6 +79,7 @@ const Employees: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [groups, setGroups] = useState<{id: number, name: string}[]>([]);
   const [timeModels, setTimeModels] = useState<{id: number, name: string, isActive?: boolean}[]>([]);
+  const [surchargeProfiles, setSurchargeProfiles] = useState<{id: number, name: string, isActive?: boolean}[]>([]);
   const [companies, setCompanies] = useState<{id: number, name: string}[]>([]);
   const [tenantsList, setTenantsList] = useState<{id: number, name: string}[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
@@ -118,6 +121,7 @@ const Employees: React.FC = () => {
     birthDate: '',
     employeeNumber: '',
     timeModelId: null,
+    surchargeProfileId: null,
     nfcTagUid: '',
     pin: '',
     timesheetEmailMode: 'inherit'
@@ -240,6 +244,11 @@ const Employees: React.FC = () => {
         const tmr = await api.get('/time-models');
         setTimeModels(tmr.data.timeModels || tmr.data.models || (Array.isArray(tmr.data) ? tmr.data : []));
       } catch { /* ignore */ }
+      // Zuschlagsprofile für den Override im Formular (Fehler still ignorieren).
+      try {
+        const spr = await api.get('/surcharge-profiles');
+        setSurchargeProfiles(spr.data.surchargeProfiles || []);
+      } catch { /* ignore */ }
       // Firmenliste nur für Super-Admins (Zuordnung im Formular).
       if (canAssignCompany) {
         try { const cr = await api.get('/companies'); setCompanies(cr.data.companies || []); } catch { /* ignore */ }
@@ -331,6 +340,7 @@ const Employees: React.FC = () => {
         position: formData.position || null,
         phoneNumber: formData.phoneNumber || null,
         timeModelId: formData.timeModelId || null,
+        surchargeProfileId: formData.surchargeProfileId || null,
         nfcTagUid: formData.nfcTagUid?.trim() || null,
         timesheetEmailMode: formData.timesheetEmailMode || 'inherit'
       };
@@ -517,6 +527,7 @@ const Employees: React.FC = () => {
       birthDate: employee.birthDate ? employee.birthDate.split('T')[0] : '',
       employeeNumber: employee.employeeNumber || '',
       timeModelId: employee.timeModelId ?? null,
+      surchargeProfileId: employee.surchargeProfileId ?? null,
       nfcTagUid: employee.nfcTagUid || '',
       pin: '',
       timesheetEmailMode: employee.timesheetEmailMode || 'inherit'
@@ -550,6 +561,7 @@ const Employees: React.FC = () => {
       birthDate: '',
       employeeNumber: '',
       timeModelId: null,
+      surchargeProfileId: null,
       nfcTagUid: '',
       pin: '',
       timesheetEmailMode: 'inherit'
@@ -1800,6 +1812,21 @@ const Employees: React.FC = () => {
                         ))}
                       </select>
                       <p className="text-xs text-slate-400 mt-1">{t('employees.timeModelOverrideHint')}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-slate-600 mb-1">{t('employees.surchargeProfileOverride')}</label>
+                      <select
+                        value={formData.surchargeProfileId ?? ''}
+                        onChange={(e) => setFormData({ ...formData, surchargeProfileId: e.target.value ? parseInt(e.target.value) : null })}
+                        className="input-field"
+                      >
+                        <option value="">{t('employees.surchargeProfileDefault')}</option>
+                        {surchargeProfiles.map((sp) => (
+                          <option key={sp.id} value={sp.id}>{sp.name}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-slate-400 mt-1">{t('employees.surchargeProfileOverrideHint')}</p>
                     </div>
 
                     {editingEmployee && ['admin', 'buchhaltung', 'verwaltung'].includes(user?.role || '') && (

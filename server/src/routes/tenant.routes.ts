@@ -8,6 +8,8 @@ router.use(authenticate);
 
 // Branding: Super-Admin ODER Admin des betreffenden Mandanten (Prüfung im Controller).
 router.put('/:id/branding', (req, res, next) => tenantController.updateBranding(req, res, next));
+// Zentrales Kiosk-Einstellungs-Passwort (gleiche Auth wie Branding).
+router.put('/:id/terminal-settings-password', (req, res, next) => tenantController.updateTerminalSettingsPassword(req, res, next));
 
 // Mandanten-/Tenant-Verwaltung – ausschließlich Super-Admin.
 router.use(authorizeSuperAdmin);

@@ -17,10 +17,10 @@ import { integrations } from './pages/integrations';
 import { feed } from './pages/feed';
 
 export const pagesDe: Record<string, any> = {
-  ...dashboard.de, ...people.de, ...settings.de, ...companiesPages.de, ...uiPages.de, ...time.de, ...timeModels.de, ...terminal.de,
+  ...dashboard.de, ...people.de, ...settings.de, ...companiesPages.de, ...uiPages.de, ...time.de, ...timeModels.de, ...surcharges.de, ...terminal.de,
   ...manageTimes.de, ...corrections.de, ...presence.de, ...exportsPage.de, ...apiKeys.de, ...integrations.de, ...feed.de,
 };
 export const pagesEn: Record<string, any> = {
-  ...dashboard.en, ...people.en, ...settings.en, ...companiesPages.en, ...uiPages.en, ...time.en, ...timeModels.en, ...terminal.en,
+  ...dashboard.en, ...people.en, ...settings.en, ...companiesPages.en, ...uiPages.en, ...time.en, ...timeModels.en, ...surcharges.en, ...terminal.en,
   ...manageTimes.en, ...corrections.en, ...presence.en, ...exportsPage.en, ...apiKeys.en, ...integrations.en, ...feed.en,
 };

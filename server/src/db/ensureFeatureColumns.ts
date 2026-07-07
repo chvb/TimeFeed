@@ -4,6 +4,8 @@ import { Tenant } from '../models/Tenant';
 import { WorkDay } from '../models/WorkDay';
 import { ExportProfile } from '../models/ExportProfile';
 import { ApiKey, API_SCOPE_USERS_READ } from '../models/ApiKey';
+import { User } from '../models/User';
+import { Group } from '../models/Group';
 
 /**
  * Spalten-Migrationen für die Feature-Erweiterungen Branding/API-Keys/UrlaubsFeed-
@@ -46,6 +48,30 @@ export async function ensureFeatureColumns(): Promise<void> {
   }
 
   await ensureExportProfileColumns();
+  await ensureSurchargeColumns();
+}
+
+/**
+ * Spalten-Migration für die Zuschlagsprofile (Yellowfox-Parität Paket 2,
+ * z. B. Nachtarbeit): Zuordnung nach dem Zeitmodell-Muster —
+ * Group.surchargeProfileId + User.surchargeProfileId (Override). Die Tabelle
+ * surcharge_profiles selbst legt sequelize.sync an. Idempotent.
+ */
+export async function ensureSurchargeColumns(): Promise<void> {
+  const qi = sequelize.getQueryInterface();
+
+  const addIfMissing = async (model: any, column: string, spec: any) => {
+    const table = model.getTableName();
+    const desc = await qi.describeTable(table);
+    if (!desc[column]) {
+      await qi.addColumn(table, column, spec);
+      const name = typeof table === 'string' ? table : table.tableName;
+      console.log(`Migration: Spalte ${name}.${column} ergänzt.`);
+    }
+  };
+
+  await addIfMissing(Group, 'surcharge_profile_id', { type: DataTypes.INTEGER, allowNull: true });
+  await addIfMissing(User, 'surcharge_profile_id', { type: DataTypes.INTEGER, allowNull: true });
 }
 
 /**
