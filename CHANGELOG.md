@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.1] - 2026-07-07
+
+### Improved
+- Speicher-Einstellungen: Sekundärer-S3-Abschnitt in der UI nachgereicht
+
 ## [1.1.0] - 2026-07-06
 
 ### Added
