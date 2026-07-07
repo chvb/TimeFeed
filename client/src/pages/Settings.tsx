@@ -66,6 +66,30 @@ interface SystemSettings {
   terminalAlertEmails?: string | null;
   terminalPingSeconds?: number;
   sendTimesheetOnClose?: boolean;
+  // Automatisches Backup-System (nur globale Vorlage relevant)
+  autoBackupEnabled?: boolean;
+  autoBackupTime?: string;
+  backupRetentionDays?: number;
+  backupNotifyOnFailure?: boolean;
+}
+
+// Status des automatischen Backup-Systems (GET /api/storage/auto-backup-status)
+interface AutoBackupStatusInfo {
+  lastStatus: {
+    lastRunAt: string;
+    ok: boolean;
+    target: 'local' | 's3+local';
+    sizeBytes: number;
+    error?: string;
+    durationMs: number;
+  } | null;
+  nextRunAt: string | null;
+  settings: {
+    autoBackupEnabled: boolean;
+    autoBackupTime: string;
+    backupRetentionDays: number;
+    backupNotifyOnFailure: boolean;
+  };
 }
 
 interface EmailSettings {
@@ -151,7 +175,11 @@ const Settings: React.FC = () => {
     terminalAlertMinutes: 15,
     terminalAlertEmails: '',
     terminalPingSeconds: 20,
-    sendTimesheetOnClose: false
+    sendTimesheetOnClose: false,
+    autoBackupEnabled: true,
+    autoBackupTime: '02:30',
+    backupRetentionDays: 30,
+    backupNotifyOnFailure: true
   });
   const [emailSettings, setEmailSettings] = useState<EmailSettings>({
     smtpHost: '',
@@ -181,6 +209,11 @@ const Settings: React.FC = () => {
   const [backupCreating, setBackupCreating] = useState(false);
   const [backupRestoring, setBackupRestoring] = useState(false);
   const [backupFile, setBackupFile] = useState<File | null>(null);
+  // Automatisches Backup-System (Abschnitt im Tab „Backup"; wirkt IMMER auf die globale Vorlage)
+  const [autoBackupStatus, setAutoBackupStatus] = useState<AutoBackupStatusInfo | null>(null);
+  const [autoBackupLoading, setAutoBackupLoading] = useState(false);
+  const [autoBackupSaving, setAutoBackupSaving] = useState(false);
+  const [autoBackupRunning, setAutoBackupRunning] = useState(false);
 
   // UrlaubsFeed-Kopplung (Tab „Integrationen"). Feldnamen laut Server
   // (integration.controller.ts): urlaubsfeedUrl, urlaubsfeedApiKey, hasKey,
@@ -525,6 +558,72 @@ const Settings: React.FC = () => {
       console.error('Error loading audit logs:', error);
     } finally {
       setAuditLoading(false);
+    }
+  };
+
+  // ---- Automatisches Backup-System (globale Vorlage) -----------------------
+  const loadAutoBackupStatus = async (syncForm = false) => {
+    setAutoBackupLoading(true);
+    try {
+      const r = await api.get('/storage/auto-backup-status');
+      setAutoBackupStatus(r.data);
+      // Formularfelder aus der GLOBALEN Vorlage übernehmen (der allgemeine
+      // Settings-Load kann firmenspezifisch gescoped sein).
+      if (syncForm && r.data?.settings) {
+        setSettings((prev) => ({
+          ...prev,
+          autoBackupEnabled: r.data.settings.autoBackupEnabled,
+          autoBackupTime: r.data.settings.autoBackupTime,
+          backupRetentionDays: r.data.settings.backupRetentionDays,
+          backupNotifyOnFailure: r.data.settings.backupNotifyOnFailure,
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading auto backup status:', error);
+    } finally {
+      setAutoBackupLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'backup' && user?.isSuperAdmin) loadAutoBackupStatus(true);
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSaveAutoBackup = async () => {
+    setAutoBackupSaving(true);
+    try {
+      // Bewusst OHNE companyQuery: die Felder wirken nur über die globale Vorlage.
+      await api.put('/settings', {
+        autoBackupEnabled: settings.autoBackupEnabled,
+        autoBackupTime: settings.autoBackupTime,
+        backupRetentionDays: settings.backupRetentionDays,
+        backupNotifyOnFailure: settings.backupNotifyOnFailure,
+      });
+      toast.success(t('settings.savedToast'));
+      await loadAutoBackupStatus();
+    } catch (error: any) {
+      console.error('Error saving auto backup settings:', error);
+      toast.error(error.response?.data?.error || t('settings.saveError'));
+    } finally {
+      setAutoBackupSaving(false);
+    }
+  };
+
+  const handleRunAutoBackup = async () => {
+    setAutoBackupRunning(true);
+    try {
+      const r = await api.post('/storage/auto-backup-run');
+      if (r.data?.ok) {
+        const kb = Math.max(1, Math.round((r.data.sizeBytes || 0) / 1024));
+        toast.success(t('settings.backup.auto.runSuccess', { size: String(kb) }));
+      } else {
+        toast.error(r.data?.error || t('settings.backup.auto.runError'));
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || t('settings.backup.auto.runError'));
+    } finally {
+      setAutoBackupRunning(false);
+      loadAutoBackupStatus();
     }
   };
 
@@ -1886,10 +1985,145 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
-            {/* 2) S3-Backups (Objektspeicher) – lädt automatisch */}
+            {/* 2) Automatische Backups (täglicher Lauf, globale Vorlage) */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <ClockIcon className="h-5 w-5 text-primary-600" />
+                <h4 className="font-semibold text-slate-900">{t('settings.backup.auto.title')}</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Einstellungen */}
+                <div className="card flex flex-col">
+                  <p className="text-sm text-slate-600 mb-4">{t('settings.backup.auto.desc')}</p>
+                  <label className="flex items-center gap-2 mb-4">
+                    <input
+                      type="checkbox"
+                      checked={!!settings.autoBackupEnabled}
+                      onChange={(e) => setSettings({ ...settings, autoBackupEnabled: e.target.checked })}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-slate-700">{t('settings.backup.auto.enable')}</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.backup.auto.time')}</label>
+                      <input
+                        type="time"
+                        value={settings.autoBackupTime || '02:30'}
+                        onChange={(e) => setSettings({ ...settings, autoBackupTime: e.target.value })}
+                        className="input-field w-full"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">{t('settings.backup.auto.retention')}</label>
+                      <input
+                        type="number"
+                        min="7"
+                        max="3650"
+                        value={settings.backupRetentionDays ?? 30}
+                        onChange={(e) => setSettings({ ...settings, backupRetentionDays: parseInt(e.target.value) || 30 })}
+                        className="input-field w-full"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 mb-4">
+                    <input
+                      type="checkbox"
+                      checked={!!settings.backupNotifyOnFailure}
+                      onChange={(e) => setSettings({ ...settings, backupNotifyOnFailure: e.target.checked })}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-slate-700">{t('settings.backup.auto.notify')}</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mb-4">{t('settings.backup.auto.globalHint')}</p>
+                  <button onClick={handleSaveAutoBackup} disabled={autoBackupSaving} className="w-full btn-primary mt-auto">
+                    {autoBackupSaving ? t('settings.saving') : t('settings.save')}
+                  </button>
+                </div>
+
+                {/* Status-Card */}
+                <div className="card flex flex-col">
+                  <div className="flex items-center justify-between mb-3">
+                    <h5 className="font-medium text-slate-900">{t('settings.backup.auto.statusTitle')}</h5>
+                    <button
+                      onClick={() => loadAutoBackupStatus()}
+                      disabled={autoBackupLoading}
+                      className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                    >
+                      <ArrowPathIcon className={`h-4 w-4 ${autoBackupLoading ? 'animate-spin' : ''}`} />
+                      {t('settings.backup.auto.refresh')}
+                    </button>
+                  </div>
+                  {autoBackupStatus?.lastStatus ? (
+                    <div className="space-y-2 text-sm flex-grow">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">{t('settings.backup.auto.lastRun')}</span>
+                        <span className="text-slate-900">{new Date(autoBackupStatus.lastStatus.lastRunAt).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">{t('settings.backup.auto.result')}</span>
+                        {autoBackupStatus.lastStatus.ok ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <CheckCircleIcon className="h-3.5 w-3.5" /> {t('settings.backup.auto.badgeOk')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <ExclamationTriangleIcon className="h-3.5 w-3.5" /> {t('settings.backup.auto.badgeFail')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">{t('settings.backup.auto.size')}</span>
+                        <span className="text-slate-900">{Math.max(1, Math.round(autoBackupStatus.lastStatus.sizeBytes / 1024))} KB</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">{t('settings.backup.auto.target')}</span>
+                        <span className="text-slate-900">
+                          {autoBackupStatus.lastStatus.target === 's3+local'
+                            ? t('settings.backup.auto.targetS3Local')
+                            : t('settings.backup.auto.targetLocal')}
+                        </span>
+                      </div>
+                      {autoBackupStatus.lastStatus.error && (
+                        <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2 break-all">
+                          {autoBackupStatus.lastStatus.error}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">{t('settings.backup.auto.nextRun')}</span>
+                        <span className="text-slate-900">
+                          {autoBackupStatus.nextRunAt
+                            ? new Date(autoBackupStatus.nextRunAt).toLocaleString()
+                            : t('settings.backup.auto.disabled')}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-500 flex-grow">
+                      {autoBackupLoading ? t('settings.backup.auto.loading') : t('settings.backup.auto.neverRun')}
+                      {autoBackupStatus && !autoBackupStatus.lastStatus && autoBackupStatus.nextRunAt && (
+                        <p className="mt-2 text-slate-600">
+                          {t('settings.backup.auto.nextRun')}: {new Date(autoBackupStatus.nextRunAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <button onClick={handleRunAutoBackup} disabled={autoBackupRunning} className="w-full btn-primary mt-4">
+                    {autoBackupRunning ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {t('settings.backup.auto.running')}
+                      </div>
+                    ) : t('settings.backup.auto.runNow')}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3) S3-Backups (Objektspeicher) – lädt automatisch */}
             <StorageSettings section="backups" />
 
-            {/* 3) Hinweise (gelten für beide) */}
+            {/* 4) Hinweise (gelten für beide) */}
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <div className="flex items-start">
                 <ExclamationTriangleIcon className="h-5 w-5 text-amber-400 mt-0.5 mr-3" />

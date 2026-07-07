@@ -266,6 +266,11 @@ const startServer = async () => {
     const { startTimeRecalcJob } = await import('./services/timeRecalcJob');
     startTimeRecalcJob();
 
+    // Automatisches Backup-System: täglicher Lauf zur konfigurierten Uhrzeit
+    // (autoBackupTime, globale Vorlage; Default 02:30) inkl. Retention.
+    const { startAutoBackupJob } = await import('./services/autoBackupService');
+    startAutoBackupJob();
+
     // Täglicher UrlaubsFeed-Abwesenheits-Sync, 03:00 Uhr.
     const { startAbsenceSyncJob } = await import('./services/absenceSyncService');
     startAbsenceSyncJob();

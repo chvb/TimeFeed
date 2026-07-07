@@ -332,6 +332,16 @@ export async function getLastBackupAt(now = new Date()): Promise<string | null> 
     }
   } catch { /* S3 nicht erreichbar/konfiguriert → nur Audit-Historie */ }
 
+  try {
+    // Automatisches Backup-System: last-status.json (nur erfolgreiche Läufe zählen).
+    const { readLastStatus } = await import('./autoBackupService');
+    const st = readLastStatus();
+    if (st?.ok && st.lastRunAt) {
+      const iso = new Date(st.lastRunAt).toISOString();
+      if (!last || iso > last) last = iso;
+    }
+  } catch { /* Status-Datei fehlt/unlesbar → ignorieren */ }
+
   backupCache = { at: now.getTime(), lastBackupAt: last };
   return last;
 }
