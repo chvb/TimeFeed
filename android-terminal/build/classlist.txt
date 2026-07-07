@@ -1,0 +1,8 @@
+build/classes/de/timefeed/terminal/MainActivity$2.class
+build/classes/de/timefeed/terminal/MainActivity$3$1.class
+build/classes/de/timefeed/terminal/MainActivity$3.class
+build/classes/de/timefeed/terminal/BootReceiver.class
+build/classes/de/timefeed/terminal/MainActivity$1.class
+build/classes/de/timefeed/terminal/MainActivity.class
+build/classes/de/timefeed/terminal/MainActivity$4.class
+build/classes/de/timefeed/terminal/MainActivity$2$1.class

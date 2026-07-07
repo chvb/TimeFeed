@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TimeFeed-Orange: Splash-/Fensterhintergrund und Icon-Background -->
+    <color name="tf_orange">#EA580C</color>
+    <color name="ic_launcher_background">#EA580C</color>
+</resources>

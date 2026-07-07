@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Kiosk-Theme: Vollbild ohne ActionBar/Titelleiste, Statusbar versteckt.
+      windowBackground in TimeFeed-Orange dient als Splash, bis die
+      WebView-Seite geladen ist.
+    -->
+    <style name="KioskTheme" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowBackground">@color/tf_orange</item>
+        <item name="android:navigationBarColor">@color/tf_orange</item>
+        <item name="android:statusBarColor">@color/tf_orange</item>
+    </style>
+</resources>
