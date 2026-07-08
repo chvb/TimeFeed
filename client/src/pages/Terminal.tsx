@@ -475,9 +475,13 @@ export default function Terminal() {
   const scanRef = useRef(onScan);
   useEffect(() => { scanRef.current = onScan; });
 
-  /* ---------- NFC-Scan-Loop (Web-NFC, nur wenn verfügbar) ---------- */
+  /* ---------- NFC-Scan-Loop (Web-NFC, nur wenn verfügbar) ----------
+     In der nativen Terminal-App NICHT verwenden: der Android-WebView legt
+     zwar NDEFReader offen, kann Web-NFC aber nicht bedienen (scan() schlägt
+     fehl → fälschlich "error"). Dort liest die App nativ und ruft
+     window.__tfNativeNfc – siehe Brücke oben. */
   useEffect(() => {
-    if (screen !== 'idle' || !methods.includes('nfc') || !('NDEFReader' in window)) return;
+    if (screen !== 'idle' || !methods.includes('nfc') || nativeApp || !('NDEFReader' in window)) return;
     const ctrl = new AbortController();
     let cancelled = false;
     try {
@@ -728,8 +732,16 @@ export default function Terminal() {
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-white select-none overflow-hidden">
       {/* Kopfzeile: orange (Feed-Familie) bzw. Mandanten-Markenfarbe */}
       <header
-        className="flex items-center justify-between h-16 px-4 sm:px-6 flex-shrink-0 shadow-md"
-        style={{ background: headerBg }}
+        className="flex items-center justify-between min-h-16 flex-shrink-0 shadow-md"
+        style={{
+          background: headerBg,
+          // Punch-Hole / Notch: Header rückt exakt um die vom Gerät
+          // gemeldete Cutout-Größe nach unten bzw. zur Seite (Querformat).
+          // Ohne Cutout (Browser) sind die Insets 0 → unverändert.
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingLeft: 'max(env(safe-area-inset-left, 0px), 1rem)',
+          paddingRight: 'max(env(safe-area-inset-right, 0px), 1rem)',
+        }}
       >
         {/* Links: App-Logo (Mandanten-Branding oder Standard) + App-Name —
             das Geräte-/Firmen-Logo erscheint mittig auf dem Idle-Screen. */}
@@ -763,9 +775,13 @@ export default function Terminal() {
               <CloudArrowUpIcon className="h-4 w-4" /> {pendingCount}
             </span>
           )}
-          <button type="button" onClick={toggleFullscreen} title={t('terminal.fullscreen')} aria-label={t('terminal.fullscreen')} className="p-2.5 rounded-xl hover:bg-white/15 transition-colors">
-            <ArrowsPointingOutIcon className="h-6 w-6" />
-          </button>
+          {/* Vollbild-Button nur im Browser: die native App läuft ohnehin
+              immer im Vollbild (Kiosk), dort würde der Button nur verwirren. */}
+          {!nativeApp && (
+            <button type="button" onClick={toggleFullscreen} title={t('terminal.fullscreen')} aria-label={t('terminal.fullscreen')} className="p-2.5 rounded-xl hover:bg-white/15 transition-colors">
+              <ArrowsPointingOutIcon className="h-6 w-6" />
+            </button>
+          )}
           {token && screen === 'idle' && (
             <button type="button" onClick={openSettings} title={t('terminal.setupTitle')} aria-label={t('terminal.setupTitle')} className="p-2.5 rounded-xl hover:bg-white/15 transition-colors">
               <Cog6ToothIcon className="h-6 w-6" />
