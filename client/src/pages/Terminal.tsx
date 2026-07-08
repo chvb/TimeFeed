@@ -732,12 +732,15 @@ export default function Terminal() {
     <div className="fixed inset-0 flex flex-col bg-slate-950 text-white select-none overflow-hidden">
       {/* Kopfzeile: orange (Feed-Familie) bzw. Mandanten-Markenfarbe */}
       <header
-        className="flex items-center justify-between min-h-16 flex-shrink-0 shadow-md"
+        className="flex items-center justify-between flex-shrink-0 shadow-md"
         style={{
           background: headerBg,
           // Punch-Hole / Notch: Header rückt exakt um die vom Gerät
           // gemeldete Cutout-Größe nach unten bzw. zur Seite (Querformat).
-          // Ohne Cutout (Browser) sind die Insets 0 → unverändert.
+          // Die Basis-Zeilenhöhe (4.25rem) bleibt ZUSÄTZLICH zum Inset erhalten,
+          // damit der Inhalt darunter nicht am unteren Rand klebt.
+          // Ohne Cutout (Browser) sind die Insets 0 → normale Höhe.
+          minHeight: 'calc(4.25rem + env(safe-area-inset-top, 0px))',
           paddingTop: 'env(safe-area-inset-top, 0px)',
           paddingLeft: 'max(env(safe-area-inset-left, 0px), 1rem)',
           paddingRight: 'max(env(safe-area-inset-right, 0px), 1rem)',
