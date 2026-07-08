@@ -31,6 +31,7 @@
 - Session-Dauer konfigurierbar: JWT-Laufzeit aus SystemSettings statt fester Env
 - server/backups aus Versionierung nehmen (Runtime-Artefakte)
 - GPS-Pflicht wirkt jetzt: Super-Admin bearbeitet standardmäßig seine eigene Firma
+- Update-Banner verdeckt Sidebar nicht mehr (auf lg um Menübreite eingerückt)
 
 ## [1.1.1] - 2026-07-07
 
