@@ -26,6 +26,9 @@
 ### Fixed
 - Terminal: nativer NFC-Fix, Vollbild-Button nur im Browser, Punch-Hole-sichere Header
 
+### Improved
+- Terminal-Header: Basis-Zeilenhöhe zusätzlich zum Safe-Area-Inset erhalten
+
 ## [1.1.1] - 2026-07-07
 
 ### Added
