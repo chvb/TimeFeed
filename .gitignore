@@ -14,6 +14,9 @@ server/dist/
 server/public/
 client/dist/
 
+# Backups + Runtime-Status (vom laufenden Server geschrieben, nicht versionieren)
+server/backups/
+
 # Logs
 *.log
 *.log.*
