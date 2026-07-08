@@ -29,6 +29,7 @@
 ### Improved
 - Terminal-Header: Basis-Zeilenhöhe zusätzlich zum Safe-Area-Inset erhalten
 - Session-Dauer konfigurierbar: JWT-Laufzeit aus SystemSettings statt fester Env
+- server/backups aus Versionierung nehmen (Runtime-Artefakte)
 
 ## [1.1.1] - 2026-07-07
 
