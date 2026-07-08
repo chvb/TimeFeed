@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.2] - 2026-07-08
+
+### Fixed
+- Terminal: nativer NFC-Fix, Vollbild-Button nur im Browser, Punch-Hole-sichere Header
+
 ## [1.1.1] - 2026-07-07
 
 ### Added
