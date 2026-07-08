@@ -13,7 +13,7 @@ interface Props {
 export default function UpdateBanner({ version, onReload }: Props) {
   const t = useT();
   return (
-    <div className="fixed bottom-0 inset-x-0 z-[60] bg-primary-600 text-white shadow-md">
+    <div className="fixed bottom-0 left-0 right-0 lg:left-64 z-[60] bg-primary-600 text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center gap-3 text-sm">
         <ArrowPathIcon className="h-5 w-5 shrink-0" />
         <span className="font-medium">{t('ui.updateNewVersion', { version })}</span>
