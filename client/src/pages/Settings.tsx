@@ -1793,11 +1793,12 @@ const Settings: React.FC = () => {
                   <input
                     type="number"
                     min="1"
-                    max="24"
+                    max="2160"
                     value={settings.sessionDurationHours}
                     onChange={(e) => setSettings({...settings, sessionDurationHours: parseInt(e.target.value) || 0})}
                     className="input-field"
                   />
+                  <p className="text-xs text-slate-500 mt-1">{t('settings.security.sessionDurationHint')}</p>
                 </div>
                 
                 <div>

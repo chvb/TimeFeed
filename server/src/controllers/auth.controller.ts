@@ -5,12 +5,30 @@ import * as crypto from 'crypto';
 import { Op } from 'sequelize';
 import { User, UserRole } from '../models/User';
 import { Company } from '../models/Company';
+import { SystemSettings } from '../models/SystemSettings';
 import { PasswordResetToken } from '../models/PasswordResetToken';
 import { AppError } from '../middleware/errorHandler';
 import emailService from '../services/emailService';
 import { AuditService } from '../services/auditService';
 import { AuditAction, AuditCategory } from '../models/AuditLog';
 import { userAttributeExcludes } from './user.controller';
+
+/**
+ * Gültigkeitsdauer des JWT (Stunden) — konfigurierbar über die Einstellungen
+ * (SystemSettings.sessionDurationHours): erst die firmenspezifische Zeile, sonst
+ * die globale Vorlage (companyId=null, vom Super-Admin gepflegt). Nur lesend, damit
+ * der Login-Pfad keine Settings-Zeilen anlegt. Sinnvolle Grenzen: 1 h … 90 Tage;
+ * Fallback 8 h, falls (noch) keine Einstellung existiert.
+ */
+async function resolveSessionHours(companyId: number | null): Promise<number> {
+  let settings = companyId
+    ? await SystemSettings.findOne({ where: { companyId } })
+    : null;
+  if (!settings) settings = await SystemSettings.findOne({ where: { companyId: null } });
+  const hours = settings?.sessionDurationHours;
+  if (!hours || !Number.isFinite(hours) || hours < 1) return 8;
+  return Math.min(hours, 24 * 90);
+}
 
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
@@ -49,8 +67,8 @@ export class AuthController {
 
       const tokenPayload = { id: user.id, email: user.email, role: user.role };
       const secret = process.env.JWT_SECRET as string;
-      const expiresIn = process.env.JWT_EXPIRE_TIME || '8h';
-      
+      const expiresIn = `${await resolveSessionHours(user.companyId ?? null)}h`;
+
       const token = jwt.sign(tokenPayload, secret, { expiresIn } as jwt.SignOptions);
 
       res.status(201).json({
@@ -93,8 +111,8 @@ export class AuthController {
 
       const tokenPayload = { id: user.id, email: user.email, role: user.role };
       const secret = process.env.JWT_SECRET as string;
-      const expiresIn = process.env.JWT_EXPIRE_TIME || '8h';
-      
+      const expiresIn = `${await resolveSessionHours(user.companyId ?? null)}h`;
+
       const token = jwt.sign(tokenPayload, secret, { expiresIn } as jwt.SignOptions);
 
       res.json({
