@@ -118,7 +118,19 @@ export class SettingsController {
   //   Vorlage (companyId=null) ist nur für Super-Admin editierbar.
   async resolveSettingsCompanyId(req: Request): Promise<number | null> {
     const u = req.user!;
-    if (u.isSuperAdmin) return req.query.companyId ? Number(req.query.companyId) : null;
+    if (u.isSuperAdmin) {
+      if (req.query.companyId) return Number(req.query.companyId);
+      // Ein Super-Admin, der SELBST zu einer Firma gehört, verwaltet standardmäßig
+      // die Einstellungen SEINER Firma — genau die Zeile, die Login und Stempeln zur
+      // Laufzeit lesen (getOrCreateSettings(user.companyId)). Früher fiel er ohne
+      // ?companyId auf die globale Vorlage (companyId=null) zurück; dort gesetzte
+      // Werte (z. B. GPS-Pflicht, Session-Dauer) blieben für die eigenen Nutzer
+      // wirkungslos. Die globale Vorlage / andere Firmen bleiben über den
+      // Firmen-Wechsler (?companyId) bzw. für reine Plattform-Admins ohne Firma
+      // (companyId=null) erreichbar. Instanzweite Felder (publicUrl, autoBackup)
+      // landen unabhängig davon immer in der globalen Vorlage (siehe updateSettings).
+      return u.companyId ?? null;
+    }
     if (u.companyId) return u.companyId;
     if (u.tenantId) {
       const cid = req.query.companyId ? Number(req.query.companyId) : null;
@@ -280,15 +292,31 @@ export class SettingsController {
         }
       }
 
+      // Automatisches Backup ist INSTANZWEIT: Der Backup-Service liest ausschließlich
+      // die globale Vorlage (getOrCreateSettings(null)). Diese Felder daher immer dort
+      // speichern — sonst blieben sie wirkungslos, sobald der Scope eine Firma ist
+      // (z. B. Super-Admin, der jetzt standardmäßig seine eigene Firma verwaltet).
+      const BACKUP_FIELDS = ['autoBackupEnabled', 'autoBackupTime', 'backupRetentionDays', 'backupNotifyOnFailure'];
+      const backupUpdate: any = {};
+      for (const f of BACKUP_FIELDS) {
+        if (f in updateData) {
+          backupUpdate[f] = updateData[f];
+          if (companyId !== null) delete updateData[f]; // nicht in die Firmen-Zeile schreiben
+        }
+      }
+
       await settings.update(updateData);
 
-      // Geänderte Auto-Backup-Zeit sofort wirksam machen: Timer neu planen
-      // (nur relevant, wenn die GLOBALE Vorlage bearbeitet wurde). Dynamischer
-      // Import, um einen Zyklus autoBackupService ↔ settings.controller zu vermeiden.
-      if (companyId === null && ('autoBackupTime' in updateData || 'autoBackupEnabled' in updateData)) {
-        import('../services/autoBackupService')
-          .then((m) => m.rescheduleAutoBackupJob())
-          .catch(() => { /* Job läuft ggf. nicht (Tests) — unkritisch */ });
+      if (Object.keys(backupUpdate).length && req.user!.isSuperAdmin) {
+        const globalSettings = companyId === null ? settings : await this.getOrCreateSettings(null);
+        if (globalSettings !== settings) await globalSettings.update(backupUpdate);
+        // Geänderte Auto-Backup-Zeit/-Schalter sofort wirksam machen: Timer neu planen.
+        // Dynamischer Import, um einen Zyklus autoBackupService ↔ settings.controller zu vermeiden.
+        if ('autoBackupTime' in backupUpdate || 'autoBackupEnabled' in backupUpdate) {
+          import('../services/autoBackupService')
+            .then((m) => m.rescheduleAutoBackupJob())
+            .catch(() => { /* Job läuft ggf. nicht (Tests) — unkritisch */ });
+        }
       }
 
       // publicUrl ist INSTANZWEIT (tenant-übergreifend): immer in der globalen Vorlage
