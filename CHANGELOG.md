@@ -23,6 +23,9 @@
 
 ## [1.1.3] - 2026-07-09
 
+### Fixed
+- E2E-Härtung + autoBackup-Anzeige-Fix
+
 ### Improved
 - Firmen-Wechsler: doppelten companyId/tenantId-Parameter vermeiden
 - Login: Konto-Sperre nach zu vielen Fehlversuchen durchsetzen
