@@ -25,6 +25,7 @@
 
 ### Improved
 - Firmen-Wechsler: doppelten companyId/tenantId-Parameter vermeiden
+- Login: Konto-Sperre nach zu vielen Fehlversuchen durchsetzen
 
 ## [1.1.2] - 2026-07-08
 
