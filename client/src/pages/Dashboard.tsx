@@ -89,14 +89,19 @@ function FeedTeaser() {
   );
 }
 
-/** GPS best-effort holen: Timeout 3s, bei Ablehnung/Fehler null (kein Blocker). */
-function getPosition(): Promise<GeolocationPosition | null> {
+/**
+ * GPS holen: bei Ablehnung/Fehler null (kein Blocker).
+ * `strict` (GPS-Pflicht): FRISCHE Position erzwingen (maximumAge 0) und länger warten,
+ * damit eine alte/gecachte Ortung die Pflicht nicht aushebelt. Sonst best-effort mit
+ * kurzem Timeout und bis zu 60 s alter Position (schnelles, unkritisches Stempeln).
+ */
+function getPosition(strict = false): Promise<GeolocationPosition | null> {
   return new Promise((resolve) => {
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return resolve(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve(pos),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 3000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: strict ? 8000 : 3000, maximumAge: strict ? 0 : 60000 }
     );
   });
 }
@@ -175,7 +180,7 @@ export default function Dashboard() {
     if (stamping) return;
     setStamping(type);
     try {
-      const pos = gpsMode === 'off' ? null : await getPosition();
+      const pos = gpsMode === 'off' ? null : await getPosition(gpsMode === 'required');
       const body: Record<string, unknown> = { type };
       if (pos) {
         body.lat = pos.coords.latitude;
