@@ -9,7 +9,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const {
-  PORT, BASE_URL, SERVER_DIR, DB_FILE, PID_FILE, LOG_FILE, JWT_SECRET,
+  PORT, BASE_URL, SERVER_DIR, DB_FILE, PID_FILE, LOG_FILE, JWT_SECRET, HANDOFF_SECRET,
   SEED_PASSWORDS, ensureTmpDir,
 } = require('./lib/env');
 
@@ -44,6 +44,7 @@ module.exports = async () => {
     NODE_ENV: 'production',
     PORT: String(PORT),
     JWT_SECRET,
+    TIMEFEED_HANDOFF_SECRET: HANDOFF_SECRET,
     DATABASE_URL: `sqlite:${DB_FILE}`,
     SEED_ADMIN_PASSWORD: SEED_PASSWORDS.admin,
     SEED_BUCHHALTUNG_PASSWORD: SEED_PASSWORDS.buchhaltung,

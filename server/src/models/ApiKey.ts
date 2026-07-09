@@ -14,6 +14,8 @@ export const API_SCOPE_USERS_READ = 'users:read';
 export const API_SCOPE_LINK_WRITE = 'link:write';
 // Default-Scopes neuer Schlüssel (Bestands-Keys werden in ensureFeatureColumns migriert).
 export const API_DEFAULT_SCOPES = [API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ];
+// Alle vergebbaren Scopes (für Validierung bei optionaler Scope-Wahl).
+export const API_ALL_SCOPES = [API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ, API_SCOPE_LINK_WRITE];
 
 interface ApiKeyAttributes {
   id: number;

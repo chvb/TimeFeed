@@ -38,6 +38,8 @@ module.exports = {
   PID_FILE: path.join(TMP_DIR, 'e2e-server.pid'),
   LOG_FILE: path.join(TMP_DIR, 'e2e-server.log'),
   JWT_SECRET: 'e2e-test-secret',
+  // Gemeinsames Handoff-Secret (Hub ⇄ App) — im Test signiert der Test die Handoffs selbst.
+  HANDOFF_SECRET: 'e2e-handoff-secret',
   SEED_PASSWORDS,
   ensureTmpDir,
 };

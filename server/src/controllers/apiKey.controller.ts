@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { ApiKey, API_DEFAULT_SCOPES, generateApiKey, hashApiKey } from '../models/ApiKey';
+import { ApiKey, API_DEFAULT_SCOPES, API_ALL_SCOPES, generateApiKey, hashApiKey } from '../models/ApiKey';
 import { Tenant } from '../models/Tenant';
 import { Company } from '../models/Company';
 import { User } from '../models/User';
@@ -81,14 +81,19 @@ export class ApiKeyController {
         if (Number.isNaN(expires.getTime())) return next(new AppError(400, 'Ungültiges Ablaufdatum'));
       }
 
+      // Optionale Scope-Wahl (nur bekannte Scopes); ohne Angabe die Lese-Defaults.
+      const requested: string[] = Array.isArray(req.body.scopes)
+        ? req.body.scopes.filter((s: unknown): s is string => typeof s === 'string' && API_ALL_SCOPES.includes(s))
+        : [];
+      const scopes = requested.length ? Array.from(new Set(requested)) : [...API_DEFAULT_SCOPES];
+
       const fullKey = generateApiKey();
       const apiKey = await ApiKey.create({
         tenantId,
         name: String(name).trim(),
         keyPrefix: fullKey.slice(0, 8),
         keyHash: hashApiKey(fullKey),
-        // Neue Schlüssel erhalten beide Lese-Scopes (Zeiten + Mitarbeiter-Export).
-        scopes: [...API_DEFAULT_SCOPES],
+        scopes,
         isActive: true,
         expiresAt: expires,
         createdById: req.user!.id,
