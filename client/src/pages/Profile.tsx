@@ -20,7 +20,7 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export default function Profile() {
   const t = useT();
-  const { user, updateUser } = useAuthStore();
+  const { user, updateUser, logout } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -212,6 +212,24 @@ export default function Profile() {
       toast.error(error.response?.data?.message || t('profile.passwordChangeError'));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleLogoutAllDevices = async () => {
+    const ok = await confirm({
+      title: t('settings.security.logoutAllDevices'),
+      message: t('settings.security.logoutAllConfirm'),
+      confirmText: t('settings.security.logoutAllDevices'),
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.post('/auth/logout-all');
+      toast.success(t('settings.security.logoutAllDone'));
+      // Aktuelle Session wurde serverseitig ebenfalls entwertet → lokal abmelden.
+      logout();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || error.response?.data?.error || t('profile.passwordChangeError'));
     }
   };
 
@@ -436,12 +454,20 @@ export default function Profile() {
                 <h3 className="text-lg font-semibold text-slate-900">{t('profile.passwordSecurity')}</h3>
               </div>
               {!isChangingPassword && (
-                <button
-                  onClick={() => setIsChangingPassword(true)}
-                  className="btn-secondary text-sm"
-                >
-                  {t('profile.changePassword')}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={handleLogoutAllDevices}
+                    className="btn-secondary text-sm"
+                  >
+                    {t('settings.security.logoutAllDevices')}
+                  </button>
+                  <button
+                    onClick={() => setIsChangingPassword(true)}
+                    className="btn-secondary text-sm"
+                  >
+                    {t('profile.changePassword')}
+                  </button>
+                </div>
               )}
             </div>
 

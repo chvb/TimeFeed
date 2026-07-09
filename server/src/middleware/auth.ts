@@ -10,6 +10,8 @@ interface JwtPayload {
   companyId?: number | null;
   tenantId?: number | null;
   isSuperAdmin?: boolean;
+  // Token-Version zum Zeitpunkt der Ausstellung (Widerruf via „überall abmelden").
+  tv?: number;
 }
 
 declare global {
@@ -32,6 +34,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const user = await User.findByPk(decoded.id);
 
     if (!user || !user.isActive) {
+      throw new Error();
+    }
+
+    // Token-Widerruf: nach „auf allen Geräten abmelden" wurde tokenVersion erhöht;
+    // ältere Tokens (kleinere/fehlende tv) sind damit ungültig. Alt-Tokens ohne tv
+    // gelten als Version 0 → bleiben gültig, bis erstmals überall abgemeldet wird.
+    if ((decoded.tv ?? 0) !== (user.tokenVersion ?? 0)) {
       throw new Error();
     }
 

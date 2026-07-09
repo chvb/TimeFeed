@@ -29,6 +29,9 @@ router.post(
 
 router.post('/logout', authenticate, authController.logout);
 
+// Alle Sessions dieses Nutzers widerrufen (tokenVersion++).
+router.post('/logout-all', authenticate, authController.logoutAllDevices);
+
 router.get('/me', authenticate, authController.getCurrentUser);
 
 router.post(

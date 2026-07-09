@@ -34,6 +34,7 @@ export async function ensureColumns(): Promise<void> {
   await addIfMissing(User, 'birth_date', { type: DataTypes.DATEONLY, allowNull: true });
   await addIfMissing(User, 'employment_factor', { type: DataTypes.FLOAT, allowNull: true, defaultValue: 1 });
   await addIfMissing(User, 'exit_date', { type: DataTypes.DATE, allowNull: true });
+  await addIfMissing(User, 'token_version', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 });
   await addIfMissing(SystemSettings, 'public_url', { type: DataTypes.STRING, allowNull: true });
   await addIfMissing(StorageSettings, 's3_attachment_prefix', { type: DataTypes.STRING, allowNull: true, defaultValue: 'timefeed/attachments/' });
 

@@ -103,7 +103,7 @@ export class AuthController {
         startDate: new Date(),
       });
 
-      const tokenPayload = { id: user.id, email: user.email, role: user.role };
+      const tokenPayload = { id: user.id, email: user.email, role: user.role, tv: user.tokenVersion ?? 0 };
       const secret = process.env.JWT_SECRET as string;
       const expiresIn = `${await resolveSessionHours(user.companyId ?? null)}h`;
 
@@ -157,7 +157,7 @@ export class AuthController {
 
       await AuditService.logLogin(user.id, true, req);
 
-      const tokenPayload = { id: user.id, email: user.email, role: user.role };
+      const tokenPayload = { id: user.id, email: user.email, role: user.role, tv: user.tokenVersion ?? 0 };
       const secret = process.env.JWT_SECRET as string;
       const expiresIn = `${await resolveSessionHours(user.companyId ?? null)}h`;
 
@@ -185,6 +185,24 @@ export class AuthController {
   async logout(_req: Request, res: Response, next: NextFunction) {
     try {
       res.json({ message: 'Logout successful' });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  /**
+   * „Auf allen Geräten abmelden": erhöht die tokenVersion des Nutzers, wodurch ALLE
+   * bisher ausgestellten JWTs (inkl. des aktuellen) ungültig werden. Der Client muss
+   * danach neu einloggen. Nützlich bei Verdacht auf ein geleaktes/verlorenes Gerät –
+   * v. a. relevant durch die jetzt bis zu 90 Tage langen Sessions.
+   */
+  async logoutAllDevices(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = await User.findByPk(req.user!.id);
+      if (!user) return next(new AppError(404, 'User not found'));
+      user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+      await user.save();
+      res.json({ message: 'Auf allen Geräten abgemeldet.' });
     } catch (error) {
       return next(error);
     }
