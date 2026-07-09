@@ -145,10 +145,16 @@ export class SettingsController {
     try {
       const settings = await this.getOrCreateSettings(await this.resolveSettingsCompanyId(req));
       const response = this.buildSettingsDTO(settings);
-      // publicUrl ist instanzweit (tenant-übergreifend) → immer aus der globalen Vorlage,
-      // unabhängig vom gewählten Firmen-Kontext.
+      // Instanzweite Felder immer aus der globalen Vorlage, unabhängig vom gewählten
+      // Firmen-Kontext: publicUrl (tenant-übergreifend) und die autoBackup-Werte
+      // (der Backup-Service liest nur die globale Zeile — sonst zeigt das Formular
+      // veraltete Firmen-Klonwerte).
       const globalSettings = await this.getOrCreateSettings(null);
       response.publicUrl = globalSettings.publicUrl;
+      response.autoBackupEnabled = globalSettings.autoBackupEnabled;
+      response.autoBackupTime = globalSettings.autoBackupTime;
+      response.backupRetentionDays = globalSettings.backupRetentionDays;
+      response.backupNotifyOnFailure = globalSettings.backupNotifyOnFailure;
       res.json(response);
     } catch (error) {
       next(error);
@@ -350,9 +356,14 @@ export class SettingsController {
       // (auch neu ergänzte Spalten wie publicUrl) widerspiegelt.
       const fresh = await this.getOrCreateSettings(companyId);
       const response = this.buildSettingsDTO(fresh);
-      // publicUrl stets aus der globalen Vorlage (instanzweit) zurückgeben.
+      // Instanzweite Felder stets aus der globalen Vorlage zurückgeben (publicUrl +
+      // autoBackup — dort werden sie auch gespeichert und vom Backup-Service gelesen).
       const freshGlobal = await this.getOrCreateSettings(null);
       response.publicUrl = freshGlobal.publicUrl;
+      response.autoBackupEnabled = freshGlobal.autoBackupEnabled;
+      response.autoBackupTime = freshGlobal.autoBackupTime;
+      response.backupRetentionDays = freshGlobal.backupRetentionDays;
+      response.backupNotifyOnFailure = freshGlobal.backupNotifyOnFailure;
 
       res.json({
         message: 'Settings updated successfully',

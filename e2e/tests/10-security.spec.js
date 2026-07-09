@@ -94,9 +94,12 @@ test.describe('Security: Robustheit', () => {
 
     // Auth-Brute-Force-Limiter (max 30/15min) überspringt Loopback — die e2e-Suite
     // darf sich also nicht selbst aussperren: >30 Fehlversuche bleiben 401, nie 429.
+    // Bewusst je Versuch eine ANDERE (nicht existierende) E-Mail: sonst greift die
+    // konto-basierte Sperre (ACCOUNT_LOCKED) und würde den Seed-User aussperren.
+    // Die Konto-Sperre selbst wird in 24-security-hardening geprüft.
     for (let i = 0; i < 32; i++) {
       const attempt = await request.post('/api/auth/login', {
-        data: { email: USERS.mitarbeiter.email, password: `falsch-${i}!A1` },
+        data: { email: `limiter-${i}@timefeed.de`, password: `falsch-${i}!A1` },
       });
       expect(attempt.status()).toBe(401);
     }
