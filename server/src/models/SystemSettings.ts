@@ -24,6 +24,8 @@ interface SystemSettingsAttributes {
   passwordRequireNumbers: boolean;
   passwordRequireSpecialChars: boolean;
   sessionDurationHours: number;
+  // NFC-Auth (FeedAuth-Hub): PIN vor dem Auslösen erforderlich? (je Firma)
+  nfcPinRequired: boolean;
   passwordExpiryDays: number;
   maxLoginAttempts: number;
   lockoutDurationMinutes: number;
@@ -94,7 +96,7 @@ interface SystemSettingsCreationAttributes extends Optional<SystemSettingsAttrib
   | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired' | 'gpsMode'
   | 'retentionMonthsEntries' | 'retentionMonthsGps'
   | 'terminalAlertEnabled' | 'terminalAlertMinutes' | 'terminalAlertEmails' | 'terminalPingSeconds'
-  | 'sendTimesheetOnClose'
+  | 'sendTimesheetOnClose' | 'nfcPinRequired'
   | 'autoBackupEnabled' | 'autoBackupTime' | 'backupRetentionDays' | 'backupNotifyOnFailure'
   | 'reportDailyEnabled' | 'reportMonthlyEnabled' | 'reportQuarterlyEnabled' | 'reportYearlyEnabled'
   | 'reportRecipients' | 'reportLastSent'> {}
@@ -121,6 +123,7 @@ export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettin
   public passwordRequireNumbers!: boolean;
   public passwordRequireSpecialChars!: boolean;
   public sessionDurationHours!: number;
+  public nfcPinRequired!: boolean;
   public passwordExpiryDays!: number;
   public maxLoginAttempts!: number;
   public lockoutDurationMinutes!: number;
@@ -259,6 +262,11 @@ SystemSettings.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 8,
+    },
+    nfcPinRequired: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
     passwordExpiryDays: {
       type: DataTypes.INTEGER,

@@ -33,6 +33,7 @@ router.get('/ping', apiKeyAuth(), (req: Request, res: Response) => {
 // FeedAuth-Hub: Nutzer-Verknüpfung (Scope link:write, server-zu-server).
 const nfcController = new NfcController();
 router.get('/link/users', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.linkUsers.bind(nfcController));
+router.get('/link/pin-required', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.pinRequired.bind(nfcController));
 router.post('/link/assign', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.linkAssign.bind(nfcController));
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

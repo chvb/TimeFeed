@@ -73,6 +73,7 @@ export class SettingsController {
       passwordRequireNumbers: settings.passwordRequireNumbers,
       passwordRequireSpecialChars: settings.passwordRequireSpecialChars,
       sessionDurationHours: settings.sessionDurationHours,
+      nfcPinRequired: settings.nfcPinRequired,
       passwordExpiryDays: settings.passwordExpiryDays,
       maxLoginAttempts: settings.maxLoginAttempts,
       lockoutDurationMinutes: settings.lockoutDurationMinutes,
@@ -179,6 +180,7 @@ export class SettingsController {
         'departments', 'passwordMinLength', 'passwordRequireUppercase', 'passwordRequireLowercase',
         'passwordRequireNumbers', 'passwordRequireSpecialChars', 'sessionDurationHours',
         'passwordExpiryDays', 'maxLoginAttempts', 'lockoutDurationMinutes',
+        'nfcPinRequired',
         // Zeiterfassung
         'breakMode', 'breakAfter6hMinutes', 'breakAfter9hMinutes',
         'autoCapEnabled', 'autoCapTime',
@@ -222,6 +224,7 @@ export class SettingsController {
       // Terminal-Überwachung validieren
       if ('terminalAlertEnabled' in updateData) updateData.terminalAlertEnabled = Boolean(updateData.terminalAlertEnabled);
       if ('sendTimesheetOnClose' in updateData) updateData.sendTimesheetOnClose = Boolean(updateData.sendTimesheetOnClose);
+      if ('nfcPinRequired' in updateData) updateData.nfcPinRequired = Boolean(updateData.nfcPinRequired);
       if ('terminalAlertMinutes' in updateData) {
         const v = Number(updateData.terminalAlertMinutes);
         if (!Number.isInteger(v) || v < 2 || v > 1440) {

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { Op, literal } from 'sequelize';
 import { User } from '../models/User';
+import { SystemSettings } from '../models/SystemSettings';
 import { AppError } from '../middleware/errorHandler';
 import { verifyHubHandoff } from '../services/hubHandoff';
 
@@ -81,6 +82,25 @@ export class NfcController {
           hubPersonId: u.hubPersonId || null,
         })),
       });
+    } catch (e) {
+      return next(e);
+    }
+  }
+
+  /**
+   * GET /api/external/link/pin-required?userId=N  (Scope link:write)
+   * Sagt dem Hub, ob die Firma dieses Nutzers vor der NFC-Aktion eine PIN verlangt.
+   */
+  async pinRequired(req: Request, res: Response, next: NextFunction) {
+    try {
+      const tenantId = Number(req.apiTenantId);
+      const userId = Number(req.query.userId);
+      if (!Number.isInteger(userId) || userId < 1) return next(new AppError(400, 'userId ungültig'));
+      const user = await User.findOne({ where: { id: userId, ...tenantWhere(tenantId) } });
+      if (!user) return next(new AppError(404, 'Nutzer nicht gefunden'));
+      let s = user.companyId ? await SystemSettings.findOne({ where: { companyId: user.companyId } }) : null;
+      if (!s) s = await SystemSettings.findOne({ where: { companyId: null } });
+      res.json({ pinRequired: !!(s && s.nfcPinRequired) });
     } catch (e) {
       return next(e);
     }

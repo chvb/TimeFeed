@@ -47,6 +47,7 @@ interface SystemSettings {
   passwordRequireNumbers: boolean;
   passwordRequireSpecialChars: boolean;
   sessionDurationHours: number;
+  nfcPinRequired?: boolean;
   passwordExpiryDays: number;
   maxLoginAttempts: number;
   lockoutDurationMinutes: number;
@@ -163,6 +164,7 @@ const Settings: React.FC = () => {
     passwordRequireNumbers: true,
     passwordRequireSpecialChars: true,
     sessionDurationHours: 8,
+    nfcPinRequired: false,
     passwordExpiryDays: 90,
     maxLoginAttempts: 5,
     lockoutDurationMinutes: 15,
@@ -1800,7 +1802,22 @@ const Settings: React.FC = () => {
                   />
                   <p className="text-xs text-slate-500 mt-1">{t('settings.security.sessionDurationHint')}</p>
                 </div>
-                
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    {t('settings.security.nfcPin')}
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={!!settings.nfcPinRequired}
+                      onChange={(e) => setSettings({ ...settings, nfcPinRequired: e.target.checked })}
+                    />
+                    <span className="text-sm text-slate-700">{t('settings.security.nfcPinToggle')}</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-1">{t('settings.security.nfcPinHint')}</p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     {t('settings.security.maxAttempts')}
