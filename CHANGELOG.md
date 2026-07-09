@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.3] - 2026-07-09
+
+### Improved
+- Firmen-Wechsler: doppelten companyId/tenantId-Parameter vermeiden
+
 ## [1.1.2] - 2026-07-08
 
 ### Fixed
