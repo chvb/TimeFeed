@@ -10,7 +10,7 @@ import { PasswordResetToken } from '../models/PasswordResetToken';
 import { AppError } from '../middleware/errorHandler';
 import emailService from '../services/emailService';
 import { AuditService } from '../services/auditService';
-import { AuditAction, AuditCategory } from '../models/AuditLog';
+import { AuditLog, AuditAction, AuditCategory } from '../models/AuditLog';
 import { userAttributeExcludes } from './user.controller';
 
 /**
@@ -28,6 +28,44 @@ async function resolveSessionHours(companyId: number | null): Promise<number> {
   const hours = settings?.sessionDurationHours;
   if (!hours || !Number.isFinite(hours) || hours < 1) return 8;
   return Math.min(hours, 24 * 90);
+}
+
+/**
+ * Konto-Sperre nach zu vielen Fehlversuchen (Einstellungen maxLoginAttempts /
+ * lockoutDurationMinutes; jeweils < 1 = deaktiviert). Ausgewertet über die
+ * AuditLog-Einträge (LOGIN_FAILED) seit dem letzten erfolgreichen Login bzw. seit
+ * Fensterbeginn — ohne zusätzliche DB-Spalten. Rückgabe: null = frei, sonst die
+ * verbleibende Sperrdauer in Minuten (>= 1).
+ */
+async function checkAccountLockout(userId: number, companyId: number | null): Promise<number | null> {
+  let settings = companyId
+    ? await SystemSettings.findOne({ where: { companyId } })
+    : null;
+  if (!settings) settings = await SystemSettings.findOne({ where: { companyId: null } });
+  const maxAttempts = settings?.maxLoginAttempts ?? 0;
+  const lockoutMinutes = settings?.lockoutDurationMinutes ?? 0;
+  if (maxAttempts < 1 || lockoutMinutes < 1) return null; // Sperre deaktiviert
+
+  const windowStart = new Date(Date.now() - lockoutMinutes * 60000);
+  const lastSuccess = await AuditLog.findOne({
+    where: { userId, action: AuditAction.LOGIN, success: true },
+    order: [['createdAt', 'DESC']],
+  });
+  // Fehlversuche vor dem letzten Erfolg zählen nicht mehr (Reset bei Erfolg).
+  const since = lastSuccess?.createdAt && lastSuccess.createdAt > windowStart
+    ? lastSuccess.createdAt : windowStart;
+  const fails = await AuditLog.count({
+    where: { userId, action: AuditAction.LOGIN_FAILED, createdAt: { [Op.gt]: since } },
+  });
+  if (fails < maxAttempts) return null;
+
+  const lastFail = await AuditLog.findOne({
+    where: { userId, action: AuditAction.LOGIN_FAILED },
+    order: [['createdAt', 'DESC']],
+  });
+  const unlockAt = (lastFail?.createdAt?.getTime() ?? Date.now()) + lockoutMinutes * 60000;
+  const remainingMin = Math.ceil((unlockAt - Date.now()) / 60000);
+  return remainingMin > 0 ? remainingMin : null;
 }
 
 export class AuthController {
@@ -99,6 +137,16 @@ export class AuthController {
       const user = await User.findOne({ where: { email } });
       if (!user || !user.isActive) {
         return next(new AppError(401, 'Invalid credentials'));
+      }
+
+      // Brute-Force-Schutz je Konto: nach maxLoginAttempts Fehlversuchen für
+      // lockoutDurationMinutes sperren (ergänzt das IP-Rate-Limit auf /auth).
+      const lockedMin = await checkAccountLockout(user.id, user.companyId ?? null);
+      if (lockedMin != null) {
+        return res.status(429).json({
+          error: `Konto vorübergehend gesperrt. Bitte in ${lockedMin} Minute(n) erneut versuchen.`,
+          code: 'ACCOUNT_LOCKED',
+        });
       }
 
       const isPasswordValid = await user.comparePassword(password);
