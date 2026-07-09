@@ -276,7 +276,7 @@ export default function Layout() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {canSwitchCompany && companyOptions.length > 0 &&
+          {canSwitchCompany && (companyOptions.length > 1 || tenantOptions.length > 1) &&
             renderScopeSelect('hidden lg:block mr-1 px-2 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors text-sm font-medium max-w-[15rem] xl:max-w-[22rem]')}
           <button
             onClick={() => setLang(lang === 'de' ? 'en' : 'de')}
@@ -329,18 +329,18 @@ export default function Layout() {
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 top-24 bg-black bg-opacity-50 z-30 lg:hidden"
+            className="fixed inset-0 top-24 bg-black bg-opacity-50 z-[65] lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
         {/* Sidebar */}
         <div className={clsx(
-          'fixed top-24 bottom-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:top-0 lg:translate-x-0 border-r border-gray-200 flex-shrink-0',
+          'fixed top-24 bottom-0 left-0 z-[70] w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:relative lg:top-0 lg:z-auto lg:translate-x-0 border-r border-gray-200 flex-shrink-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}>
           <div className="flex flex-col h-full">
-            {canSwitchCompany && companyOptions.length > 0 && (
+            {canSwitchCompany && (companyOptions.length > 1 || tenantOptions.length > 1) && (
               <div className="lg:hidden px-4 pt-4">
                 {renderScopeSelect('w-full px-2 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium')}
               </div>
