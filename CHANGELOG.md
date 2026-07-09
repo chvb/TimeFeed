@@ -32,6 +32,8 @@
 - Layout: Wechsler bei nur einer Firma ausblenden + Update-Banner mobil nicht überlagert
 - GPS-Pflicht: bei 'required' frische Position erzwingen
 - Betriebs-Skripte: Port-Kill robust gegen unlesbare /proc-Einträge
+- Sicherheit: „Auf allen Geräten abmelden" im Profil beendet alle aktiven Sitzungen (z. B. bei verlorenem Gerät).
+- Sicherheit: Passwortregeln (Mindestlänge, Groß-/Kleinbuchstaben, Ziffern, Sonderzeichen) werden serverseitig gemäß den Einstellungen erzwungen.
 
 ## [1.1.2] - 2026-07-08
 
