@@ -22,12 +22,30 @@ kill_app_processes() {
     # Port-Inhaber zuerst: Wer auf dem App-Port lauscht, IST diese App —
     # funktioniert auch, wenn /proc/<pid>/cwd nicht lesbar ist (Sandbox-Reste).
     if [ -n "$app_port" ]; then
-        local lpid
-        lpid=$(ss -tlnp 2>/dev/null | grep ":${app_port} " | grep -oE 'pid=[0-9]+' | grep -oE '[0-9]+' | head -1)
-        if [ -n "$lpid" ]; then
-            kill "$lpid" 2>/dev/null || true
+        # ss zeigt die PID nur mit ausreichenden Rechten. Fallback: Besitzer des
+        # LISTEN-Sockets über die Inode aus /proc/net/tcp{,6} + /proc/*/fd ermitteln —
+        # greift AUCH, wenn /proc/<pid>/cwd unlesbar ist (verwaiste Sandbox-Prozesse).
+        local port_pids ppid
+        port_pids="$(ss -tlnp 2>/dev/null | grep ":${app_port} " | grep -oE 'pid=[0-9]+' | grep -oE '[0-9]+')"
+        if [ -z "$port_pids" ]; then
+            local hex inodes ino fd
+            hex=$(printf '%04X' "$app_port")
+            inodes=$(awk -v p=":$hex" '$4=="0A" && $2 ~ (p"$") {print $10}' /proc/net/tcp /proc/net/tcp6 2>/dev/null)
+            for ino in $inodes; do
+                for fd in /proc/[0-9]*/fd/*; do
+                    [ "$(readlink "$fd" 2>/dev/null)" = "socket:[$ino]" ] && port_pids="$port_pids $(printf '%s' "$fd" | cut -d/ -f3)"
+                done
+            done
+        fi
+        for ppid in $port_pids; do
+            [ -n "$ppid" ] || continue
+            kill "$ppid" 2>/dev/null || true
+        done
+        if [ -n "$port_pids" ]; then
             sleep 2
-            kill -0 "$lpid" 2>/dev/null && kill -9 "$lpid" 2>/dev/null || true
+            for ppid in $port_pids; do
+                kill -0 "$ppid" 2>/dev/null && kill -9 "$ppid" 2>/dev/null || true
+            done
         fi
     fi
     [ -f logs/server.pid ] && pids="$(cat logs/server.pid 2>/dev/null)"
