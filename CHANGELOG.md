@@ -26,6 +26,8 @@
 ### Improved
 - Firmen-Wechsler: doppelten companyId/tenantId-Parameter vermeiden
 - Login: Konto-Sperre nach zu vielen Fehlversuchen durchsetzen
+- Layout: Wechsler bei nur einer Firma ausblenden + Update-Banner mobil nicht überlagert
+- GPS-Pflicht: bei 'required' frische Position erzwingen
 
 ## [1.1.2] - 2026-07-08
 
