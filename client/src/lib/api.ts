@@ -24,9 +24,14 @@ api.interceptors.request.use(
       // Wert ist 'company:<id>' oder 'tenant:<id>' (leer = alle → kein Parameter).
       // Explizit von der Seite gesetzte Parameter haben Vorrang (z. B. Firmen-Auswahl
       // auf der Lohn-Export-Seite) — Kontext nur ergänzen, nicht überschreiben.
+      // WICHTIG: auch Query-Strings in config.url berücksichtigen, sonst entsteht bei
+      // Seiten, die companyId/tenantId direkt an die URL hängen, ein DOPPELTER Parameter
+      // (Express liest dann ein Array → NaN → falsche/globale Auflösung).
       const p = (config.params || {}) as Record<string, unknown>;
-      if (cc.startsWith('tenant:') && p.tenantId == null) config.params = { ...p, tenantId: cc.slice(7) };
-      else if (cc.startsWith('company:') && p.companyId == null) config.params = { ...p, companyId: cc.slice(8) };
+      const urlHas = (key: string) =>
+        typeof config.url === 'string' && new RegExp(`[?&]${key}=`).test(config.url);
+      if (cc.startsWith('tenant:') && p.tenantId == null && !urlHas('tenantId')) config.params = { ...p, tenantId: cc.slice(7) };
+      else if (cc.startsWith('company:') && p.companyId == null && !urlHas('companyId')) config.params = { ...p, companyId: cc.slice(8) };
     }
     return config;
   },
