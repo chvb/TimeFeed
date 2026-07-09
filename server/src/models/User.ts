@@ -40,6 +40,9 @@ interface UserAttributes {
   // Token-Version: wird bei „auf allen Geräten abmelden" hochgezählt; JWTs mit
   // abweichender Version gelten als ungültig (serverseitiger Token-Widerruf).
   tokenVersion?: number;
+  // Verknüpfung mit der zentralen FeedAuth-Person (NFC-Hub). Stabil; über die
+  // link-API gesetzt. Zur Laufzeit lösen NFC-Handoffs den Nutzer hierüber auf.
+  hubPersonId?: string | null;
   groupId?: number;
   // Individuelle Arbeitstage (Array von Wochentag-IDs, z. B. ['monday',...]); null = globale Einstellung.
   workingDaysOverride?: string[] | null;
@@ -73,7 +76,7 @@ interface UserAttributes {
   updatedAt?: Date;
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'tenantId' | 'isSuperAdmin' | 'tokenVersion' | 'workingDaysOverride' | 'hoursPerDayOverride' | 'employmentFactor' | 'exitDate' | 'birthDate' | 'timeModelId' | 'surchargeProfileId' | 'stampCode' | 'nfcTagUid' | 'pin' | 'timesheetEmailMode'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId' | 'tenantId' | 'isSuperAdmin' | 'tokenVersion' | 'hubPersonId' | 'workingDaysOverride' | 'hoursPerDayOverride' | 'employmentFactor' | 'exitDate' | 'birthDate' | 'timeModelId' | 'surchargeProfileId' | 'stampCode' | 'nfcTagUid' | 'pin' | 'timesheetEmailMode'> {}
 
 export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -86,6 +89,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public tenantId?: number | null;
   public isSuperAdmin?: boolean;
   public tokenVersion?: number;
+  public hubPersonId?: string | null;
   public groupId?: number;
   public workingDaysOverride?: string[] | null;
   public hoursPerDayOverride?: number | null;
@@ -171,6 +175,11 @@ User.init(
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0,
+    },
+    hubPersonId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
     },
     groupId: {
       type: DataTypes.INTEGER,

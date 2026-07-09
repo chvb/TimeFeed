@@ -10,6 +10,8 @@ export const API_KEY_PREFIX = 'tfk_';
 export const API_SCOPE_TIMES_READ = 'times:read';
 // Mitarbeiter-Export (GET /api/external/users) für den Abgleich TimeFeed ⇄ UrlaubsFeed.
 export const API_SCOPE_USERS_READ = 'users:read';
+// FeedAuth-Hub: Nutzer auflisten (mit interner ID) + hubPersonId zuordnen (Verknüpfung).
+export const API_SCOPE_LINK_WRITE = 'link:write';
 // Default-Scopes neuer Schlüssel (Bestands-Keys werden in ensureFeatureColumns migriert).
 export const API_DEFAULT_SCOPES = [API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ];
 

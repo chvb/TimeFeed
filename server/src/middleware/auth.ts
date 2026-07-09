@@ -30,7 +30,12 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       throw new Error();
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload & { scope?: string };
+    // Scoped-Tokens (z. B. NFC-Stempel-Sitzung) sind KEINE vollwertige Anmeldung und
+    // dürfen nur über ihre eigene Middleware laufen, nie über die allgemeine Auth.
+    if (decoded.scope) {
+      throw new Error();
+    }
     const user = await User.findByPk(decoded.id);
 
     if (!user || !user.isActive) {

@@ -20,6 +20,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Feed = lazy(() => import('./pages/Feed'));
 const Terminal = lazy(() => import('./pages/Terminal'));
+const NfcStamp = lazy(() => import('./pages/NfcStamp'));
 const Terminals = lazy(() => import('./pages/Terminals'));
 const MyTimes = lazy(() => import('./pages/MyTimes'));
 const ManageTimes = lazy(() => import('./pages/ManageTimes'));
@@ -49,6 +50,8 @@ function App() {
       <Routes>
         {/* Kiosk-Terminal: eigener Vollbild-Screen ohne Layout/Login (Geräte-Token-Auth). */}
         <Route path="/terminal" element={<Terminal />} />
+        {/* Persönliche NFC-Stempelseite (Handoff vom FeedAuth-Hub, kein Login). */}
+        <Route path="/nfc" element={<NfcStamp />} />
 
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/forgot-password" element={!isAuthenticated ? <ForgotPassword /> : <Navigate to="/dashboard" />} />

@@ -3,7 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { Op, literal } from 'sequelize';
 import dayjs from 'dayjs';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
-import { API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ } from '../models/ApiKey';
+import { API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ, API_SCOPE_LINK_WRITE } from '../models/ApiKey';
+import { NfcController } from '../controllers/nfc.controller';
 import { User } from '../models/User';
 import { Group } from '../models/Group';
 import { WorkDay } from '../models/WorkDay';
@@ -28,6 +29,11 @@ router.use(externalLimiter);
 router.get('/ping', apiKeyAuth(), (req: Request, res: Response) => {
   res.json({ ok: true, tenant: req.apiTenantName });
 });
+
+// FeedAuth-Hub: Nutzer-Verknüpfung (Scope link:write, server-zu-server).
+const nfcController = new NfcController();
+router.get('/link/users', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.linkUsers.bind(nfcController));
+router.post('/link/assign', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.linkAssign.bind(nfcController));
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
