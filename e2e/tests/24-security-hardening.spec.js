@@ -91,4 +91,62 @@ test.describe('Security-Härtung', () => {
       data: { sessionDurationHours: 8 },
     });
   });
+
+  test('Passwort-Policy aus Einstellungen wird serverseitig erzwungen', async ({ request }) => {
+    const admin = await login(request, 'admin');
+
+    // Strenge Policy: min. 10 Zeichen, alle Zeichenklassen erforderlich.
+    let put = await request.put('/api/settings', {
+      headers: admin.headers,
+      data: {
+        passwordMinLength: 10, passwordRequireUppercase: true, passwordRequireLowercase: true,
+        passwordRequireNumbers: true, passwordRequireSpecialChars: true,
+      },
+    });
+    expect(put.ok()).toBeTruthy();
+
+    // Passwort ohne Großbuchstabe → serverseitig abgelehnt (400 Validierung).
+    const weak = await request.post('/api/users', {
+      headers: admin.headers,
+      data: {
+        email: 'pw-weak@timefeed.de', password: 'kleinklein12!',
+        firstName: 'Pw', lastName: 'Weak', role: 'mitarbeiter', companyId: admin.user.companyId,
+      },
+    });
+    expect(weak.status()).toBe(400);
+
+    // Policy lockern: min. 6, keine Zeichenklassen erzwungen.
+    put = await request.put('/api/settings', {
+      headers: admin.headers,
+      data: {
+        passwordMinLength: 6, passwordRequireUppercase: false, passwordRequireLowercase: false,
+        passwordRequireNumbers: false, passwordRequireSpecialChars: false,
+      },
+    });
+    expect(put.ok()).toBeTruthy();
+
+    // Jetzt ist dasselbe (nun regelkonforme) einfache Passwort zulässig.
+    const okRes = await request.post('/api/users', {
+      headers: admin.headers,
+      data: {
+        email: 'pw-lax@timefeed.de', password: 'simple',
+        firstName: 'Pw', lastName: 'Lax', role: 'mitarbeiter', companyId: admin.user.companyId,
+      },
+    });
+    expect([201, 400]).toContain(okRes.status()); // 201 neu, 400 nur bei Re-Run (existiert)
+    if (okRes.status() === 400) {
+      // Bei Re-Run existiert der User bereits — dann darf es NICHT an der Policy liegen.
+      const body = await okRes.json();
+      expect(JSON.stringify(body)).not.toContain('Passwort');
+    }
+
+    // Aufräumen: Standard-Policy wiederherstellen.
+    await request.put('/api/settings', {
+      headers: admin.headers,
+      data: {
+        passwordMinLength: 8, passwordRequireUppercase: true, passwordRequireLowercase: true,
+        passwordRequireNumbers: true, passwordRequireSpecialChars: true,
+      },
+    });
+  });
 });
