@@ -31,6 +31,7 @@
 - Login: Konto-Sperre nach zu vielen Fehlversuchen durchsetzen
 - Layout: Wechsler bei nur einer Firma ausblenden + Update-Banner mobil nicht überlagert
 - GPS-Pflicht: bei 'required' frische Position erzwingen
+- Betriebs-Skripte: Port-Kill robust gegen unlesbare /proc-Einträge
 
 ## [1.1.2] - 2026-07-08
 
