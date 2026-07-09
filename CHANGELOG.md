@@ -35,6 +35,7 @@
 - Sicherheit: „Auf allen Geräten abmelden" im Profil beendet alle aktiven Sitzungen (z. B. bei verlorenem Gerät).
 - Sicherheit: Passwortregeln (Mindestlänge, Groß-/Kleinbuchstaben, Ziffern, Sonderzeichen) werden serverseitig gemäß den Einstellungen erzwungen.
 - NFC-Anbindung (FeedAuth-Hub): hubPersonId, link-API, Exchange, /nfc-Stempelseite
+- NFC: PIN-Pflicht je Firma (SystemSettings.nfcPinRequired + pin-required-Endpunkt)
 
 ## [1.1.2] - 2026-07-08
 
