@@ -34,6 +34,7 @@
 - Betriebs-Skripte: Port-Kill robust gegen unlesbare /proc-Einträge
 - Sicherheit: „Auf allen Geräten abmelden" im Profil beendet alle aktiven Sitzungen (z. B. bei verlorenem Gerät).
 - Sicherheit: Passwortregeln (Mindestlänge, Groß-/Kleinbuchstaben, Ziffern, Sonderzeichen) werden serverseitig gemäß den Einstellungen erzwungen.
+- NFC-Anbindung (FeedAuth-Hub): hubPersonId, link-API, Exchange, /nfc-Stempelseite
 
 ## [1.1.2] - 2026-07-08
 
