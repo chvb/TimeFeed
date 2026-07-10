@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.4] - 2026-07-10
+
+### Improved
+- Externe API: globaler Hub-Key (Scope link:all-tenants) — Mandanten listen & je Mandant importieren
+
 ## [1.1.3] - 2026-07-09
 
 ### Fixed
