@@ -12,10 +12,13 @@ export const API_SCOPE_TIMES_READ = 'times:read';
 export const API_SCOPE_USERS_READ = 'users:read';
 // FeedAuth-Hub: Nutzer auflisten (mit interner ID) + hubPersonId zuordnen (Verknüpfung).
 export const API_SCOPE_LINK_WRITE = 'link:write';
+// FeedAuth-Hub (global): mandantenübergreifend – alle Mandanten listen und je Mandant
+// Nutzer lesen/zuordnen. Ohne diesen Scope bleibt alles strikt auf den Key-Mandanten gescopet.
+export const API_SCOPE_LINK_ALL = 'link:all-tenants';
 // Default-Scopes neuer Schlüssel (Bestands-Keys werden in ensureFeatureColumns migriert).
 export const API_DEFAULT_SCOPES = [API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ];
 // Alle vergebbaren Scopes (für Validierung bei optionaler Scope-Wahl).
-export const API_ALL_SCOPES = [API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ, API_SCOPE_LINK_WRITE];
+export const API_ALL_SCOPES = [API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ, API_SCOPE_LINK_WRITE, API_SCOPE_LINK_ALL];
 
 interface ApiKeyAttributes {
   id: number;

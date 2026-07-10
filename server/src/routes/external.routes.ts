@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { Op, literal } from 'sequelize';
 import dayjs from 'dayjs';
 import { apiKeyAuth } from '../middleware/apiKeyAuth';
-import { API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ, API_SCOPE_LINK_WRITE } from '../models/ApiKey';
+import { API_SCOPE_TIMES_READ, API_SCOPE_USERS_READ, API_SCOPE_LINK_WRITE, API_SCOPE_LINK_ALL } from '../models/ApiKey';
 import { NfcController } from '../controllers/nfc.controller';
 import { User } from '../models/User';
 import { Group } from '../models/Group';
@@ -32,6 +32,7 @@ router.get('/ping', apiKeyAuth(), (req: Request, res: Response) => {
 
 // FeedAuth-Hub: Nutzer-Verknüpfung (Scope link:write, server-zu-server).
 const nfcController = new NfcController();
+router.get('/link/tenants', apiKeyAuth(API_SCOPE_LINK_ALL), nfcController.listTenants.bind(nfcController));
 router.get('/link/users', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.linkUsers.bind(nfcController));
 router.get('/link/pin-required', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.pinRequired.bind(nfcController));
 router.post('/link/assign', apiKeyAuth(API_SCOPE_LINK_WRITE), nfcController.linkAssign.bind(nfcController));

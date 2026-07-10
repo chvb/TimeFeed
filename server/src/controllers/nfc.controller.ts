@@ -3,8 +3,16 @@ import jwt from 'jsonwebtoken';
 import { Op, literal } from 'sequelize';
 import { User } from '../models/User';
 import { SystemSettings } from '../models/SystemSettings';
+import { Tenant } from '../models/Tenant';
+import { Company } from '../models/Company';
+import { API_SCOPE_LINK_ALL } from '../models/ApiKey';
 import { AppError } from '../middleware/errorHandler';
 import { verifyHubHandoff } from '../services/hubHandoff';
+
+/** Globaler (mandantenübergreifender) Hub-Key? */
+function keyIsGlobal(req: Request): boolean {
+  return !!(req.apiKey && req.apiKey.hasScope(API_SCOPE_LINK_ALL));
+}
 
 // Scoped-Session nach NFC-Handoff: kurzlebig, ausschließlich fürs Stempeln.
 const NFC_SESSION_MINUTES = 15;
@@ -67,12 +75,32 @@ export class NfcController {
    */
   async linkUsers(req: Request, res: Response, next: NextFunction) {
     try {
-      const tenantId = Number(req.apiTenantId);
+      const global = keyIsGlobal(req);
+      const qTenant = req.query.tenantId != null && req.query.tenantId !== '' ? Number(req.query.tenantId) : null;
+      if (qTenant != null && !global) {
+        return next(new AppError(403, 'tenantId erfordert den Scope link:all-tenants'));
+      }
+      // Scoped-Key: eigener Mandant. Globaler Key: gewählter Mandant oder alle.
+      let where: any;
+      if (global) {
+        where = qTenant != null ? tenantWhere(qTenant) : {};
+      } else {
+        where = tenantWhere(Number(req.apiTenantId));
+      }
+
       const users = await User.findAll({
-        where: { ...tenantWhere(tenantId), isActive: true },
-        attributes: ['id', 'firstName', 'lastName', 'employeeNumber', 'hubPersonId'],
+        where: { ...where, isActive: true },
+        attributes: ['id', 'firstName', 'lastName', 'employeeNumber', 'hubPersonId', 'companyId'],
         order: [['lastName', 'ASC'], ['firstName', 'ASC']],
       });
+
+      // Firmennamen (für Anzeige/Gruppierung) einmalig nachladen.
+      const companyIds = Array.from(new Set(users.map((u) => u.companyId).filter((x): x is number => !!x)));
+      const companies = companyIds.length
+        ? await Company.findAll({ where: { id: companyIds }, attributes: ['id', 'name'] })
+        : [];
+      const cmap = new Map(companies.map((c) => [c.id, c.name]));
+
       res.json({
         users: users.map((u) => ({
           id: u.id,
@@ -80,6 +108,30 @@ export class NfcController {
           lastName: u.lastName,
           employeeNumber: u.employeeNumber || null,
           hubPersonId: u.hubPersonId || null,
+          companyId: u.companyId || null,
+          companyName: u.companyId ? (cmap.get(u.companyId) || null) : null,
+        })),
+      });
+    } catch (e) {
+      return next(e);
+    }
+  }
+
+  /**
+   * GET /api/external/link/tenants  (Scope link:all-tenants)
+   * Listet alle aktiven Mandanten inkl. ihrer Firmen — für die Mandanten-Auswahl im Hub.
+   */
+  async listTenants(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const [tenants, companies] = await Promise.all([
+        Tenant.findAll({ where: { isActive: true }, attributes: ['id', 'name'], order: [['name', 'ASC']] }),
+        Company.findAll({ where: { isActive: true }, attributes: ['id', 'name', 'tenantId'], order: [['name', 'ASC']] }),
+      ]);
+      res.json({
+        tenants: tenants.map((t) => ({
+          id: t.id,
+          name: t.name,
+          companies: companies.filter((c) => c.tenantId === t.id).map((c) => ({ id: c.id, name: c.name })),
         })),
       });
     } catch (e) {
@@ -93,10 +145,10 @@ export class NfcController {
    */
   async pinRequired(req: Request, res: Response, next: NextFunction) {
     try {
-      const tenantId = Number(req.apiTenantId);
       const userId = Number(req.query.userId);
       if (!Number.isInteger(userId) || userId < 1) return next(new AppError(400, 'userId ungültig'));
-      const user = await User.findOne({ where: { id: userId, ...tenantWhere(tenantId) } });
+      const where = keyIsGlobal(req) ? { id: userId } : { id: userId, ...tenantWhere(Number(req.apiTenantId)) };
+      const user = await User.findOne({ where });
       if (!user) return next(new AppError(404, 'Nutzer nicht gefunden'));
       let s = user.companyId ? await SystemSettings.findOne({ where: { companyId: user.companyId } }) : null;
       if (!s) s = await SystemSettings.findOne({ where: { companyId: null } });
@@ -113,12 +165,12 @@ export class NfcController {
    */
   async linkAssign(req: Request, res: Response, next: NextFunction) {
     try {
-      const tenantId = Number(req.apiTenantId);
       const userId = Number(req.body?.userId);
       const hubPersonId = req.body?.hubPersonId == null ? null : String(req.body.hubPersonId);
       if (!Number.isInteger(userId) || userId < 1) return next(new AppError(400, 'userId ungültig'));
 
-      const user = await User.findOne({ where: { id: userId, ...tenantWhere(tenantId) } });
+      const where = keyIsGlobal(req) ? { id: userId } : { id: userId, ...tenantWhere(Number(req.apiTenantId)) };
+      const user = await User.findOne({ where });
       if (!user) return next(new AppError(404, 'Nutzer nicht im Mandanten gefunden'));
 
       if (hubPersonId) {
