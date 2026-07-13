@@ -31,6 +31,7 @@
 - NFC-Stempelseite: Marken-Orange-Verlauf als Hintergrund + TimeFeed-Logo (Logo-Komponente) statt Text
 - NFC-Stempeln: 'Fenster schließen'-Button auf der Fertig-Seite
 - NFC-Stempelsitzung von 15 auf 2 Minuten verkürzt
+- NFC-Stempeln: ausgeführte Aktion ans zentrale Hub-Audit melden
 
 ### Security
 - i18n: fehlende Keys ergänzt (rohe Keys behoben) — daterange (Monate/Wochentage) + settings.security.logoutAll* (de/en)
