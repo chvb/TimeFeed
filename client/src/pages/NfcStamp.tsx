@@ -62,6 +62,7 @@ export default function NfcStamp() {
         tokenRef.current = data.token;
         setName(`${data.user?.firstName || ''} ${data.user?.lastName || ''}`.trim());
         await loadStatus();
+        setMessage(''); // „Einen Moment…" verwerfen — die rote Zeile ist nur für Stempel-Fehler
         setPhase('ready');
       } catch {
         setPhase('error'); setMessage('Netzwerkfehler. Bitte erneut scannen.');
