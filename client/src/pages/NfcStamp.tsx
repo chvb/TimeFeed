@@ -107,8 +107,8 @@ export default function NfcStamp() {
   const btn = 'w-full py-4 mt-3 rounded-2xl text-white text-lg font-bold disabled:opacity-60';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-5 bg-gradient-to-br from-primary-400 to-primary-600">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-7 text-center">
+    <div className="min-h-screen flex items-center justify-center p-5 sm:p-6 bg-gradient-to-br from-primary-400 to-primary-600">
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl shadow-primary-900/20 p-7 text-center">
         <Logo size="large" className="justify-center mb-3" />
         {phase === 'loading' && <h1 className="text-2xl font-bold my-4">{message}</h1>}
 

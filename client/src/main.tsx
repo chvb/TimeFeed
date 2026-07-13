@@ -6,7 +6,10 @@ import { I18nProvider } from './i18n';
 import './index.css';
 
 // Dark-Mode-Präferenz früh anwenden (vor dem Render), um Flackern zu vermeiden.
-if (localStorage.getItem('tf-theme') === 'dark') {
+// Öffentliche NFC-Seiten (/nfc) IMMER im hellen Marken-Look (weiße Karte auf Orange),
+// nie dunkelblau – daher dort den Dark-Mode nicht anwenden.
+const isPublicNfc = /^\/nfc(\/|$)/.test(window.location.pathname);
+if (localStorage.getItem('tf-theme') === 'dark' && !isPublicNfc) {
   document.documentElement.classList.add('dark');
 }
 document.documentElement.lang = localStorage.getItem('tf-lang') === 'en' ? 'en' : 'de';
