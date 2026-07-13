@@ -24,6 +24,8 @@ export const nfcStampAuth = async (req: Request, res: Response, next: NextFuncti
       companyId: user.companyId ?? null, tenantId: user.tenantId ?? null,
       isSuperAdmin: !!user.isSuperAdmin,
     };
+    // Für die Aktionsmeldung ans Hub-Audit (Rückkanal) verfügbar machen.
+    (req as any).nfcPublicId = user.hubPersonId || '';
     next();
   } catch {
     res.status(401).json({ error: 'Bitte Chip erneut scannen.', message: 'Bitte Chip erneut scannen.' });
