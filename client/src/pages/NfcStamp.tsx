@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Logo from '../components/common/Logo';
 
 /**
  * Öffentliche persönliche Stempelseite nach NFC-Scan.
@@ -106,9 +107,9 @@ export default function NfcStamp() {
   const btn = 'w-full py-4 mt-3 rounded-2xl text-white text-lg font-bold disabled:opacity-60';
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-5 bg-orange-50">
+    <div className="min-h-screen flex items-center justify-center p-5 bg-gradient-to-br from-primary-400 to-primary-600">
       <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl p-7 text-center">
-        <div className="text-orange-500 font-extrabold tracking-wide text-sm">TimeFeed</div>
+        <Logo size="large" className="justify-center mb-3" />
         {phase === 'loading' && <h1 className="text-2xl font-bold my-4">{message}</h1>}
 
         {phase === 'error' && (
