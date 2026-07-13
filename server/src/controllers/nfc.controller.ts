@@ -15,7 +15,7 @@ function keyIsGlobal(req: Request): boolean {
 }
 
 // Scoped-Session nach NFC-Handoff: kurzlebig, ausschließlich fürs Stempeln.
-const NFC_SESSION_MINUTES = 15;
+const NFC_SESSION_MINUTES = 2;
 export const NFC_STAMP_SCOPE = 'nfc:stamp';
 
 /** Nutzer-Filter des API-Key-Mandanten (wie /api/external/users). */
