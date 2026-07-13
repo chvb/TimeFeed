@@ -104,6 +104,13 @@ export default function NfcStamp() {
     }
   }
 
+  // Best-effort: Fenster/Tab schließen. Klappt zuverlässig nur in der installierten
+  // App (PWA); ein per NFC geöffneter Browser-Tab lässt sich per Skript oft nicht schließen.
+  function tryClose() {
+    try { window.close(); } catch { /* ignore */ }
+    try { window.open('', '_self'); window.close(); } catch { /* ignore */ }
+  }
+
   const btn = 'w-full py-4 mt-3 rounded-2xl text-white text-lg font-bold disabled:opacity-60';
 
   return (
@@ -144,7 +151,10 @@ export default function NfcStamp() {
             )}
 
             {phase === 'done' && (
-              <p className="text-slate-400 text-sm mt-4">Du kannst das Fenster jetzt schließen.</p>
+              <>
+                <button onClick={tryClose} className={`${btn} bg-slate-700 mt-4`}>Fenster schließen</button>
+                <p className="text-slate-400 text-sm mt-3">Du kannst das Fenster jetzt schließen.</p>
+              </>
             )}
             {phase === 'ready' && message && <p className="text-red-600 text-sm mt-3">{message}</p>}
           </>
