@@ -21,6 +21,18 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.5] - 2026-07-13
+
+### Fixed
+- NFC-Stempelseite: 'Einen Moment…' nach Laden verwerfen — hing verwirrend rot unter den Buttons (rote Zeile ist nur für Stempel-Fehler)
+
+### Improved
+- NFC-Stempeln: heller Marken-Look erzwingen (nie dunkelblau) + weicherer Schatten
+- NFC-Stempelseite: Marken-Orange-Verlauf als Hintergrund + TimeFeed-Logo (Logo-Komponente) statt Text
+
+### Security
+- i18n: fehlende Keys ergänzt (rohe Keys behoben) — daterange (Monate/Wochentage) + settings.security.logoutAll* (de/en)
+
 ## [1.1.4] - 2026-07-10
 
 ### Improved
