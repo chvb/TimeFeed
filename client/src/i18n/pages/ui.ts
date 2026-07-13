@@ -1,6 +1,11 @@
 // Übersetzungen für Stores, gemeinsame UI-Komponenten, Dialoge und Validierung.
 export const uiPages = {
   de: {
+    daterange: {
+      monthJanuary: 'Januar', monthFebruary: 'Februar', monthMarch: 'März', monthApril: 'April', monthMay: 'Mai', monthJune: 'Juni',
+      monthJuly: 'Juli', monthAugust: 'August', monthSeptember: 'September', monthOctober: 'Oktober', monthNovember: 'November', monthDecember: 'Dezember',
+      weekdayMon: 'Mo', weekdayTue: 'Di', weekdayWed: 'Mi', weekdayThu: 'Do', weekdayFri: 'Fr', weekdaySat: 'Sa', weekdaySun: 'So',
+    },
     toast: {
       loginSuccess: 'Erfolgreich angemeldet!',
       loginWrong: 'E-Mail oder Passwort ist falsch.',
@@ -85,6 +90,11 @@ export const uiPages = {
     },
   },
   en: {
+    daterange: {
+      monthJanuary: 'January', monthFebruary: 'February', monthMarch: 'March', monthApril: 'April', monthMay: 'May', monthJune: 'June',
+      monthJuly: 'July', monthAugust: 'August', monthSeptember: 'September', monthOctober: 'October', monthNovember: 'November', monthDecember: 'December',
+      weekdayMon: 'Mon', weekdayTue: 'Tue', weekdayWed: 'Wed', weekdayThu: 'Thu', weekdayFri: 'Fri', weekdaySat: 'Sat', weekdaySun: 'Sun',
+    },
     toast: {
       loginSuccess: 'Signed in successfully!',
       loginWrong: 'Email or password is incorrect.',
