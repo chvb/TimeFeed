@@ -29,6 +29,7 @@
 ### Improved
 - NFC-Stempeln: heller Marken-Look erzwingen (nie dunkelblau) + weicherer Schatten
 - NFC-Stempelseite: Marken-Orange-Verlauf als Hintergrund + TimeFeed-Logo (Logo-Komponente) statt Text
+- NFC-Stempeln: 'Fenster schließen'-Button auf der Fertig-Seite
 
 ### Security
 - i18n: fehlende Keys ergänzt (rohe Keys behoben) — daterange (Monate/Wochentage) + settings.security.logoutAll* (de/en)
