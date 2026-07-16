@@ -221,6 +221,20 @@ export class TerminalApiController {
       if (result.failure) return sendFailure(res, result.failure);
       const user = result.user;
 
+      // GPS-Pflicht (gpsMode='required') gilt auch am Terminal. Der Terminal-Standort
+      // dient als Ortsnachweis; ist keiner hinterlegt, entstünde ein Stempel OHNE GPS —
+      // das wäre eine Umgehung der Standortpflicht. Daher blockieren und den Admin bitten,
+      // in den Terminal-Einstellungen einen Standort zu setzen.
+      const gpsSettings = await settingsController.getOrCreateSettings(terminal.companyId);
+      const gpsMode = (gpsSettings as any).gpsMode || 'optional';
+      const terminalHasGps = terminal.lat != null && terminal.lng != null;
+      if (gpsMode === 'required' && !terminalHasGps) {
+        return res.status(400).json({
+          error: 'GPS_REQUIRED', code: 'GPS_REQUIRED',
+          message: 'Standortpflicht aktiv, aber für dieses Terminal ist kein Standort hinterlegt. Bitte in den Terminal-Einstellungen einen Standort setzen.',
+        });
+      }
+
       // Zeitstempel: Server-Zeit; bei Offline-Nachsync der mitgelieferte clientTimestamp.
       const now = new Date();
       let ts = now;
