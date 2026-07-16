@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.6] - 2026-07-16
+
+### Improved
+- GPS-Pflicht: auch am Terminal erzwingen (Lücke geschlossen)
+
 ## [1.1.5] - 2026-07-13
 
 ### Fixed
