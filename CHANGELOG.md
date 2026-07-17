@@ -43,6 +43,7 @@
 - Optimierungen: DOMPurify (AVV/AGB), mobiles Menü, Leaflet-Split, EN-Doku
 - Zeiten verwalten: Karten-Button zeigt Stempel-Standorte des Monats
 - Zeiten verwalten: Karten-Button auch in der Mitarbeiter-Einzelansicht
+- Stempel-Karte: Marker-Clustering (leaflet.markercluster)
 
 ### Security
 - Audit-Fixes: Sicherheit, Daten-Lebenszyklus, Robustheit
