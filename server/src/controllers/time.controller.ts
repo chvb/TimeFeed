@@ -31,6 +31,13 @@ const STAMP_TYPES: TimeEntryType[] = ['in', 'out', 'break_start', 'break_end'];
 // Nachbuchungen: maximal so viele Tage rückwirkend.
 const MANUAL_MAX_AGE_DAYS = 92;
 
+// Bei GPS-Pflicht ('required') muss die Position hinreichend genau sein, damit echtes
+// Satelliten-GPS verlangt wird und grobe WLAN-/Mobilfunk-/IP-Ortung (großer Radius)
+// nicht als Standortnachweis durchgeht. Wert = maximal erlaubter Genauigkeitsradius in
+// Metern (kleiner = genauer). 100 m lässt normales GPS (in-/outdoor) zu und blockiert
+// grobe Ortung; bei Bedarf hier justierbar.
+const MAX_GPS_ACCURACY_METERS = 100;
+
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 /** Alle Kalendertage eines Monats (YYYY-MM-DD), optional gedeckelt auf heute. */
@@ -126,6 +133,16 @@ export class TimeController {
       const hasGps = lat != null && lng != null;
       if (gpsMode === 'required' && !hasGps) {
         return res.status(400).json({ error: 'GPS_REQUIRED', message: 'Standortfreigabe ist für das Stempeln erforderlich.' });
+      }
+      // Echtes GPS verlangen: grobe Ortung (großer Genauigkeitsradius) ablehnen.
+      if (gpsMode === 'required' && hasGps) {
+        const acc = accuracy != null ? Number(accuracy) : NaN;
+        if (!Number.isFinite(acc) || acc > MAX_GPS_ACCURACY_METERS) {
+          return res.status(400).json({
+            error: 'GPS_INACCURATE', code: 'GPS_INACCURATE',
+            message: 'Standort zu ungenau – bitte GPS aktivieren und im Freien erneut stempeln.',
+          });
+        }
       }
       // 'off': Standort wird weder erwartet noch gespeichert (Datenminimierung).
       const storeGps = gpsMode !== 'off' && hasGps;
