@@ -23,6 +23,9 @@
 
 ## [1.1.7] - 2026-07-17
 
+### Added
+- Dokumentation: TimeFeed-Doku neu (echte Funktionen) + Doku-Link unten im Menü
+
 ### Fixed
 - GPS-Fix beim Öffnen der Stempelseite vorwärmen
 - GPS-Vorwärmen erst nach Laden des Modus starten (kein Popup bei 'GPS aus')
