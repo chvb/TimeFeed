@@ -111,11 +111,21 @@ export default function MonthLocationMap({ month, monthLabel, userId, onClose }:
     for (const p of points) {
       const acc = p.accuracy != null ? ` · ±${Math.round(p.accuracy)} m` : '';
       const srcLabel = sourceLabel[p.source] || p.source;
-      const time = new Date(p.timestamp).toLocaleString(locale, {
+      const d = new Date(p.timestamp);
+      const time = d.toLocaleString(locale, {
         day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
       });
+      // Sichtbares Datums-Label am Marker (bei Clustern ausgeblendet, beim
+      // Aufzoomen/Auffächern sichtbar). Format: TT.MM.
+      const dateLabel = d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
       cluster.addLayer(
         L.marker([p.lat, p.lng], { icon: pinIcon(TYPE_COLOR[p.type]) })
+          .bindTooltip(esc(dateLabel), {
+            permanent: true,
+            direction: 'top',
+            offset: [0, -18],
+            className: 'stamp-date-tip',
+          })
           .bindPopup(
             `<div style="font-size:12px;line-height:1.5">
               <strong>${esc(p.name)}</strong><br>
@@ -152,6 +162,15 @@ export default function MonthLocationMap({ month, monthLabel, userId, onClose }:
           <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
             <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
               <Dialog.Panel className="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-800 shadow-xl flex flex-col" style={{ height: '85vh' }}>
+                <style>{`
+                  .leaflet-tooltip.stamp-date-tip {
+                    font-size: 10px; font-weight: 600; line-height: 1.2;
+                    padding: 1px 5px; color: #334155;
+                    background: rgba(255,255,255,.92); border: 1px solid #e2e8f0;
+                    border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+                  }
+                  .leaflet-tooltip.stamp-date-tip::before { display: none; }
+                `}</style>
                 <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-slate-200 dark:border-gray-700">
                   <Dialog.Title className="text-base font-semibold text-slate-900 dark:text-white inline-flex items-center gap-2">
                     <MapPinIcon className="h-5 w-5 text-primary-600" /> {t('manage.mapTitle')} · {monthLabel}
