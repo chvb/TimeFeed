@@ -13,6 +13,8 @@ interface AppFooterProps {
   onOpenLegal?: (key: LegalKey) => void;
   /** Wenn gesetzt: Version ist klickbar und öffnet den Changelog („Was ist neu"). */
   onOpenChangelog?: () => void;
+  /** Eingeloggter App-Bereich (Sidebar): zeigt auch die appOnly-Links (Doku/Info). */
+  appContext?: boolean;
   /** Helle Variante für dunkle/orangefarbene Hintergründe (z. B. Sidebar). */
   tone?: 'default' | 'onPrimary';
 }
@@ -32,7 +34,7 @@ const LINKS: { key: LegalKey; href: string; labelKey: string; icon: any; appOnly
  * Online-Status. In der App (onOpenLegal) öffnen die Links Modals; auf
  * öffentlichen Seiten (ohne Prop) navigieren sie zu den Routen.
  */
-export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog, tone = 'default' }: AppFooterProps) {
+export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog, appContext = false, tone = 'default' }: AppFooterProps) {
   const t = useT();
   const onP = tone === 'onPrimary';
   const textCls = onP ? 'text-white/70' : 'text-slate-400';
@@ -42,7 +44,7 @@ export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog
   return (
     <footer className={`text-center ${className}`}>
       <div className={`flex items-center justify-center flex-wrap gap-x-2 gap-y-1 text-[11px] ${textCls}`}>
-        {LINKS.filter((l) => onOpenLegal || !l.appOnly).map((l, i) => (
+        {LINKS.filter((l) => onOpenLegal || appContext || !l.appOnly).map((l, i) => (
           <Fragment key={l.key}>
             {i > 0 && <span className={sepCls}>·</span>}
             {onOpenLegal ? (
