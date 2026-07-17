@@ -3,6 +3,9 @@ import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import api from '../../lib/api';
 import { useT, useI18n } from '../../i18n';
 
@@ -96,6 +99,14 @@ export default function MonthLocationMap({ month, monthLabel, userId, onClose }:
       maxZoom: 19,
     }).addTo(map);
 
+    // Marker in eine Cluster-Gruppe legen: nahe beieinander liegende Stempelungen
+    // (z. B. immer derselbe Standort) werden zu einer Blase zusammengefasst und beim
+    // Reinzoomen aufgelöst.
+    const cluster = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 45,
+      spiderfyOnMaxZoom: true,
+    });
     const latlngs: [number, number][] = [];
     for (const p of points) {
       const acc = p.accuracy != null ? ` · ±${Math.round(p.accuracy)} m` : '';
@@ -103,17 +114,19 @@ export default function MonthLocationMap({ month, monthLabel, userId, onClose }:
       const time = new Date(p.timestamp).toLocaleString(locale, {
         day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
       });
-      L.marker([p.lat, p.lng], { icon: pinIcon(TYPE_COLOR[p.type]) })
-        .addTo(map)
-        .bindPopup(
-          `<div style="font-size:12px;line-height:1.5">
-            <strong>${esc(p.name)}</strong><br>
-            ${esc(typeLabel[p.type])} · ${esc(time)}<br>
-            <span style="color:#64748b">${esc(srcLabel)}${esc(acc)}</span>
-          </div>`
-        );
+      cluster.addLayer(
+        L.marker([p.lat, p.lng], { icon: pinIcon(TYPE_COLOR[p.type]) })
+          .bindPopup(
+            `<div style="font-size:12px;line-height:1.5">
+              <strong>${esc(p.name)}</strong><br>
+              ${esc(typeLabel[p.type])} · ${esc(time)}<br>
+              <span style="color:#64748b">${esc(srcLabel)}${esc(acc)}</span>
+            </div>`
+          )
+      );
       latlngs.push([p.lat, p.lng]);
     }
+    map.addLayer(cluster);
     const bounds = L.latLngBounds(latlngs);
     if (latlngs.length === 1) map.setView(latlngs[0], 15);
     else map.fitBounds(bounds, { padding: [40, 40], maxZoom: 17 });
