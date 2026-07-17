@@ -15,11 +15,13 @@ interface TenantAttributes {
   // Zentrales Kiosk-Einstellungs-Passwort (bcrypt): schützt das Zahnrad ALLER
   // Terminals des Mandanten (Geräte-Passwort wirkt zusätzlich als Verschärfung).
   terminalSettingsPasswordHash?: string | null;
+  // Vertragsdaten des Mandanten für AVV/AGB-Druck (strukturierte Freitextfelder als JSON).
+  contractData?: Record<string, any> | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface TenantCreationAttributes extends Optional<TenantAttributes, 'id' | 'isActive' | 'brandName' | 'brandColor' | 'brandLogo' | 'terminalSettingsPasswordHash' | 'createdAt' | 'updatedAt'> {}
+interface TenantCreationAttributes extends Optional<TenantAttributes, 'id' | 'isActive' | 'brandName' | 'brandColor' | 'brandLogo' | 'terminalSettingsPasswordHash' | 'contractData' | 'createdAt' | 'updatedAt'> {}
 
 export class Tenant extends Model<TenantAttributes, TenantCreationAttributes> implements TenantAttributes {
   public id!: number;
@@ -29,6 +31,7 @@ export class Tenant extends Model<TenantAttributes, TenantCreationAttributes> im
   public brandColor?: string | null;
   public brandLogo?: string | null;
   public terminalSettingsPasswordHash?: string | null;
+  public contractData?: Record<string, any> | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
@@ -55,6 +58,10 @@ export class Tenant extends Model<TenantAttributes, TenantCreationAttributes> im
         });
         console.log('Migration: Spalte tenants.terminal_settings_password_hash ergänzt.');
       }
+      if (!desc['contract_data']) {
+        await qi.addColumn('tenants', 'contract_data', { type: DataTypes.TEXT, allowNull: true });
+        console.log('Migration: Spalte tenants.contract_data ergänzt.');
+      }
       Tenant.schemaEnsured = true;
     } catch {
       // Tabelle existiert (noch) nicht (frische DB → sync) oder DB gesperrt —
@@ -79,6 +86,11 @@ Tenant.init(
       type: DataTypes.STRING,
       allowNull: true,
       field: 'terminal_settings_password_hash',
+    },
+    contractData: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      field: 'contract_data',
     },
   },
   {

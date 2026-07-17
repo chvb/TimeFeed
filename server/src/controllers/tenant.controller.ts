@@ -7,6 +7,7 @@ import { AppError } from '../middleware/errorHandler';
 import { AuditService } from '../services/auditService';
 import { AuditAction, AuditCategory } from '../models/AuditLog';
 import { BRAND_COLOR_RE, resolveUserTenantId, validateBrandLogo } from './branding.controller';
+import { isLegalDoc, renderLegalDoc, sanitizeContractData } from '../services/legalDocuments';
 
 const toDto = (t: any, companyCount?: number) => ({
   id: t.id,
@@ -15,6 +16,7 @@ const toDto = (t: any, companyCount?: number) => ({
   brandName: t.brandName ?? null,
   brandColor: t.brandColor ?? null,
   brandLogo: t.brandLogo ?? null,
+  contractData: t.contractData ?? null,
   companyCount,
   createdAt: t.createdAt,
 });
@@ -58,10 +60,13 @@ export class TenantController {
     try {
       const tenant = await Tenant.findByPk(req.params.id);
       if (!tenant) return next(new AppError(404, 'Mandant nicht gefunden'));
-      const { name, isActive } = req.body;
+      const { name, isActive, contractData } = req.body;
       const updateData: any = {};
       if (name !== undefined) updateData.name = String(name).trim();
       if (isActive !== undefined) updateData.isActive = !!isActive;
+      if (contractData !== undefined) {
+        updateData.contractData = contractData === null ? null : sanitizeContractData(contractData);
+      }
       await tenant.update(updateData);
       await AuditService.log({ userId: req.user!.id, action: AuditAction.UPDATE, category: AuditCategory.SYSTEM, entity: 'Tenant', entityId: tenant.id, additionalData: { name: tenant.name } }, req);
       res.json(toDto(tenant));
@@ -165,6 +170,22 @@ export class TenantController {
         tenant: toDto(tenant),
         branding: { brandName: tenant.brandName ?? null, brandColor: tenant.brandColor ?? null, brandLogo: tenant.brandLogo ?? null },
       });
+    } catch (e) { next(e); }
+  }
+
+  /**
+   * GET /api/tenants/:id/legal/:doc — AVV/AGB des Mandanten als gerendertes HTML.
+   * Nur Super-Admin (Route ist hinter authorizeSuperAdmin). Vertragswerte werden
+   * im Render-Service HTML-escaped → kein Stored-XSS.
+   */
+  async renderLegal(req: Request, res: Response, next: NextFunction) {
+    try {
+      const doc = String(req.params.doc || '').toLowerCase();
+      if (!isLegalDoc(doc)) return next(new AppError(404, 'Unbekanntes Dokument'));
+      const tenant = await Tenant.findByPk(req.params.id);
+      if (!tenant) return next(new AppError(404, 'Mandant nicht gefunden'));
+      const rendered = await renderLegalDoc(doc, tenant);
+      res.json({ ...rendered, tenant: { id: tenant.id, name: tenant.name } });
     } catch (e) { next(e); }
   }
 

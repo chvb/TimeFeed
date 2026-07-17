@@ -39,6 +39,7 @@ const StorageSettings = lazy(() => import('./pages/StorageSettings'));
 const Impressum = lazy(() => import('./pages/Impressum'));
 const Kontakt = lazy(() => import('./pages/Kontakt'));
 const Datenschutz = lazy(() => import('./pages/Datenschutz'));
+const LegalDocumentPrint = lazy(() => import('./pages/LegalDocumentPrint'));
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -67,6 +68,8 @@ function App() {
         )}
 
         <Route element={<ProtectedRoute />}>
+          {/* AVV/AGB-Druckansicht: eigene Vollseite ohne Layout (druckfreundlich). */}
+          <Route path="/legal/:doc/:tenantId" element={<LegalDocumentPrint />} />
           <Route element={<Layout />}>
             <Route path="/feed" element={<Feed />} />
             <Route path="/dashboard" element={<Dashboard />} />

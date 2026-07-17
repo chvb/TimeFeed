@@ -11,6 +11,20 @@ import { useAuthStore, isTenantAdmin as isTenantAdminFn } from '../store/authSto
 import { loadBranding } from '../lib/branding';
 import { useT } from '../i18n';
 
+interface ContractData {
+  companyName?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  legalRepresentative?: string;
+  contactEmail?: string;
+  jurisdiction?: string;
+  smtpProvider?: string;
+  smtpProviderLocation?: string;
+  smtpDataTransferBasis?: string;
+}
+
 interface Tenant {
   id: number;
   name: string;
@@ -20,7 +34,13 @@ interface Tenant {
   brandColor?: string | null;
   hasTerminalSettingsPassword?: boolean;
   brandLogo?: string | null;
+  contractData?: ContractData | null;
 }
+
+const EMPTY_CONTRACT: ContractData = {
+  companyName: '', address: '', postalCode: '', city: '', country: '', legalRepresentative: '',
+  contactEmail: '', jurisdiction: '', smtpProvider: '', smtpProviderLocation: '', smtpDataTransferBasis: '',
+};
 
 interface BrandingForm {
   brandName: string;
@@ -37,6 +57,8 @@ export default function Tenants() {
   const [editing, setEditing] = useState<Tenant | null>(null);
   const [form, setForm] = useState<{ name: string; isActive: boolean }>({ name: '', isActive: true });
   const [branding, setBranding] = useState<BrandingForm>({ brandName: '', brandColor: '', brandLogo: '' });
+  const [contract, setContract] = useState<ContractData>({ ...EMPTY_CONTRACT });
+  const [contractOpen, setContractOpen] = useState(false);
   // Zentrales Kiosk-Einstellungs-Passwort ('' = unverändert lassen)
   const [terminalPass, setTerminalPass] = useState('');
   const [removeTerminalPass, setRemoveTerminalPass] = useState(false);
@@ -83,6 +105,7 @@ export default function Tenants() {
     setEditing(null);
     setForm({ name: '', isActive: true });
     setBranding({ brandName: '', brandColor: '', brandLogo: '' });
+    setContract({ ...EMPTY_CONTRACT }); setContractOpen(false);
     setTerminalPass(''); setRemoveTerminalPass(false);
     setModalOpen(true);
   };
@@ -91,6 +114,7 @@ export default function Tenants() {
     setEditing(tn);
     setForm({ name: tn.name, isActive: tn.isActive });
     setBranding({ brandName: tn.brandName || '', brandColor: tn.brandColor || '', brandLogo: tn.brandLogo || '' });
+    setContract({ ...EMPTY_CONTRACT, ...(tn.contractData || {}) }); setContractOpen(false);
     setTerminalPass(''); setRemoveTerminalPass(false);
     setModalOpen(true);
     // Branding-Felder ggf. nachladen (GET /tenants/:id ist Super-Admin-only).
@@ -103,6 +127,7 @@ export default function Tenants() {
         brandColor: d.brandColor || tn.brandColor || '',
         brandLogo: d.brandLogo || tn.brandLogo || '',
       });
+      if (d.contractData) setContract({ ...EMPTY_CONTRACT, ...d.contractData });
     } catch { /* Detail nicht verfügbar → Werte aus der Liste behalten */ }
   };
 
@@ -123,7 +148,9 @@ export default function Tenants() {
       let id = editing?.id;
       // Stammdaten (Name/aktiv) darf nur der Super-Admin ändern.
       if (user?.isSuperAdmin) {
-        const payload = { name: form.name.trim(), isActive: form.isActive };
+        const payload: any = { name: form.name.trim(), isActive: form.isActive };
+        // Vertragsdaten (AVV/AGB) nur beim Bearbeiten mitschicken.
+        if (editing) payload.contractData = contract;
         if (editing) await api.put(`/tenants/${editing.id}`, payload);
         else { const r = await api.post('/tenants', payload); id = r.data.tenant?.id ?? r.data.id; }
       }
@@ -259,6 +286,12 @@ export default function Tenants() {
                   )}
                   <button onClick={() => openEdit(tn)} className="text-slate-400 hover:text-primary-600" title={t('tenants.edit')}><PencilIcon className="h-5 w-5 inline" /></button>
                   {superAdmin && (
+                    <>
+                      <button onClick={() => navigate(`/legal/avv/${tn.id}`)} className="ml-3 text-xs font-semibold text-slate-500 hover:text-primary-600 align-middle" title={t('tenants.avvTitle')}>AVV</button>
+                      <button onClick={() => navigate(`/legal/agb/${tn.id}`)} className="ml-2 text-xs font-semibold text-slate-500 hover:text-primary-600 align-middle" title={t('tenants.agbTitle')}>AGB</button>
+                    </>
+                  )}
+                  {superAdmin && (
                     <button onClick={() => remove(tn)} className="text-slate-400 hover:text-red-600 ml-3" title={t('tenants.delete')}><TrashIcon className="h-5 w-5 inline" /></button>
                   )}
                 </td>
@@ -388,6 +421,80 @@ export default function Tenants() {
                             />
                             <span className="text-sm font-medium text-slate-700">{t('tenants.terminalPassRemove')}</span>
                           </label>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Vertragsdaten für AVV/AGB (nur Super-Admin, einklappbar) */}
+                    {editing && superAdmin && (
+                      <div className="rounded-lg border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setContractOpen((o) => !o)}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left"
+                        >
+                          <span>
+                            <span className="block text-sm font-semibold text-slate-900">{t('tenants.contractHeading')}</span>
+                            <span className="block text-xs text-slate-500 mt-0.5">{t('tenants.contractHint')}</span>
+                          </span>
+                          {contractOpen ? <ChevronUpIcon className="h-5 w-5 text-slate-400" /> : <ChevronDownIcon className="h-5 w-5 text-slate-400" />}
+                        </button>
+                        {contractOpen && (
+                          <div className="border-t border-slate-200 p-4 space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractCompanyName')}</label>
+                              <input value={contract.companyName || ''} onChange={(e) => setContract({ ...contract, companyName: e.target.value })} className="input-field w-full text-sm" placeholder={form.name} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractAddress')}</label>
+                              <input value={contract.address || ''} onChange={(e) => setContract({ ...contract, address: e.target.value })} className="input-field w-full text-sm" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractPostalCode')}</label>
+                                <input value={contract.postalCode || ''} onChange={(e) => setContract({ ...contract, postalCode: e.target.value })} className="input-field w-full text-sm" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractCity')}</label>
+                                <input value={contract.city || ''} onChange={(e) => setContract({ ...contract, city: e.target.value })} className="input-field w-full text-sm" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractCountry')}</label>
+                                <input value={contract.country || ''} onChange={(e) => setContract({ ...contract, country: e.target.value })} className="input-field w-full text-sm" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractJurisdiction')}</label>
+                                <input value={contract.jurisdiction || ''} onChange={(e) => setContract({ ...contract, jurisdiction: e.target.value })} className="input-field w-full text-sm" placeholder="Kleve" />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractLegalRep')}</label>
+                              <input value={contract.legalRepresentative || ''} onChange={(e) => setContract({ ...contract, legalRepresentative: e.target.value })} className="input-field w-full text-sm" placeholder={t('tenants.contractLegalRepPlaceholder')} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractContactEmail')}</label>
+                              <input type="email" value={contract.contactEmail || ''} onChange={(e) => setContract({ ...contract, contactEmail: e.target.value })} className="input-field w-full text-sm" />
+                            </div>
+                            <div className="pt-2 border-t border-slate-100">
+                              <p className="text-xs font-semibold text-slate-500 mb-2">{t('tenants.contractSmtpGroup')}</p>
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractSmtpProvider')}</label>
+                                  <input value={contract.smtpProvider || ''} onChange={(e) => setContract({ ...contract, smtpProvider: e.target.value })} className="input-field w-full text-sm" placeholder={t('tenants.contractSmtpProviderPlaceholder')} />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractSmtpLocation')}</label>
+                                  <input value={contract.smtpProviderLocation || ''} onChange={(e) => setContract({ ...contract, smtpProviderLocation: e.target.value })} className="input-field w-full text-sm" placeholder={t('tenants.contractSmtpLocationPlaceholder')} />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-slate-600 mb-1">{t('tenants.contractSmtpBasis')}</label>
+                                  <input value={contract.smtpDataTransferBasis || ''} onChange={(e) => setContract({ ...contract, smtpDataTransferBasis: e.target.value })} className="input-field w-full text-sm" placeholder={t('tenants.contractSmtpBasisPlaceholder')} />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}

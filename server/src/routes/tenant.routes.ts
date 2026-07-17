@@ -15,6 +15,7 @@ router.put('/:id/terminal-settings-password', (req, res, next) => tenantControll
 router.use(authorizeSuperAdmin);
 
 router.get('/', tenantController.list);
+router.get('/:id/legal/:doc', (req, res, next) => tenantController.renderLegal(req, res, next));
 router.get('/:id', tenantController.getById);
 router.post('/', tenantController.create);
 router.put('/:id', tenantController.update);
