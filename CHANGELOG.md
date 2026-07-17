@@ -25,6 +25,7 @@
 
 ### Improved
 - GPS-Pflicht: echtes GPS verlangen (grobe WLAN/IP-Ortung ablehnen)
+- GPS-Genauigkeitsschwelle pro Firma einstellbar (gpsMaxAccuracy)
 
 ## [1.1.6] - 2026-07-16
 
