@@ -18,6 +18,7 @@ import { useAuthStore } from '../store/authStore';
 import { useT, useI18n } from '../i18n';
 import { formatMinutes, formatSignedMinutes, timeHHMM } from '../lib/timeFormat';
 import { FeedCard, FeedItem } from './Feed';
+import { useGpsWarmup } from '../hooks/useGpsWarmup';
 import clsx from 'clsx';
 
 type StampState = 'out' | 'in' | 'break';
@@ -90,23 +91,6 @@ function FeedTeaser() {
 }
 
 /**
- * GPS holen: bei Ablehnung/Fehler null (kein Blocker).
- * `strict` (GPS-Pflicht): FRISCHE Position erzwingen (maximumAge 0) und länger warten,
- * damit eine alte/gecachte Ortung die Pflicht nicht aushebelt. Sonst best-effort mit
- * kurzem Timeout und bis zu 60 s alter Position (schnelles, unkritisches Stempeln).
- */
-function getPosition(strict = false): Promise<GeolocationPosition | null> {
-  return new Promise((resolve) => {
-    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: strict ? 8000 : 3000, maximumAge: strict ? 0 : 60000 }
-    );
-  });
-}
-
-/**
  * Dashboard = Stempeluhr: aktueller Stempel-Zustand, Kommen/Gehen/Pause-Buttons
  * (je nach Pausenmodus), Tageswerte und kumuliertes Zeitkonto.
  */
@@ -122,6 +106,9 @@ export default function Dashboard() {
   const [breakMode, setBreakMode] = useState<BreakMode>('manual');
   // GPS-Modus der Firma: bei 'off' wird gar kein Standort abgefragt (kein Popup).
   const [gpsMode, setGpsMode] = useState<string>('optional');
+  const [gpsMaxAccuracy, setGpsMaxAccuracy] = useState<number | undefined>(undefined);
+  // GPS-Fix beim Öffnen vorwärmen, damit beim Kommen/Gehen sofort ein genauer Standort vorliegt.
+  const getBestPosition = useGpsWarmup(gpsMode);
   const [balanceMinutes, setBalanceMinutes] = useState<number | null>(null);
   const [balanceUpTo, setBalanceUpTo] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -144,6 +131,7 @@ export default function Dashboard() {
       setBreakMode(data.breakMode);
     }
     if (typeof data?.gpsMode === 'string') setGpsMode(data.gpsMode);
+    if (typeof data?.gpsMaxAccuracy === 'number') setGpsMaxAccuracy(data.gpsMaxAccuracy);
     if (typeof data?.balanceMinutes === 'number') setBalanceMinutes(data.balanceMinutes);
   }, []);
 
@@ -180,7 +168,7 @@ export default function Dashboard() {
     if (stamping) return;
     setStamping(type);
     try {
-      const pos = gpsMode === 'off' ? null : await getPosition(gpsMode === 'required');
+      const pos = gpsMode === 'off' ? null : await getBestPosition(gpsMode === 'required', gpsMaxAccuracy);
       const body: Record<string, unknown> = { type };
       if (pos) {
         body.lat = pos.coords.latitude;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Logo from '../components/common/Logo';
+import { useGpsWarmup } from '../hooks/useGpsWarmup';
 
 /**
  * Öffentliche persönliche Stempelseite nach NFC-Scan.
@@ -15,17 +16,7 @@ interface StatusDto {
   state: StampState;
   breakMode?: string;
   gpsMode?: string;
-}
-
-function getPosition(strict: boolean): Promise<GeolocationPosition | null> {
-  return new Promise((resolve) => {
-    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) return resolve(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve(pos),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: strict ? 8000 : 3000, maximumAge: strict ? 0 : 60000 }
-    );
-  });
+  gpsMaxAccuracy?: number;
 }
 
 export default function NfcStamp() {
@@ -35,6 +26,8 @@ export default function NfcStamp() {
   const [status, setStatus] = useState<StatusDto | null>(null);
   const [busy, setBusy] = useState(false);
   const tokenRef = useRef<string>('');
+  // GPS-Fix schon beim Öffnen vorwärmen, sobald der Modus bekannt ist.
+  const getBestPosition = useGpsWarmup(status?.gpsMode);
 
   async function nfcFetch(path: string, opts: RequestInit = {}) {
     const res = await fetch(`/api/nfc${path}`, {
@@ -83,7 +76,7 @@ export default function NfcStamp() {
     setMessage('');
     try {
       const gpsMode = status?.gpsMode || 'optional';
-      const pos = gpsMode === 'off' ? null : await getPosition(gpsMode === 'required');
+      const pos = gpsMode === 'off' ? null : await getBestPosition(gpsMode === 'required', status?.gpsMaxAccuracy);
       const body: Record<string, unknown> = { type };
       if (pos) { body.lat = pos.coords.latitude; body.lng = pos.coords.longitude; body.accuracy = pos.coords.accuracy; }
       const r = await nfcFetch('/stamp', { method: 'POST', body: JSON.stringify(body) });
