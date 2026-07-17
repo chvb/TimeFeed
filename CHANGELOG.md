@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.7] - 2026-07-17
+
+### Improved
+- GPS-Pflicht: echtes GPS verlangen (grobe WLAN/IP-Ortung ablehnen)
+
 ## [1.1.6] - 2026-07-16
 
 ### Improved
