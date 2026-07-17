@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDownTrayIcon,
   ChevronDownIcon,
@@ -214,13 +214,17 @@ export default function Exports() {
   const [profileError, setProfileError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
+  const profileSeq = useRef(0);
   const loadProfile = useCallback(async () => {
     if (!companyId) return;
+    const myId = ++profileSeq.current;
     try {
       const r = await api.get('/export-profile', { params: { companyId } });
+      if (profileSeq.current !== myId) return; // veraltete Antwort (Firma gewechselt) verwerfen
       setProfile(normalizeProfile(r.data));
       setProfileError('');
     } catch (error) {
+      if (profileSeq.current !== myId) return;
       console.error('Error loading export profile:', error);
       setProfile(null);
       setProfileError(t('exports.profileLoadError'));

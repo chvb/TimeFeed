@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowPathIcon,
@@ -534,16 +534,20 @@ export default function Feed() {
 
   const isManager = !!user && (user.isSuperAdmin || ['admin', 'buchhaltung', 'verwaltung'].includes(user.role));
 
+  const loadSeq = useRef(0);
   const load = useCallback(async (silent = false) => {
+    const myId = ++loadSeq.current;
     try {
       if (!silent) setLoading(true);
       const res = await api.get('/feed');
+      if (loadSeq.current !== myId) return; // veraltete Antwort verwerfen
       setItems(res.data.items || []);
       setLoadError('');
     } catch {
+      if (loadSeq.current !== myId) return;
       setLoadError(t('feed.loadError'));
     } finally {
-      if (!silent) setLoading(false);
+      if (loadSeq.current === myId && !silent) setLoading(false);
     }
   }, [t]);
 

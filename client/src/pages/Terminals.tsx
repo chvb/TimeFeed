@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import {
   ArrowPathIcon,
@@ -111,18 +111,22 @@ export default function Terminals() {
   const [createdName, setCreatedName] = useState('');
 
   // silent = Hintergrund-Refresh (kein Spinner-Flackern der Liste).
+  const loadSeq = useRef(0);
   const load = useCallback(async (silent = false) => {
+    const myId = ++loadSeq.current;
     try {
       if (!silent) setLoading(true);
       const r = await api.get('/terminals');
+      if (loadSeq.current !== myId) return; // veraltete Antwort verwerfen
       const list = r.data.terminals || r.data.devices || (Array.isArray(r.data) ? r.data : []);
       setTerminals(list.map(normalizeTerminal));
       setLoadError('');
     } catch (error) {
+      if (loadSeq.current !== myId) return;
       console.error('Error loading terminals:', error);
       if (!silent) setLoadError(t('terminals.loadError'));
     } finally {
-      if (!silent) setLoading(false);
+      if (loadSeq.current === myId && !silent) setLoading(false);
     }
   }, [t]);
 

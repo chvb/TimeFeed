@@ -45,10 +45,13 @@ export default function Presence() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const timerRef = useRef<number | null>(null);
 
+  const loadSeq = useRef(0);
   const load = useCallback(async (silent = false) => {
+    const myId = ++loadSeq.current;
     try {
       if (!silent) setLoading(true);
       const r = await api.get('/time/presence');
+      if (loadSeq.current !== myId) return; // veraltete Antwort verwerfen
       // Server-Contract: Antwort ist ein Array [{ userId, firstName, lastName, groupName, state, since }]
       const list: any[] = Array.isArray(r.data) ? r.data : (r.data.presence || r.data.users || []);
       setRows(list.map((p) => ({
@@ -62,9 +65,10 @@ export default function Presence() {
       setUpdatedAt(new Date());
       setLoadError('');
     } catch {
+      if (loadSeq.current !== myId) return;
       if (!silent) setLoadError(t('presence.loadError'));
     } finally {
-      if (!silent) setLoading(false);
+      if (loadSeq.current === myId && !silent) setLoading(false);
     }
   }, [t]);
 
