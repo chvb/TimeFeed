@@ -23,6 +23,9 @@
 
 ## [1.1.7] - 2026-07-17
 
+### Fixed
+- GPS-Fix beim Öffnen der Stempelseite vorwärmen
+
 ### Improved
 - GPS-Pflicht: echtes GPS verlangen (grobe WLAN/IP-Ortung ablehnen)
 - GPS-Genauigkeitsschwelle pro Firma einstellbar (gpsMaxAccuracy)
