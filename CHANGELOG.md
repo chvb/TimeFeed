@@ -33,6 +33,7 @@
 - GPS-Genauigkeitsschwelle pro Firma einstellbar (gpsMaxAccuracy)
 - auto-Pausenmodus: längere von gesetzlicher/gestempelter Pause abziehen
 - Out-of-order-Guards für die restlichen Auto-Refresher
+- UI: schönes Dropdown + kein natives confirm mehr
 
 ### Security
 - Audit-Fixes: Sicherheit, Daten-Lebenszyklus, Robustheit
