@@ -26,6 +26,7 @@
 ### Fixed
 - GPS-Fix beim Öffnen der Stempelseite vorwärmen
 - GPS-Vorwärmen erst nach Laden des Modus starten (kein Popup bei 'GPS aus')
+- Audit-Fixes Teil 2: Multi-Mandant + restliche Medium/Low
 
 ### Improved
 - GPS-Pflicht: echtes GPS verlangen (grobe WLAN/IP-Ortung ablehnen)
