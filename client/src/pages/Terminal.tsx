@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 import Logo from '../components/common/Logo';
+import { useConfirm } from '../components/common/ConfirmProvider';
 import { BRAND_NAME, BRAND_PRIMARY } from '../components/common/brand';
 import { useI18n } from '../i18n';
 import {
@@ -84,6 +85,7 @@ function Numpad({ onDigit, onDelete, onOk, okDisabled, deleteLabel }: {
  */
 export default function Terminal() {
   const { t, lang } = useI18n();
+  const { confirm } = useConfirm();
   const locale = lang === 'de' ? 'de-DE' : 'en-GB';
 
   const [screen, setScreen] = useState<Screen>('setup');
@@ -667,8 +669,8 @@ export default function Terminal() {
     }
   };
 
-  const handleDisconnect = () => {
-    if (!window.confirm(t('terminal.disconnectConfirmText'))) return;
+  const handleDisconnect = async () => {
+    if (!(await confirm({ message: t('terminal.disconnectConfirmText'), danger: true }))) return;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(INFO_KEY);
     tokenRef.current = null;

@@ -4,6 +4,7 @@ import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 import { useT, useI18n } from '../../i18n';
+import Select from '../common/Select';
 
 const ENTRY_TYPES = ['in', 'out', 'break_start', 'break_end'] as const;
 
@@ -100,16 +101,14 @@ export default function CorrectionRequestModal({ open, onClose, date, onSubmitte
                     <div className="space-y-2">
                       {proposed.map((p, i) => (
                         <div key={i} className="flex items-center gap-2">
-                          <select
-                            value={p.type}
-                            onChange={(e) => updateRow(i, { type: e.target.value })}
-                            className="input-field flex-1"
-                            aria-label={t('corrections.type')}
-                          >
-                            {ENTRY_TYPES.map((et) => (
-                              <option key={et} value={et}>{t(`time.entryType.${et}`)}</option>
-                            ))}
-                          </select>
+                          <div className="flex-1">
+                            <Select
+                              value={p.type}
+                              onChange={(v) => updateRow(i, { type: v })}
+                              ariaLabel={t('corrections.type')}
+                              options={ENTRY_TYPES.map((et) => ({ value: et, label: t(`time.entryType.${et}`) }))}
+                            />
+                          </div>
                           <input
                             type="time"
                             value={p.time}
