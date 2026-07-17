@@ -40,6 +40,7 @@
 - UI: alle nativen <select> durch das schöne Dropdown ersetzen
 - AVV/AGB pro Mandant: Vertragsdaten + druckbare AVV/AGB-Ansicht (wie FotoFeed)
 - AVV/AGB: contractData robust als Objekt lesen (SQLite-Getter) + E2E-Test
+- Optimierungen: DOMPurify (AVV/AGB), mobiles Menü, Leaflet-Split, EN-Doku
 
 ### Security
 - Audit-Fixes: Sicherheit, Daten-Lebenszyklus, Robustheit
