@@ -186,7 +186,9 @@ export function computeWorkedMinutes(shifts: Shift[], cfg: BreakConfig): WorkedR
     case 'auto':
     default: {
       const required = statutoryBreakMinutes(grossMinutes, cfg);
-      autoBreakMinutes = Math.min(required, grossMinutes);
+      // Mindestens die gesetzliche Pause abziehen; wurde tatsächlich LÄNGER Pause gestempelt,
+      // die tatsächliche (längere) abziehen — sonst würde Pausenzeit als Arbeit gutgeschrieben.
+      autoBreakMinutes = Math.min(Math.max(required, stamped), grossMinutes);
       workedMinutes = Math.max(0, grossMinutes - autoBreakMinutes);
       break;
     }

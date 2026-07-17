@@ -153,6 +153,17 @@ describe('calcWorkDay: auto-Pause an den 6h/9h-Schwellen', () => {
     expect(wd.workedMinutes).toBe(541 - 45);
     expect(wd.breakMinutes).toBe(20); // informativ erfasst, aber nicht abgezogen
   });
+
+  it('gestempelte Pause LÄNGER als die gesetzliche → die längere wird abgezogen (keine Gutschrift von Pausenzeit)', async () => {
+    const u = await createUser();
+    await stamp(u.id, 'in', at(DAY, 8));
+    await stamp(u.id, 'break_start', at(DAY, 12));
+    await stamp(u.id, 'break_end', at(DAY, 13)); // 60 min gestempelt
+    await stamp(u.id, 'out', at(DAY, 17));       // 540 min brutto (9h) → gesetzlich 30
+    const wd = (await calcWorkDay(u.id, DAY))!;
+    expect(wd.autoBreakMinutes).toBe(60);        // max(30, 60)
+    expect(wd.workedMinutes).toBe(480);          // 540 − 60 (nicht 510)
+  });
 });
 
 describe('calcWorkDay: manual-Modus', () => {
