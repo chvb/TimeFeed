@@ -105,7 +105,9 @@ export default function Dashboard() {
   const [today, setToday] = useState<WorkDayDto | null>(null);
   const [breakMode, setBreakMode] = useState<BreakMode>('manual');
   // GPS-Modus der Firma: bei 'off' wird gar kein Standort abgefragt (kein Popup).
-  const [gpsMode, setGpsMode] = useState<string>('optional');
+  // Leer bis der echte Modus vom Server geladen ist – sonst würde das GPS-Vorwärmen
+  // (useGpsWarmup) schon vor dem Laden starten und bei „GPS aus" ein Standort-Popup zeigen.
+  const [gpsMode, setGpsMode] = useState<string>('');
   const [gpsMaxAccuracy, setGpsMaxAccuracy] = useState<number | undefined>(undefined);
   // GPS-Fix beim Öffnen vorwärmen, damit beim Kommen/Gehen sofort ein genauer Standort vorliegt.
   const getBestPosition = useGpsWarmup(gpsMode);
