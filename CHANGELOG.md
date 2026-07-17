@@ -45,6 +45,7 @@
 - Zeiten verwalten: Karten-Button auch in der Mitarbeiter-Einzelansicht
 - Stempel-Karte: Marker-Clustering (leaflet.markercluster)
 - Stempel-Karte: Datums-Label an jedem Marker
+- Stempel-Karte: Cluster-Blasen in Markenfarbe (statt Default-Grün)
 
 ### Security
 - Audit-Fixes: Sicherheit, Daten-Lebenszyklus, Robustheit
