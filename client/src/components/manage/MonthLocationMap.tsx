@@ -106,6 +106,17 @@ export default function MonthLocationMap({ month, monthLabel, userId, onClose }:
       showCoverageOnHover: false,
       maxClusterRadius: 45,
       spiderfyOnMaxZoom: true,
+      // Eigene, gut sichtbare Cluster-Blase in Markenfarbe (das Default-Grün geht
+      // auf der Karte unter). Größe skaliert leicht mit der Anzahl.
+      iconCreateFunction: (c) => {
+        const n = c.getChildCount();
+        const size = n < 10 ? 34 : n < 100 ? 40 : 46;
+        return L.divIcon({
+          className: '',
+          iconSize: [size, size],
+          html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:#ea580c;color:#fff;font-weight:700;font-size:13px;border:3px solid rgba(255,255,255,.9);box-shadow:0 2px 6px rgba(0,0,0,.45)">${n}</div>`,
+        });
+      },
     });
     const latlngs: [number, number][] = [];
     for (const p of points) {
