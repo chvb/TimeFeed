@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeftIcon,
   ChevronDownIcon,
@@ -24,6 +24,10 @@ import TimesheetSection from './TimesheetSection';
 import AbsenceBadge from '../common/AbsenceBadge';
 import Select from '../common/Select';
 import { useAbsenceTypes } from '../../hooks/useAbsenceTypes';
+
+// Karte der Stempel-Standorte (nur dieser Mitarbeiter): lazy, damit Leaflet erst
+// beim Öffnen geladen wird.
+const MonthLocationMap = lazy(() => import('./MonthLocationMap'));
 
 interface WorkDayRow {
   id: number;
@@ -242,6 +246,7 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
   const [manualDate, setManualDate] = useState<string | undefined>(undefined);
   const [closed, setClosed] = useState(closedInitial);
   const [busy, setBusy] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
 
   useEffect(() => { setClosed(closedInitial); }, [closedInitial, userId, month]);
 
@@ -396,6 +401,9 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
             title={closed ? t('manage.monthClosedHint') : t('manage.addManual')}
           >
             <PlusIcon className="h-4 w-4" /> {t('manage.addManual')}
+          </button>
+          <button type="button" onClick={() => setMapOpen(true)} className="btn-secondary inline-flex items-center gap-1.5" title={t('manage.mapButton')}>
+            <MapPinIcon className="h-4 w-4" /> {t('manage.mapButton')}
           </button>
           <button type="button" onClick={print} className="btn-secondary inline-flex items-center gap-1.5">
             <PrinterIcon className="h-4 w-4" /> {t('manage.printMonthSheet')}
@@ -581,6 +589,12 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
         defaultDate={manualDate}
         onBooked={refresh}
       />
+
+      {mapOpen && (
+        <Suspense fallback={null}>
+          <MonthLocationMap month={month} monthLabel={`${name} · ${monthLabel}`} userId={userId} onClose={() => setMapOpen(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }
