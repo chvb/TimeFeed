@@ -31,6 +31,7 @@
 ### Improved
 - GPS-Pflicht: echtes GPS verlangen (grobe WLAN/IP-Ortung ablehnen)
 - GPS-Genauigkeitsschwelle pro Firma einstellbar (gpsMaxAccuracy)
+- auto-Pausenmodus: längere von gesetzlicher/gestempelter Pause abziehen
 
 ### Security
 - Audit-Fixes: Sicherheit, Daten-Lebenszyklus, Robustheit
