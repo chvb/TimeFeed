@@ -34,6 +34,7 @@
 - auto-Pausenmodus: längere von gesetzlicher/gestempelter Pause abziehen
 - Out-of-order-Guards für die restlichen Auto-Refresher
 - UI: schönes Dropdown + kein natives confirm mehr
+- UI: alle nativen <select> durch das schöne Dropdown ersetzen
 
 ### Security
 - Audit-Fixes: Sicherheit, Daten-Lebenszyklus, Robustheit
