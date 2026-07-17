@@ -50,6 +50,9 @@ interface SystemSettingsAttributes {
   // 'warn'     = akzeptieren, aber Tag markieren + Feed-Karte + nächtliche Sammel-Mail
   // 'required' = ohne Standort keine Buchung
   gpsMode: string;
+  // Nur bei gpsMode='required': maximal erlaubter Genauigkeitsradius (Meter). Positionen
+  // mit größerem Radius (grobe WLAN/Mobilfunk/IP-Ortung) werden abgelehnt → echtes GPS.
+  gpsMaxAccuracy: number;
   // Aufbewahrung (Löschkonzept):
   // retentionMonthsEntries — Aufbewahrung der Zeitdaten (TimeEntries/WorkDays/
   // CorrectionRequests) in Monaten. Minimum 24: § 16 Abs. 2 ArbZG verlangt die
@@ -93,7 +96,7 @@ interface SystemSettingsAttributes {
 
 interface SystemSettingsCreationAttributes extends Optional<SystemSettingsAttributes, 'id' | 'createdAt' | 'updatedAt' | 'companyId'
   | 'breakMode' | 'breakAfter6hMinutes' | 'breakAfter9hMinutes' | 'autoCapEnabled' | 'autoCapTime'
-  | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired' | 'gpsMode'
+  | 'arbzgWarningsEnabled' | 'arbzgMaxDailyMinutes' | 'arbzgMinRestMinutes' | 'gpsRequired' | 'gpsMode' | 'gpsMaxAccuracy'
   | 'retentionMonthsEntries' | 'retentionMonthsGps'
   | 'terminalAlertEnabled' | 'terminalAlertMinutes' | 'terminalAlertEmails' | 'terminalPingSeconds'
   | 'sendTimesheetOnClose' | 'nfcPinRequired'
@@ -137,6 +140,7 @@ export class SystemSettings extends Model<SystemSettingsAttributes, SystemSettin
   public arbzgMinRestMinutes!: number;
   public gpsRequired!: boolean;
   public gpsMode!: string;
+  public gpsMaxAccuracy!: number;
   public retentionMonthsEntries!: number;
   public retentionMonthsGps!: number;
   public terminalAlertEnabled!: boolean;
@@ -336,6 +340,12 @@ SystemSettings.init(
       allowNull: false,
       defaultValue: 'optional',
       validate: { isIn: [['off', 'optional', 'warn', 'required']] },
+    },
+    gpsMaxAccuracy: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 100,
+      validate: { min: 10, max: 5000 },
     },
     // Aufbewahrung: min. 24 Monate (§ 16 Abs. 2 ArbZG — Nachweise mind. 2 Jahre).
     retentionMonthsEntries: {

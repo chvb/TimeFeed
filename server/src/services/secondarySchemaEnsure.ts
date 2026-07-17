@@ -52,6 +52,8 @@ export async function ensureSecondaryAndRetentionColumns(): Promise<void> {
     await sequelize.query("UPDATE system_settings SET gps_mode='required' WHERE gps_required = 1");
     console.log('Migration: system_settings.gps_mode ergänzt (gps_required übernommen).');
   }
+  // Max. GPS-Genauigkeitsradius (Meter) für gpsMode='required' — pro Firma einstellbar.
+  await addIfMissing(SystemSettings, 'gps_max_accuracy', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 100 });
 
   // system_settings — Stundenzettel automatisch per E-Mail beim Monatsabschluss (Firmen-Default)
   await addIfMissing(SystemSettings, 'send_timesheet_on_close', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });

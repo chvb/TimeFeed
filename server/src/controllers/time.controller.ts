@@ -106,6 +106,7 @@ async function buildTimeStatus(userId: number, companyId: number | null) {
     breakMode: settings.breakMode,
     // 'off' → Client fragt gar keinen Standort ab (kein Berechtigungs-Popup).
     gpsMode: settings.gpsMode || 'optional',
+    gpsMaxAccuracy: Number(settings.gpsMaxAccuracy) > 0 ? Number(settings.gpsMaxAccuracy) : MAX_GPS_ACCURACY_METERS,
     balanceMinutes: Number(total) || 0,
   };
 }
@@ -135,9 +136,11 @@ export class TimeController {
         return res.status(400).json({ error: 'GPS_REQUIRED', message: 'Standortfreigabe ist für das Stempeln erforderlich.' });
       }
       // Echtes GPS verlangen: grobe Ortung (großer Genauigkeitsradius) ablehnen.
+      // Schwelle pro Firma einstellbar (gpsMaxAccuracy), Fallback = Default-Konstante.
       if (gpsMode === 'required' && hasGps) {
+        const maxAcc = Number(settings.gpsMaxAccuracy) > 0 ? Number(settings.gpsMaxAccuracy) : MAX_GPS_ACCURACY_METERS;
         const acc = accuracy != null ? Number(accuracy) : NaN;
-        if (!Number.isFinite(acc) || acc > MAX_GPS_ACCURACY_METERS) {
+        if (!Number.isFinite(acc) || acc > maxAcc) {
           return res.status(400).json({
             error: 'GPS_INACCURATE', code: 'GPS_INACCURATE',
             message: 'Standort zu ungenau – bitte GPS aktivieren und im Freien erneut stempeln.',

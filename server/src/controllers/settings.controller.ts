@@ -88,6 +88,7 @@ export class SettingsController {
       arbzgMinRestMinutes: settings.arbzgMinRestMinutes,
       gpsRequired: settings.gpsRequired,
       gpsMode: settings.gpsMode,
+      gpsMaxAccuracy: settings.gpsMaxAccuracy,
       // Aufbewahrung/Löschkonzept
       retentionMonthsEntries: settings.retentionMonthsEntries,
       retentionMonthsGps: settings.retentionMonthsGps,
@@ -185,7 +186,7 @@ export class SettingsController {
         'breakMode', 'breakAfter6hMinutes', 'breakAfter9hMinutes',
         'autoCapEnabled', 'autoCapTime',
         'arbzgWarningsEnabled', 'arbzgMaxDailyMinutes', 'arbzgMinRestMinutes',
-        'gpsRequired', 'gpsMode',
+        'gpsRequired', 'gpsMode', 'gpsMaxAccuracy',
         // Aufbewahrung/Löschkonzept
         'retentionMonthsEntries', 'retentionMonthsGps',
         // Terminal-Überwachung
@@ -220,6 +221,13 @@ export class SettingsController {
       }
       if ('gpsMode' in updateData && !['off', 'optional', 'warn', 'required'].includes(String(updateData.gpsMode))) {
         throw new AppError(400, "gpsMode muss 'off', 'optional', 'warn' oder 'required' sein");
+      }
+      if ('gpsMaxAccuracy' in updateData) {
+        const v = Number(updateData.gpsMaxAccuracy);
+        if (!Number.isInteger(v) || v < 10 || v > 5000) {
+          throw new AppError(400, 'gpsMaxAccuracy muss eine ganze Zahl zwischen 10 und 5000 (Meter) sein');
+        }
+        updateData.gpsMaxAccuracy = v;
       }
       // Terminal-Überwachung validieren
       if ('terminalAlertEnabled' in updateData) updateData.terminalAlertEnabled = Boolean(updateData.terminalAlertEnabled);

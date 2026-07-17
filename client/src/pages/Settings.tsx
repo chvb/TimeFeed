@@ -62,6 +62,7 @@ interface SystemSettings {
   arbzgMinRestMinutes: number;
   gpsRequired: boolean;
   gpsMode?: string;
+  gpsMaxAccuracy?: number;
   terminalAlertEnabled?: boolean;
   terminalAlertMinutes?: number;
   terminalAlertEmails?: string | null;
@@ -179,6 +180,7 @@ const Settings: React.FC = () => {
     arbzgMinRestMinutes: 660,
     gpsRequired: false,
     gpsMode: 'optional',
+    gpsMaxAccuracy: 100,
     terminalAlertEnabled: false,
     terminalAlertMinutes: 15,
     terminalAlertEmails: '',
@@ -978,6 +980,25 @@ const Settings: React.FC = () => {
                   </label>
                 ))}
               </div>
+
+              {(settings.gpsMode || 'optional') === 'required' && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <label className="block text-sm font-medium text-slate-800 mb-1">{t('settings.time.gpsMaxAccuracy')}</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="10"
+                      max="5000"
+                      step="10"
+                      value={settings.gpsMaxAccuracy ?? 100}
+                      onChange={(e) => setSettings({ ...settings, gpsMaxAccuracy: parseInt(e.target.value) || 0 })}
+                      className="input-field w-32"
+                    />
+                    <span className="text-sm text-slate-500">{t('settings.time.gpsMaxAccuracyUnit')}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">{t('settings.time.gpsMaxAccuracyHint')}</p>
+                </div>
+              )}
             </div>
 
             {/* Terminal-Überwachung */}
