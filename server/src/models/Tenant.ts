@@ -91,6 +91,16 @@ Tenant.init(
       type: DataTypes.JSON,
       allowNull: true,
       field: 'contract_data',
+      // Robust gegen SQLite-Eigenheit: eine per addColumn (TEXT) nachgerüstete
+      // Spalte wird beim Lesen NICHT automatisch aus JSON geparst (anders als eine
+      // per sync als JSON angelegte Spalte). Getter normalisiert immer auf Objekt.
+      get() {
+        const raw = this.getDataValue('contractData') as unknown;
+        if (typeof raw === 'string') {
+          try { return JSON.parse(raw); } catch { return null; }
+        }
+        return (raw as Record<string, any>) ?? null;
+      },
     },
   },
   {
