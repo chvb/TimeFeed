@@ -27,6 +27,7 @@ import TrashSettings from './TrashSettings';
 import api from '../lib/api';
 import { matchesSearch } from '../lib/normalize';
 import { useConfirm } from '../components/common/ConfirmProvider';
+import Select from '../components/common/Select';
 import AbsenceTypesSection from '../components/settings/AbsenceTypesSection';
 import { useT } from '../i18n';
 
@@ -1570,16 +1571,15 @@ const Settings: React.FC = () => {
                     {ufNeedsCompany && (
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">{t('integrations.userSync.companyLabel')}</label>
-                        <select
+                        <Select
                           value={ufCompanyId}
-                          onChange={(e) => setUfCompanyId(e.target.value)}
-                          className="input-field w-full sm:max-w-xs"
-                        >
-                          <option value="">{t('integrations.userSync.companyPlaceholder')}</option>
-                          {ufCompanies.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
+                          onChange={setUfCompanyId}
+                          options={[
+                            { value: '', label: t('integrations.userSync.companyPlaceholder') },
+                            ...ufCompanies.map((c) => ({ value: String(c.id), label: c.name })),
+                          ]}
+                          className="w-full sm:max-w-xs"
+                        />
                       </div>
                     )}
 
@@ -1898,32 +1898,34 @@ const Settings: React.FC = () => {
                   {t('settings.audit.systemActivities')}
                 </h4>
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <select
+                  <Select
                     value={auditActionFilter}
-                    onChange={(e) => setAuditActionFilter(e.target.value)}
+                    onChange={setAuditActionFilter}
+                    options={[
+                      { value: '', label: t('settings.audit.allActions') },
+                      { value: 'USER_CREATED', label: t('settings.audit.actionUserCreated') },
+                      { value: 'USER_UPDATED', label: t('settings.audit.actionUserUpdated') },
+                      { value: 'USER_DELETED', label: t('settings.audit.actionUserDeleted') },
+                      { value: 'LOGIN', label: t('settings.audit.actionLogin') },
+                      { value: 'LOGOUT', label: t('settings.audit.actionLogout') },
+                      { value: 'SETTINGS_UPDATED', label: t('settings.audit.actionSettingsUpdated') },
+                      { value: 'REPORT_GENERATED', label: t('settings.audit.actionReportGenerated') },
+                    ]}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-md text-sm"
-                  >
-                    <option value="">{t('settings.audit.allActions')}</option>
-                    <option value="USER_CREATED">{t('settings.audit.actionUserCreated')}</option>
-                    <option value="USER_UPDATED">{t('settings.audit.actionUserUpdated')}</option>
-                    <option value="USER_DELETED">{t('settings.audit.actionUserDeleted')}</option>
-                    <option value="LOGIN">{t('settings.audit.actionLogin')}</option>
-                    <option value="LOGOUT">{t('settings.audit.actionLogout')}</option>
-                    <option value="SETTINGS_UPDATED">{t('settings.audit.actionSettingsUpdated')}</option>
-                    <option value="REPORT_GENERATED">{t('settings.audit.actionReportGenerated')}</option>
-                  </select>
-                  <select
+                  />
+                  <Select
                     value={auditCategoryFilter}
-                    onChange={(e) => setAuditCategoryFilter(e.target.value)}
+                    onChange={setAuditCategoryFilter}
+                    options={[
+                      { value: '', label: t('settings.audit.allCategories') },
+                      { value: 'AUTH', label: t('settings.audit.catAuth') },
+                      { value: 'USERS', label: t('settings.audit.catUsers') },
+                      { value: 'SETTINGS', label: t('settings.audit.catSettings') },
+                      { value: 'REPORTS', label: t('settings.audit.catReports') },
+                      { value: 'SYSTEM', label: t('settings.audit.catSystem') },
+                    ]}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-md text-sm"
-                  >
-                    <option value="">{t('settings.audit.allCategories')}</option>
-                    <option value="AUTH">{t('settings.audit.catAuth')}</option>
-                    <option value="USERS">{t('settings.audit.catUsers')}</option>
-                    <option value="SETTINGS">{t('settings.audit.catSettings')}</option>
-                    <option value="REPORTS">{t('settings.audit.catReports')}</option>
-                    <option value="SYSTEM">{t('settings.audit.catSystem')}</option>
-                  </select>
+                  />
                   <button
                     onClick={() => loadAuditLogs()}
                     className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"

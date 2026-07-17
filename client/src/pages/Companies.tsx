@@ -9,6 +9,7 @@ import SearchInput from '../components/common/SearchInput';
 import { matchesSearch } from '../lib/normalize';
 import { useAuthStore, isTenantAdmin as isTenantAdminFn } from '../store/authStore';
 import { useT } from '../i18n';
+import Select from '../components/common/Select';
 
 interface Company {
   id: number;
@@ -196,17 +197,25 @@ export default function Companies() {
                     {user?.isSuperAdmin && (
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">{t('companies.tenantLabel')}</label>
-                        <select value={form.tenantId ?? ''} onChange={(e) => setForm({ ...form, tenantId: e.target.value ? parseInt(e.target.value) : null })} className="input-field w-full">
-                          <option value="">{t('companies.tenantNone')}</option>
-                          {tenants.map((tn) => <option key={tn.id} value={tn.id}>{tn.name}</option>)}
-                        </select>
+                        <Select
+                          value={String(form.tenantId ?? '')}
+                          onChange={(v) => setForm({ ...form, tenantId: v ? parseInt(v) : null })}
+                          options={[
+                            { value: '', label: t('companies.tenantNone') },
+                            ...tenants.map((tn) => ({ value: String(tn.id), label: tn.name })),
+                          ]}
+                          className="w-full"
+                        />
                       </div>
                     )}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">{t('companies.stateLabel')}</label>
-                      <select value={form.bundesland} onChange={(e) => setForm({ ...form, bundesland: e.target.value })} className="input-field w-full">
-                        {BUNDESLAENDER.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                      </select>
+                      <Select
+                        value={form.bundesland}
+                        onChange={(v) => setForm({ ...form, bundesland: v })}
+                        options={BUNDESLAENDER.map(([k, v]) => ({ value: k, label: v }))}
+                        className="w-full"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">{t('companies.logoLabel')}</label>

@@ -5,6 +5,7 @@ import { ArrowUturnLeftIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useConfirm } from '../components/common/ConfirmProvider';
 import { useT } from '../i18n';
 import SearchInput from '../components/common/SearchInput';
+import Select from '../components/common/Select';
 import { matchesSearch } from '../lib/normalize';
 
 interface TrashEntry {
@@ -110,10 +111,15 @@ export default function TrashSettings() {
           <div className="w-full sm:w-64">
             <SearchInput value={query} onChange={setQuery} placeholder={t('trash.searchPlaceholder')} />
           </div>
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="input-field sm:w-56">
-            <option value="">{t('trash.allTypes')}</option>
-            {types.map((ty) => <option key={ty} value={ty}>{ty}</option>)}
-          </select>
+          <Select
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={[
+              { value: '', label: t('trash.allTypes') },
+              ...types.map((ty) => ({ value: ty, label: ty })),
+            ]}
+            className="sm:w-56"
+          />
         </div>
       )}
 

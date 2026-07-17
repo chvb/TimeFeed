@@ -16,6 +16,7 @@ import ErrorBanner from '../components/ErrorBanner';
 import { useAuthStore } from '../store/authStore';
 import { useI18n } from '../i18n';
 import { useAbsenceTypes } from '../hooks/useAbsenceTypes';
+import Select from '../components/common/Select';
 
 // ---- Contract (Phase 5) — Feldnamen exakt wie server/src/models/ExportProfile.ts
 // bzw. server/src/services/exportService.ts (ExportData). ----
@@ -389,15 +390,16 @@ export default function Exports() {
             <label htmlFor="exports-company" className="text-sm font-medium text-slate-700 dark:text-gray-300">
               {t('exports.selectCompany')}
             </label>
-            <select
-              id="exports-company"
-              value={companyId ?? ''}
-              onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : null)}
-              className="input-field w-56"
-            >
-              <option value="">{t('exports.selectCompanyPlaceholder')}</option>
-              {companyOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <Select
+              value={String(companyId ?? '')}
+              onChange={(v) => setCompanyId(v ? Number(v) : null)}
+              options={[
+                { value: '', label: t('exports.selectCompanyPlaceholder') },
+                ...companyOptions.map((c) => ({ value: String(c.id), label: c.name })),
+              ]}
+              className="w-56"
+              ariaLabel={t('exports.selectCompany')}
+            />
           </div>
         )}
       </div>
@@ -496,14 +498,14 @@ export default function Exports() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('exports.personnelNumberSource')}</label>
-                        <select
+                        <Select
                           value={profile.personalNrSource}
-                          onChange={(e) => setP({ personalNrSource: e.target.value as PersonalNrSource })}
-                          className="input-field"
-                        >
-                          <option value="employeeNumber">{t('exports.personnelNumberSourceOption.employeeNumber')}</option>
-                          <option value="userId">{t('exports.personnelNumberSourceOption.userId')}</option>
-                        </select>
+                          onChange={(v) => setP({ personalNrSource: v as PersonalNrSource })}
+                          options={[
+                            { value: 'employeeNumber', label: t('exports.personnelNumberSourceOption.employeeNumber') },
+                            { value: 'userId', label: t('exports.personnelNumberSourceOption.userId') },
+                          ]}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('exports.wageTypeNormal')}</label>
@@ -604,14 +606,14 @@ export default function Exports() {
                     {/* Überstunden-Modus */}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">{t('exports.overtimeMode')}</label>
-                      <select
+                      <Select
                         value={profile.overtimeMode}
-                        onChange={(e) => setP({ overtimeMode: e.target.value as OvertimeMode })}
-                        className="input-field"
-                      >
-                        <option value="none">{t('exports.overtimeModeOption.none')}</option>
-                        <option value="balance">{t('exports.overtimeModeOption.balance')}</option>
-                      </select>
+                        onChange={(v) => setP({ overtimeMode: v as OvertimeMode })}
+                        options={[
+                          { value: 'none', label: t('exports.overtimeModeOption.none') },
+                          { value: 'balance', label: t('exports.overtimeModeOption.balance') },
+                        ]}
+                      />
                     </div>
 
                     {/* Toggles */}
@@ -683,17 +685,16 @@ export default function Exports() {
                 <label htmlFor="exports-format-override" className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1">
                   {t('exports.formatOverride')}
                 </label>
-                <select
-                  id="exports-format-override"
+                <Select
                   value={formatOverride}
-                  onChange={(e) => setFormatOverride(e.target.value as '' | ExportFormat)}
-                  className="input-field w-full sm:w-64"
-                >
-                  <option value="">
-                    {t('exports.formatOverrideDefault', { format: t(`exports.formatOption.${profile?.format || 'csv'}`) })}
-                  </option>
-                  {ALL_FORMATS.map((f) => <option key={f} value={f}>{t(`exports.formatOption.${f}`)}</option>)}
-                </select>
+                  onChange={(v) => setFormatOverride(v as '' | ExportFormat)}
+                  options={[
+                    { value: '', label: t('exports.formatOverrideDefault', { format: t(`exports.formatOption.${profile?.format || 'csv'}`) }) },
+                    ...ALL_FORMATS.map((f) => ({ value: f, label: t(`exports.formatOption.${f}`) })),
+                  ]}
+                  className="w-full sm:w-64"
+                  ariaLabel={t('exports.formatOverride')}
+                />
               </div>
               <div className="flex flex-wrap gap-2 sm:ml-auto">
                 <button type="button" onClick={loadPreview} disabled={previewLoading} className="btn-secondary flex items-center gap-1.5">

@@ -32,6 +32,7 @@ import ChangelogModal from './common/ChangelogModal';
 import { APP_VERSION } from '../constants/version';
 import clsx from 'clsx';
 import Logo from './common/Logo';
+import Select, { SelectOption } from './common/Select';
 import AppFooter from './common/AppFooter';
 import { BRAND_NAME } from './common/brand';
 import { loadBranding, useBranding } from '../lib/branding';
@@ -207,36 +208,31 @@ export default function Layout() {
 
   // Firmen-/Mandanten-Wechsler: eine Render-Funktion für Header (nur lg+) und
   // Mobile-Sidebar (volle Breite) — verhindert Überlappung mit den Header-Icons.
-  const renderScopeSelect = (className: string) => (
-    <select
+  const scopeOptions = (): SelectOption[] => {
+    const opts: SelectOption[] = [{ value: '', label: t('nav.allCompanies') }];
+    if (tenantOptions.length > 1) {
+      tenantOptions.forEach((tn) => {
+        opts.push({ value: `tenant:${tn.id}`, label: `▸ ${t('nav.wholeTenant', { name: tn.name })}`, group: tn.name });
+        companyOptions.filter((c) => c.tenantId === tn.id).forEach((c) => opts.push({ value: `company:${c.id}`, label: c.name, group: tn.name }));
+      });
+      if (companyOptions.some((c) => !c.tenantId)) {
+        const g = t('nav.noTenant');
+        companyOptions.filter((c) => !c.tenantId).forEach((c) => opts.push({ value: `company:${c.id}`, label: c.name, group: g }));
+      }
+    } else {
+      companyOptions.forEach((c) => opts.push({ value: `company:${c.id}`, label: c.name }));
+    }
+    return opts;
+  };
+  const renderScopeSelect = (triggerClassName: string) => (
+    <Select
       value={companyCtx}
-      onChange={(e) => onCompanyCtxChange(e.target.value)}
+      onChange={onCompanyCtxChange}
+      options={scopeOptions()}
       title={t('nav.switchScope')}
-      className={className}
-    >
-              <option value="" className="text-slate-900">{t('nav.allCompanies')}</option>
-              {tenantOptions.length > 1 ? (
-                <>
-                  {tenantOptions.map((tn) => (
-                    <optgroup key={tn.id} label={tn.name} className="text-slate-900">
-                      <option value={`tenant:${tn.id}`} className="text-slate-900">▸ {t('nav.wholeTenant', { name: tn.name })}</option>
-                      {companyOptions.filter((c) => c.tenantId === tn.id).map((c) => (
-                        <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>
-                      ))}
-                    </optgroup>
-                  ))}
-                  {companyOptions.some((c) => !c.tenantId) && (
-                    <optgroup label={t('nav.noTenant')} className="text-slate-900">
-                      {companyOptions.filter((c) => !c.tenantId).map((c) => (
-                        <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </>
-              ) : (
-                companyOptions.map((c) => <option key={c.id} value={`company:${c.id}`} className="text-slate-900">{c.name}</option>)
-              )}
-    </select>
+      ariaLabel={t('nav.switchScope')}
+      triggerClassName={triggerClassName}
+    />
   );
 
   return (
@@ -276,8 +272,11 @@ export default function Layout() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {canSwitchCompany && (companyOptions.length > 1 || tenantOptions.length > 1) &&
-            renderScopeSelect('hidden lg:block mr-1 px-2 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors text-sm font-medium max-w-[15rem] xl:max-w-[22rem]')}
+          {canSwitchCompany && (companyOptions.length > 1 || tenantOptions.length > 1) && (
+            <div className="hidden lg:block mr-1 max-w-[15rem] xl:max-w-[22rem]">
+              {renderScopeSelect('w-full px-2 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 transition-colors text-sm font-medium text-white')}
+            </div>
+          )}
           <button
             onClick={() => setLang(lang === 'de' ? 'en' : 'de')}
             aria-label={t('header.language')}

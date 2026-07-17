@@ -4,6 +4,7 @@ import { PlusIcon, PencilIcon, TrashIcon, UsersIcon, UserPlusIcon, XMarkIcon, Ch
 import SearchInput from '../components/common/SearchInput';
 import { useConfirm } from '../components/common/ConfirmProvider';
 import SearchableSelect from '../components/common/SearchableSelect';
+import Select from '../components/common/Select';
 import api from '../lib/api';
 import { useAuthStore, isTenantAdmin as isTenantAdminFn } from '../store/authStore';
 import { escapeHtml } from '../lib/escapeHtml';
@@ -1216,28 +1217,28 @@ const Employees: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder={t('employees.searchPlaceholder')} />
           
-          <select
+          <Select
             value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="input-field"
-          >
-            <option value="">{t('employees.allRoles')}</option>
-            <option value="admin">{t('roles.admin')}</option>
-            <option value="buchhaltung">{t('roles.buchhaltung')}</option>
-            <option value="verwaltung">{t('roles.verwaltung')}</option>
-            <option value="mitarbeiter">{t('roles.mitarbeiter')}</option>
-          </select>
-          
-          <select
+            onChange={(v) => setFilterRole(v)}
+            options={[
+              { value: '', label: t('employees.allRoles') },
+              { value: 'admin', label: t('roles.admin') },
+              { value: 'buchhaltung', label: t('roles.buchhaltung') },
+              { value: 'verwaltung', label: t('roles.verwaltung') },
+              { value: 'mitarbeiter', label: t('roles.mitarbeiter') },
+            ]}
+            ariaLabel={t('employees.allRoles')}
+          />
+
+          <Select
             value={filterGroup}
-            onChange={(e) => setFilterGroup(e.target.value)}
-            className="input-field"
-          >
-            <option value="">{t('employees.allGroups')}</option>
-            {uniqueGroups.map(group => (
-              <option key={group.id} value={group.name}>{group.name}</option>
-            ))}
-          </select>
+            onChange={(v) => setFilterGroup(v)}
+            options={[
+              { value: '', label: t('employees.allGroups') },
+              ...uniqueGroups.map((group) => ({ value: group.name, label: group.name })),
+            ]}
+            ariaLabel={t('employees.allGroups')}
+          />
           
           <div className="text-sm text-slate-600 flex items-center">
             {t('employees.countOf', { count: filteredEmployees.length, total: employees.length })}
@@ -1801,31 +1802,29 @@ const Employees: React.FC = () => {
 
                     <div>
                       <label className="block text-sm text-slate-600 mb-1">{t('employees.timeModelOverride')}</label>
-                      <select
-                        value={formData.timeModelId ?? ''}
-                        onChange={(e) => setFormData({ ...formData, timeModelId: e.target.value ? parseInt(e.target.value) : null })}
-                        className="input-field"
-                      >
-                        <option value="">{t('employees.timeModelDefault')}</option>
-                        {timeModels.map((tm) => (
-                          <option key={tm.id} value={tm.id}>{tm.name}</option>
-                        ))}
-                      </select>
+                      <Select
+                        value={String(formData.timeModelId ?? '')}
+                        onChange={(v) => setFormData({ ...formData, timeModelId: v ? parseInt(v) : null })}
+                        options={[
+                          { value: '', label: t('employees.timeModelDefault') },
+                          ...timeModels.map((tm) => ({ value: String(tm.id), label: tm.name })),
+                        ]}
+                        ariaLabel={t('employees.timeModelOverride')}
+                      />
                       <p className="text-xs text-slate-400 mt-1">{t('employees.timeModelOverrideHint')}</p>
                     </div>
 
                     <div>
                       <label className="block text-sm text-slate-600 mb-1">{t('employees.surchargeProfileOverride')}</label>
-                      <select
-                        value={formData.surchargeProfileId ?? ''}
-                        onChange={(e) => setFormData({ ...formData, surchargeProfileId: e.target.value ? parseInt(e.target.value) : null })}
-                        className="input-field"
-                      >
-                        <option value="">{t('employees.surchargeProfileDefault')}</option>
-                        {surchargeProfiles.map((sp) => (
-                          <option key={sp.id} value={sp.id}>{sp.name}</option>
-                        ))}
-                      </select>
+                      <Select
+                        value={String(formData.surchargeProfileId ?? '')}
+                        onChange={(v) => setFormData({ ...formData, surchargeProfileId: v ? parseInt(v) : null })}
+                        options={[
+                          { value: '', label: t('employees.surchargeProfileDefault') },
+                          ...surchargeProfiles.map((sp) => ({ value: String(sp.id), label: sp.name })),
+                        ]}
+                        ariaLabel={t('employees.surchargeProfileOverride')}
+                      />
                       <p className="text-xs text-slate-400 mt-1">{t('employees.surchargeProfileOverrideHint')}</p>
                     </div>
 
@@ -1890,15 +1889,16 @@ const Employees: React.FC = () => {
 
                     <div>
                       <label className="block text-sm text-slate-600 mb-1">{t('employees.timesheetEmailMode')}</label>
-                      <select
+                      <Select
                         value={formData.timesheetEmailMode || 'inherit'}
-                        onChange={(e) => setFormData({ ...formData, timesheetEmailMode: e.target.value as 'inherit' | 'on' | 'off' })}
-                        className="input-field"
-                      >
-                        <option value="inherit">{t('employees.timesheetEmailInherit')}</option>
-                        <option value="on">{t('employees.timesheetEmailOn')}</option>
-                        <option value="off">{t('employees.timesheetEmailOff')}</option>
-                      </select>
+                        onChange={(v) => setFormData({ ...formData, timesheetEmailMode: v as 'inherit' | 'on' | 'off' })}
+                        options={[
+                          { value: 'inherit', label: t('employees.timesheetEmailInherit') },
+                          { value: 'on', label: t('employees.timesheetEmailOn') },
+                          { value: 'off', label: t('employees.timesheetEmailOff') },
+                        ]}
+                        ariaLabel={t('employees.timesheetEmailMode')}
+                      />
                       <p className="text-xs text-slate-400 mt-1">{t('employees.timesheetEmailHint')}</p>
                     </div>
                   </div>
@@ -1998,16 +1998,17 @@ const Employees: React.FC = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       {t('employees.role')}
                     </label>
-                    <select
+                    <Select
                       value={formData.role}
-                      onChange={(e) => setFormData({...formData, role: e.target.value})}
-                      className="input-field"
-                    >
-                      <option value="mitarbeiter">{t('roles.mitarbeiter')}</option>
-                      <option value="verwaltung">{t('roles.verwaltung')}</option>
-                      <option value="buchhaltung">{t('roles.buchhaltung')}</option>
-                      <option value="admin">{t('roles.admin')}</option>
-                    </select>
+                      onChange={(v) => setFormData({...formData, role: v})}
+                      options={[
+                        { value: 'mitarbeiter', label: t('roles.mitarbeiter') },
+                        { value: 'verwaltung', label: t('roles.verwaltung') },
+                        { value: 'buchhaltung', label: t('roles.buchhaltung') },
+                        { value: 'admin', label: t('roles.admin') },
+                      ]}
+                      ariaLabel={t('employees.role')}
+                    />
                   </div>
                   
                 </div>

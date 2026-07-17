@@ -14,6 +14,7 @@ import api from '../lib/api';
 import ErrorBanner from '../components/ErrorBanner';
 import SurchargeProfileSection from '../components/SurchargeProfileSection';
 import { useConfirm } from '../components/common/ConfirmProvider';
+import Select from '../components/common/Select';
 import { useAuthStore } from '../store/authStore';
 import { useT } from '../i18n';
 import { formatMinutes, hhmmToMinutes, minutesToHHMMInput } from '../lib/timeFormat';
@@ -337,27 +338,21 @@ export default function TimeModels() {
                     <div className="rounded-lg border border-slate-200 p-4">
                       <p className="text-sm font-medium text-slate-700 mb-3">{t('timeModels.rounding')}</p>
                       <div className="flex flex-wrap gap-4">
-                        <select
+                        <Select
                           value={form.roundingMode}
-                          onChange={(e) => setForm({ ...form, roundingMode: e.target.value as RoundingMode })}
-                          className="input-field w-56"
-                        >
-                          {(['none', 'up', 'down', 'nearest'] as RoundingMode[]).map((mode) => (
-                            <option key={mode} value={mode}>{t(`timeModels.roundingMode.${mode}`)}</option>
-                          ))}
-                        </select>
+                          onChange={(v) => setForm({ ...form, roundingMode: v as RoundingMode })}
+                          options={(['none', 'up', 'down', 'nearest'] as RoundingMode[]).map((mode) => ({ value: mode, label: t(`timeModels.roundingMode.${mode}`) }))}
+                          className="w-56"
+                        />
                         {form.roundingMode !== 'none' && (
                           <div className="flex items-center gap-2">
                             <label className="text-sm text-slate-600">{t('timeModels.roundingStep')}</label>
-                            <select
-                              value={form.roundingMinutes}
-                              onChange={(e) => setForm({ ...form, roundingMinutes: parseInt(e.target.value) })}
-                              className="input-field w-40"
-                            >
-                              {ROUNDING_STEPS.map((s) => (
-                                <option key={s} value={s}>{t('timeModels.roundingStepMinutes', { count: s })}</option>
-                              ))}
-                            </select>
+                            <Select
+                              value={String(form.roundingMinutes)}
+                              onChange={(v) => setForm({ ...form, roundingMinutes: parseInt(v) })}
+                              options={ROUNDING_STEPS.map((s) => ({ value: String(s), label: t('timeModels.roundingStepMinutes', { count: s }) }))}
+                              className="w-40"
+                            />
                           </div>
                         )}
                       </div>

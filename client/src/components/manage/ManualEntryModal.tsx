@@ -3,6 +3,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import toast from 'react-hot-toast';
 import api from '../../lib/api';
 import { useT } from '../../i18n';
+import Select from '../common/Select';
 
 const ENTRY_TYPES = ['in', 'out', 'break_start', 'break_end'] as const;
 
@@ -82,11 +83,13 @@ export default function ManualEntryModal({ open, onClose, userId, defaultDate, o
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1" htmlFor="manual-type">{t('manage.manualType')}</label>
-                    <select id="manual-type" value={type} onChange={(e) => setType(e.target.value)} className="input-field w-full">
-                      {ENTRY_TYPES.map((et) => (
-                        <option key={et} value={et}>{t(`time.entryType.${et}`)}</option>
-                      ))}
-                    </select>
+                    <Select
+                      value={type}
+                      onChange={(v) => setType(v)}
+                      options={ENTRY_TYPES.map((et) => ({ value: et, label: t(`time.entryType.${et}`) }))}
+                      className="w-full"
+                      ariaLabel={t('manage.manualType')}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-1" htmlFor="manual-note">{t('manage.manualNote')}</label>

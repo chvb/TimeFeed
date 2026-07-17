@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/authStore';
 import MultiSelectDropdown from '../components/common/MultiSelectDropdown';
 import SearchableSelect from '../components/common/SearchableSelect';
 import SearchInput from '../components/common/SearchInput';
+import Select from '../components/common/Select';
 import { matchesSearch } from '../lib/normalize';
 import { useT } from '../i18n';
 
@@ -714,39 +715,30 @@ const Groups: React.FC = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     {t('groups.parentGroup')}
                   </label>
-                  <select
-                    value={formData.parentGroupId || ''}
-                    onChange={(e) => setFormData({...formData, parentGroupId: e.target.value ? parseInt(e.target.value) : undefined})}
-                    className="input-field"
-                  >
-                    <option value="">{t('groups.noParentGroup')}</option>
-                    {groups
-                      .filter(g => !editingGroup || g.id !== editingGroup.id)
-                      .map(group => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))
-                    }
-                  </select>
+                  <Select
+                    value={formData.parentGroupId ? String(formData.parentGroupId) : ''}
+                    onChange={(v) => setFormData({...formData, parentGroupId: v ? parseInt(v) : undefined})}
+                    options={[
+                      { value: '', label: t('groups.noParentGroup') },
+                      ...groups
+                        .filter(g => !editingGroup || g.id !== editingGroup.id)
+                        .map(group => ({ value: String(group.id), label: group.name })),
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     {t('groups.timeModel')}
                   </label>
-                  <select
-                    value={formData.timeModelId ?? ''}
-                    onChange={(e) => setFormData({ ...formData, timeModelId: e.target.value ? parseInt(e.target.value) : null })}
-                    className="input-field"
-                  >
-                    <option value="">{t('groups.noTimeModel')}</option>
-                    {timeModels.map((tm) => (
-                      <option key={tm.id} value={tm.id}>
-                        {tm.name}{tm.isActive === false ? ` (${t('groups.timeModelInactive')})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    value={formData.timeModelId != null ? String(formData.timeModelId) : ''}
+                    onChange={(v) => setFormData({ ...formData, timeModelId: v ? parseInt(v) : null })}
+                    options={[
+                      { value: '', label: t('groups.noTimeModel') },
+                      ...timeModels.map((tm) => ({ value: String(tm.id), label: `${tm.name}${tm.isActive === false ? ` (${t('groups.timeModelInactive')})` : ''}` })),
+                    ]}
+                  />
                   <p className="text-xs text-slate-400 mt-1">{t('groups.timeModelHint')}</p>
                 </div>
 
@@ -754,32 +746,28 @@ const Groups: React.FC = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     {t('groups.surchargeProfile')}
                   </label>
-                  <select
-                    value={formData.surchargeProfileId ?? ''}
-                    onChange={(e) => setFormData({ ...formData, surchargeProfileId: e.target.value ? parseInt(e.target.value) : null })}
-                    className="input-field"
-                  >
-                    <option value="">{t('groups.noSurchargeProfile')}</option>
-                    {surchargeProfiles.map((sp) => (
-                      <option key={sp.id} value={sp.id}>
-                        {sp.name}{sp.isActive === false ? ` (${t('groups.surchargeProfileInactive')})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    value={formData.surchargeProfileId != null ? String(formData.surchargeProfileId) : ''}
+                    onChange={(v) => setFormData({ ...formData, surchargeProfileId: v ? parseInt(v) : null })}
+                    options={[
+                      { value: '', label: t('groups.noSurchargeProfile') },
+                      ...surchargeProfiles.map((sp) => ({ value: String(sp.id), label: `${sp.name}${sp.isActive === false ? ` (${t('groups.surchargeProfileInactive')})` : ''}` })),
+                    ]}
+                  />
                   <p className="text-xs text-slate-400 mt-1">{t('groups.surchargeProfileHint')}</p>
                 </div>
 
                 {user?.isSuperAdmin && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">{t('groups.company')}</label>
-                    <select
-                      value={formData.companyId ?? ''}
-                      onChange={(e) => setFormData({ ...formData, companyId: e.target.value ? parseInt(e.target.value) : null })}
-                      className="input-field"
-                    >
-                      <option value="">{t('groups.noCompany')}</option>
-                      {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <Select
+                      value={formData.companyId != null ? String(formData.companyId) : ''}
+                      onChange={(v) => setFormData({ ...formData, companyId: v ? parseInt(v) : null })}
+                      options={[
+                        { value: '', label: t('groups.noCompany') },
+                        ...companies.map((c) => ({ value: String(c.id), label: c.name })),
+                      ]}
+                    />
                   </div>
                 )}
 

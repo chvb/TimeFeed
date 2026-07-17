@@ -22,6 +22,7 @@ import { printMonthTimesheet } from '../../lib/printMonthSheet';
 import ManualEntryModal from './ManualEntryModal';
 import TimesheetSection from './TimesheetSection';
 import AbsenceBadge from '../common/AbsenceBadge';
+import Select from '../common/Select';
 import { useAbsenceTypes } from '../../hooks/useAbsenceTypes';
 
 interface WorkDayRow {
@@ -200,16 +201,17 @@ function DayAbsenceControl({ userId, day, variant, onChanged }: {
       <label htmlFor={`absence-${variant}-${day.date}`} className="text-sm font-medium text-slate-700 dark:text-gray-300">
         {t('manage.setAbsence')}
       </label>
-      <select
-        id={`absence-${variant}-${day.date}`}
+      <Select
         value={current}
         disabled={saving}
-        onChange={(e) => save(e.target.value)}
-        className="input-field w-56"
-      >
-        <option value="">{t('manage.absenceNone')}</option>
-        {active.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
-      </select>
+        onChange={(v) => save(v)}
+        options={[
+          { value: '', label: t('manage.absenceNone') },
+          ...active.map((x) => ({ value: x.key, label: x.label })),
+        ]}
+        className="w-56"
+        ariaLabel={t('manage.setAbsence')}
+      />
       <AbsenceBadge absence={day.absence} />
     </div>
   );
