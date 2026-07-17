@@ -36,13 +36,17 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        // Ein einziger Vendor-Chunk: trennt Abhängigkeiten vom App-Code (langlebig
-        // cachebar), vermeidet aber die Init-Reihenfolge-Probleme eines feineren
-        // React-Splits (z. B. "Cannot read properties of undefined (reading 'memo')",
-        // wenn eine React-abhängige Lib vor React geladen wird).
+        // Gemeinsamer Vendor-Chunk (langlebig cachebar) — bewusst KEIN feinerer
+        // React-Split, der Init-Reihenfolge-Probleme verursacht (z. B. "Cannot read
+        // properties of undefined (reading 'memo')", wenn eine React-abhängige Lib
+        // vor React geladen wird).
+        // Ausnahme Leaflet: reines Vanilla-JS (keine React-Init-Abhängigkeit) und nur
+        // auf der lazy geladenen Terminals-Seite gebraucht → eigener Chunk, damit die
+        // ~140 KB nicht bei jedem Start mitgeladen werden.
         manualChunks(id: string) {
-          if (id.includes('node_modules')) return 'vendor';
-          return undefined;
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('leaflet')) return 'leaflet';
+          return 'vendor';
         },
       }
     }

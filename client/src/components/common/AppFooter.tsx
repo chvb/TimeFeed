@@ -15,6 +15,8 @@ interface AppFooterProps {
   onOpenChangelog?: () => void;
   /** Eingeloggter App-Bereich (Sidebar): zeigt auch die appOnly-Links (Doku/Info). */
   appContext?: boolean;
+  /** Wird beim Klick auf einen navigierenden Link aufgerufen (z. B. mobiles Menü schließen). */
+  onNavigate?: () => void;
   /** Helle Variante für dunkle/orangefarbene Hintergründe (z. B. Sidebar). */
   tone?: 'default' | 'onPrimary';
 }
@@ -34,7 +36,7 @@ const LINKS: { key: LegalKey; href: string; labelKey: string; icon: any; appOnly
  * Online-Status. In der App (onOpenLegal) öffnen die Links Modals; auf
  * öffentlichen Seiten (ohne Prop) navigieren sie zu den Routen.
  */
-export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog, appContext = false, tone = 'default' }: AppFooterProps) {
+export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog, appContext = false, onNavigate, tone = 'default' }: AppFooterProps) {
   const t = useT();
   const onP = tone === 'onPrimary';
   const textCls = onP ? 'text-white/70' : 'text-slate-400';
@@ -52,7 +54,7 @@ export default function AppFooter({ className = '', onOpenLegal, onOpenChangelog
                 <l.icon className="h-3.5 w-3.5" /> {t(l.labelKey)}
               </button>
             ) : (
-              <Link to={l.href} className={`inline-flex items-center gap-1 ${linkCls}`}>
+              <Link to={l.href} onClick={onNavigate} className={`inline-flex items-center gap-1 ${linkCls}`}>
                 <l.icon className="h-3.5 w-3.5" /> {t(l.labelKey)}
               </Link>
             )}

@@ -375,7 +375,7 @@ export default function Layout() {
           </nav>
 
           <div className="p-4 border-t border-gray-200 flex-shrink-0">
-            <AppFooter appContext onOpenChangelog={() => setChangelogOpen(true)} className="pt-1" />
+            <AppFooter appContext onNavigate={() => setSidebarOpen(false)} onOpenChangelog={() => setChangelogOpen(true)} className="pt-1" />
           </div>
         </div>
       </div>

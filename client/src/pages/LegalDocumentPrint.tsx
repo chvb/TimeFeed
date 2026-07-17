@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import api from '../lib/api';
 import Logo from '../components/common/Logo';
 
@@ -7,10 +8,19 @@ import Logo from '../components/common/Logo';
 // HTML (Markdown → HTML inkl. Platzhalter-Ersetzung aus tenant.contractData)
 // und stellt es druckfreundlich dar (window.print → PDF).
 //
-// Sicherheit: Alle mandanten-editierbaren Vertragswerte werden serverseitig
-// VOR dem Rendern HTML-escaped (services/legalDocuments.ts); die Vorlage selbst
-// ist eine vertrauenswürdige Datei auf dem Server. Das gelieferte HTML ist damit
-// unbedenklich für dangerouslySetInnerHTML.
+// Sicherheit (zweischichtig): Alle mandanten-editierbaren Vertragswerte werden
+// serverseitig VOR dem Rendern HTML-escaped (services/legalDocuments.ts) und die
+// Vorlage selbst ist eine vertrauenswürdige Datei. Zusätzlich wird das gelieferte
+// HTML clientseitig mit DOMPurify auf eine enge Allowlist gefiltert (Defense-in-Depth).
+const LEGAL_SANITIZE = {
+  ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i', 'u', 'a', 'blockquote', 'code', 'pre', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'span', 'div'],
+  ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'id'],
+  ALLOW_DATA_ATTR: false,
+  FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+  FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'style'],
+  // Nur unbedenkliche URL-Schemata (kein javascript:, data:, vbscript:).
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+};
 interface LegalData {
   doc: string;
   title: string;
@@ -112,7 +122,7 @@ export default function LegalDocumentPrint() {
           </div>
         </div>
 
-        <div className="legal-content" dangerouslySetInnerHTML={{ __html: data.html }} />
+        <div className="legal-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(data.html, LEGAL_SANITIZE) }} />
       </div>
     </div>
   );
