@@ -24,6 +24,7 @@ router.post('/entries/:id/cancel', manage, timeController.cancelEntry.bind(timeC
 // Manuelle Tages-Abwesenheit (Katalog-Key setzen/entfernen, 423 bei Abschluss).
 router.put('/days/:userId/:date/absence', manage, timeController.setDayAbsence.bind(timeController));
 router.get('/month-overview', manage, timeController.monthOverview.bind(timeController));
+router.get('/month-locations', manage, timeController.monthLocations.bind(timeController));
 router.get('/presence', manage, timeController.presence.bind(timeController));
 // Monatsabschluss nur buchhaltung+admin; Wiedereröffnung nur admin.
 router.post('/close-month', authorize(UserRole.ADMIN, UserRole.BUCHHALTUNG), timeController.closeMonth.bind(timeController));

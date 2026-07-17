@@ -545,6 +545,71 @@ export class TimeController {
   }
 
   /**
+   * GET /api/time/month-locations?month=YYYY-MM[&userId=N] — geolokalisierte
+   * Stempelungen des Monats für alle erreichbaren Mitarbeiter (Kartenansicht).
+   * Nur nicht-stornierte Einträge mit lat/lng. Antwort:
+   * { month, points: [{ id, userId, name, type, timestamp, lat, lng, accuracy, source, terminalId }] }
+   */
+  async monthLocations(req: Request, res: Response, next: NextFunction) {
+    try {
+      const month = String(req.query.month || '').trim() || ymdLocal(new Date()).slice(0, 7);
+      if (!MONTH_RE.test(month)) return next(new AppError(400, 'month muss das Format YYYY-MM haben'));
+
+      const ids = await getAccessibleUserIds(req.user!);
+      const userWhere: any = { isActive: true };
+      if (ids !== null) userWhere.id = { [Op.in]: ids };
+
+      // Optional auf einen Mitarbeiter eingrenzen (Zugriff prüfen).
+      const singleUserId = req.query.userId != null && req.query.userId !== '' ? Number(req.query.userId) : null;
+      if (singleUserId != null) {
+        if (!Number.isFinite(singleUserId)) return next(new AppError(400, 'Ungültige userId'));
+        if (!(await canActorAccessUser(req.user!, singleUserId))) {
+          return next(new AppError(403, 'Kein Zugriff auf diesen Mitarbeiter'));
+        }
+        userWhere.id = singleUserId;
+      }
+
+      const users = await User.findAll({ where: userWhere, attributes: ['id', 'firstName', 'lastName'] });
+      const nameById = new Map<number, string>(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
+      const userIds = users.map((u) => u.id);
+      if (userIds.length === 0) return res.json({ month, points: [] });
+
+      const start = new Date(`${month}-01T00:00:00`);
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + 1);
+
+      const entries = await TimeEntry.findAll({
+        where: {
+          userId: { [Op.in]: userIds },
+          timestamp: { [Op.gte]: start, [Op.lt]: end },
+          isCancelled: false,
+          lat: { [Op.ne]: null },
+          lng: { [Op.ne]: null },
+        },
+        attributes: ['id', 'userId', 'type', 'timestamp', 'lat', 'lng', 'accuracy', 'source', 'terminalId'],
+        order: [['timestamp', 'ASC']],
+      });
+
+      const points = entries.map((e) => ({
+        id: e.id,
+        userId: e.userId,
+        name: nameById.get(e.userId) || `#${e.userId}`,
+        type: e.type,
+        timestamp: e.timestamp,
+        lat: e.lat,
+        lng: e.lng,
+        accuracy: e.accuracy ?? null,
+        source: e.source,
+        terminalId: e.terminalId ?? null,
+      }));
+
+      res.json({ month, points });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/time/close-month — Monatsabschluss (nur admin/buchhaltung).
    * Body: { month: 'YYYY-MM', userId?, companyId? (nur ohne eigene Firma nötig) }.
    * Ablauf: alle Tage des Monats recalcen → KEINE incomplete-Tage zulassen

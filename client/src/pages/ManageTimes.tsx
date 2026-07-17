@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   LockClosedIcon,
   LockOpenIcon,
+  MapPinIcon,
   ShieldCheckIcon,
   UsersIcon,
   XMarkIcon,
@@ -19,6 +20,9 @@ import { useT, useI18n } from '../i18n';
 import { formatMinutes, formatSignedMinutes } from '../lib/timeFormat';
 import EmployeeMonthDetail from '../components/manage/EmployeeMonthDetail';
 import CorrectionsAdminTab from '../components/manage/CorrectionsAdminTab';
+
+// Karte der Stempel-Standorte: lazy, damit Leaflet nur beim Öffnen geladen wird.
+const MonthLocationMap = lazy(() => import('../components/manage/MonthLocationMap'));
 
 // Server-Contract (GET /api/time/month-overview): { month, users: [ … ] }
 interface OverviewRow {
@@ -73,6 +77,7 @@ export default function ManageTimes() {
   const [selected, setSelected] = useState<OverviewRow | null>(null);
   const { confirm } = useConfirm();
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   // Blockierende Tage aus einem gescheiterten Firmen-Abschluss (400 INCOMPLETE_DAYS).
   const [incompleteInfo, setIncompleteInfo] = useState<Array<{ userId: number; date: string }> | null>(null);
 
@@ -248,6 +253,9 @@ export default function ManageTimes() {
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{t('manage.title')}</h1>
         {tab === 'overview' && !selected && (
           <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setMapOpen(true)} className="btn-secondary inline-flex items-center gap-1.5" title={t('manage.mapButton')}>
+              <MapPinIcon className="h-5 w-5" /> <span className="hidden sm:inline">{t('manage.mapButton')}</span>
+            </button>
             <button type="button" onClick={() => setMonth((m) => shiftMonth(m, -1))} className="btn-secondary p-2" aria-label={t('time.prevMonth')} title={t('time.prevMonth')}>
               <ChevronLeftIcon className="h-5 w-5" />
             </button>
@@ -449,6 +457,12 @@ export default function ManageTimes() {
             </>
           )}
         </>
+      )}
+
+      {mapOpen && (
+        <Suspense fallback={null}>
+          <MonthLocationMap month={month} monthLabel={monthLabel} onClose={() => setMapOpen(false)} />
+        </Suspense>
       )}
     </div>
   );
