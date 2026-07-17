@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import api from '../lib/api';
 import toast from 'react-hot-toast';
 import { ArrowPathIcon, ArrowDownTrayIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
@@ -21,6 +21,9 @@ export default function SystemUpdate() {
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const { confirm } = useConfirm();
+  // Poll-Intervall merken und beim Verlassen der Seite stoppen (kein setState nach Unmount).
+  const pollRef = useRef<number | null>(null);
+  useEffect(() => () => { if (pollRef.current != null) window.clearInterval(pollRef.current); }, []);
 
   const check = async () => {
     setChecking(true);
@@ -52,7 +55,7 @@ export default function SystemUpdate() {
           if (res.ok) {
             const data = await res.json().catch(() => ({}));
             if (data.version && data.version !== oldVersion) {
-              window.clearInterval(id);
+              window.clearInterval(id); pollRef.current = null;
               setUpdating(false);
               toast.success(t('systemUpdate.completed', { version: data.version }));
               check();
@@ -60,11 +63,12 @@ export default function SystemUpdate() {
           }
         } catch { /* Server startet neu */ }
         if (tries > 60) {
-          window.clearInterval(id);
+          window.clearInterval(id); pollRef.current = null;
           setUpdating(false);
           toast(t('systemUpdate.maybeReload'), { icon: 'ℹ️' });
         }
       }, 3000);
+      pollRef.current = id;
     } catch (error: any) {
       setUpdating(false);
       toast.error(error.response?.data?.error || t('systemUpdate.startError'));

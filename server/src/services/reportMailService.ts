@@ -378,6 +378,12 @@ export async function buildReportXlsx(report: PeriodReport, title: string): Prom
   workbook.creator = 'TimeFeed';
   workbook.created = new Date();
   const toH = (m: number) => Math.round((m / 60) * 100) / 100;
+  // Formel-Injection in Tabellenzellen neutralisieren: führende =,+,-,@,TAB,CR mit ' entschärfen
+  // (falls die XLSX später als CSV re-importiert wird). Betrifft nur nutzergesteuerte Textfelder.
+  const cellSafe = (v: any): string => {
+    const s = String(v ?? '');
+    return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  };
 
   const sheet = workbook.addWorksheet('Übersicht');
   sheet.addRow([`${title} (${ddmmyyyy(report.from)} – ${ddmmyyyy(report.to)})`]);
@@ -387,7 +393,7 @@ export async function buildReportXlsx(report: PeriodReport, title: string): Prom
     'Abwesenheitstage', 'Abwesenheiten', 'Unvollständige Tage', 'Auffällige Tage']);
   header.font = { bold: true };
   for (const r of report.rows) {
-    sheet.addRow([r.personalNr, r.name, toH(r.sollMin), toH(r.istMin), toH(r.saldoMin),
+    sheet.addRow([cellSafe(r.personalNr), cellSafe(r.name), toH(r.sollMin), toH(r.istMin), toH(r.saldoMin),
       Object.values(r.absenceDays).reduce((s, n) => s + n, 0),
       absenceSummary(r, report.absenceLabels),
       r.incompleteDays, r.flaggedDays]);
@@ -404,7 +410,7 @@ export async function buildReportXlsx(report: PeriodReport, title: string): Prom
   const dayHeader = daySheet.addRow(['Datum', 'Mitarbeiter', 'Kommen', 'Gehen', 'Ist (h)', 'Soll (h)', 'Saldo (h)', 'Status', 'Abwesenheit', 'Flags']);
   dayHeader.font = { bold: true };
   for (const d of report.days) {
-    daySheet.addRow([d.date, d.name, fmtTime(d.firstIn), fmtTime(d.lastOut),
+    daySheet.addRow([d.date, cellSafe(d.name), fmtTime(d.firstIn), fmtTime(d.lastOut),
       toH(d.workedMinutes), toH(d.targetMinutes), toH(d.balanceMinutes), d.status,
       d.absence ? (report.absenceLabels[d.absence] || d.absence) : '',
       (d.flags || []).join(', ')]);

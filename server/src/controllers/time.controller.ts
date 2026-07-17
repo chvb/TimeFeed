@@ -21,6 +21,7 @@ import {
   ymdLocal,
 } from '../services/timeCalcService';
 import { isDayLocked, isMonthClosed, monthEndDate, monthOf, MONTH_LOCKED_RESPONSE } from '../services/monthLockService';
+import { withUserLock } from '../services/userSerialize';
 import { sendTimesheetsForClosedMonth } from '../services/timesheetPdfService';
 import { AbsenceType } from '../models/AbsenceType';
 
@@ -150,57 +151,47 @@ export class TimeController {
       // 'off': Standort wird weder erwartet noch gespeichert (Datenminimierung).
       const storeGps = gpsMode !== 'off' && hasGps;
 
-      // Sequenzvalidierung gegen den aktuellen Zustand (gemeinsame Logik mit dem
-      // Terminal-Stempeln, siehe timeCalcService.validateStampSequence).
-      const state = await getUserTimeState(userId);
-      const conflict = validateStampSequence(state.state, type as TimeEntryType);
-      if (conflict) {
-        return res.status(409).json({ error: conflict.code, code: conflict.code, message: conflict.message });
+      // Sequenzprüfung + Buchung PRO NUTZER serialisieren (gemeinsame Logik mit dem
+      // Terminal-Stempeln, siehe timeCalcService.validateStampSequence). Verhindert, dass
+      // zwei gleichzeitige Stempel (Doppeltipp/zwei Geräte) beide denselben Zustand lesen
+      // und einen ungültigen Ablauf (z. B. doppeltes „in") anlegen.
+      const outcome = await withUserLock(userId, async () => {
+        const state = await getUserTimeState(userId);
+        const conflict = validateStampSequence(state.state, type as TimeEntryType);
+        if (conflict) return { kind: 'conflict' as const, conflict };
+
+        const now = new Date();
+        // Zieltag = Arbeitstag, den dieser Stempel betrifft (Nachtschicht: Tag des
+        // Schichtbeginns). Liegt er in einem ABGESCHLOSSENEN Monat → 423.
+        const shiftDay = type === 'in' || !state.shiftStartedAt ? ymdLocal(now) : ymdLocal(state.shiftStartedAt);
+        if (await isMonthClosed(userId, user.companyId ?? null, monthOf(shiftDay))) {
+          return { kind: 'locked' as const };
+        }
+        // Selbst-Stempelung ist IMMER 'web' – der Client darf die Quelle nicht setzen
+        // (früher konnte source='api' die no_gps-Markierung im warn-Modus umgehen).
+        await TimeEntry.create({
+          userId,
+          companyId: user.companyId ?? null,
+          type,
+          timestamp: now,
+          source: 'web',
+          lat: storeGps ? Number(lat) : null,
+          lng: storeGps ? Number(lng) : null,
+          accuracy: storeGps && accuracy != null ? Number(accuracy) : null,
+          note: typeof note === 'string' && note.trim() ? note.trim() : null,
+        });
+        return { kind: 'ok' as const, shiftDay };
+      });
+
+      if (outcome.kind === 'conflict') {
+        return res.status(409).json({ error: outcome.conflict.code, code: outcome.conflict.code, message: outcome.conflict.message });
       }
-
-      const now = new Date();
-
-      // Zieltag = Arbeitstag, den dieser Stempel betrifft (Nachtschicht: Tag des
-      // Schichtbeginns). Liegt er in einem ABGESCHLOSSENEN Monat → 423; normale
-      // Stempel auf heute bleiben unberührt, solange der Monat offen ist.
-      const shiftDay = type === 'in' || !state.shiftStartedAt ? ymdLocal(now) : ymdLocal(state.shiftStartedAt);
-      if (await isMonthClosed(userId, user.companyId ?? null, monthOf(shiftDay))) {
+      if (outcome.kind === 'locked') {
         return res.status(423).json(MONTH_LOCKED_RESPONSE);
       }
 
-      // Selbst-Stempelung ist IMMER 'web' – der Client darf die Quelle nicht setzen.
-      // (Früher konnte req.body.source='api' die no_gps-Markierung im warn-Modus umgehen.)
-      // System-Kopplungen nutzen die externe API mit eigenem Schlüssel, nicht diesen Endpunkt.
-      const source: 'web' = 'web';
-
-      const entry = await TimeEntry.create({
-        userId,
-        companyId: user.companyId ?? null,
-        type,
-        timestamp: now,
-        source,
-        lat: storeGps ? Number(lat) : null,
-        lng: storeGps ? Number(lng) : null,
-        accuracy: storeGps && accuracy != null ? Number(accuracy) : null,
-        note: typeof note === 'string' && note.trim() ? note.trim() : null,
-      });
-
-      // Betroffenen ARBEITSTAG neu berechnen: bei 'in' der heutige Kalendertag,
-      // sonst der Tag des zugehörigen Schichtbeginns (Nachtschicht!).
-      await calcWorkDay(userId, shiftDay);
-
-      // Auditlog nur für manuelle/API-Buchungen (normale Selbst-Stempelungen
-      // nicht — Datenmenge).
-      if (source !== 'web') {
-        await AuditService.log({
-          userId: req.user!.id,
-          action: AuditAction.CREATE,
-          category: AuditCategory.DATA_MANAGEMENT,
-          entity: 'TimeEntry',
-          entityId: entry.id,
-          newValues: { type, timestamp: now.toISOString(), source },
-        }, req);
-      }
+      // Betroffenen ARBEITSTAG neu berechnen (idempotent, außerhalb des Locks).
+      await calcWorkDay(userId, outcome.shiftDay);
 
       res.status(201).json(await buildTimeStatus(userId, user.companyId ?? null));
     } catch (error) {

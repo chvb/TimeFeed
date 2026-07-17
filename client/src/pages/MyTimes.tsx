@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -175,17 +175,21 @@ export default function MyTimes() {
   const [correctionDate, setCorrectionDate] = useState<string | null>(null);
   const [correctionsReload, setCorrectionsReload] = useState(0);
 
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const myId = ++loadSeq.current;
     try {
       setLoading(true);
       const r = await api.get('/time/days', { params: { month } });
+      if (loadSeq.current !== myId) return; // veraltete Antwort (Monat gewechselt) verwerfen
       setDays(r.data.days || []);
       setLoadError('');
     } catch (error) {
+      if (loadSeq.current !== myId) return;
       console.error('Error loading work days:', error);
       setLoadError(t('time.loadError'));
     } finally {
-      setLoading(false);
+      if (loadSeq.current === myId) setLoading(false);
     }
   }, [month, t]);
 

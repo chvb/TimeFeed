@@ -195,8 +195,13 @@ export class NfcController {
       if (!user) return next(new AppError(404, 'Nutzer nicht im Mandanten gefunden'));
 
       if (hubPersonId) {
-        // hubPersonId ist eindeutig: eine evtl. bestehende Zuordnung woanders lösen.
-        await User.update({ hubPersonId: null }, { where: { hubPersonId, id: { [Op.ne]: user.id } } });
+        // hubPersonId eindeutig halten: bestehende Zuordnung lösen — bei einem MANDANTEN-
+        // Schlüssel NUR innerhalb desselben Mandanten (nicht mandantenübergreifend fremde
+        // Zuordnungen kappen). Ein globaler Hub-Schlüssel (link:all-tenants) darf global lösen.
+        const releaseWhere: any = keyIsGlobal(req)
+          ? { hubPersonId, id: { [Op.ne]: user.id } }
+          : { hubPersonId, id: { [Op.ne]: user.id }, ...tenantWhere(Number(req.apiTenantId)) };
+        await User.update({ hubPersonId: null }, { where: releaseWhere });
       }
       user.hubPersonId = hubPersonId;
       await user.save();

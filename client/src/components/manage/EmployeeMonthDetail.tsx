@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeftIcon,
   ChevronDownIcon,
@@ -247,16 +247,20 @@ export default function EmployeeMonthDetail({ userId, name, month, closed: close
   const canReopen = !!user && (user.isSuperAdmin || user.role === 'admin');
   const canDeleteTimesheet = canClose;
 
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const myId = ++loadSeq.current;
     try {
       setLoading(true);
       const r = await api.get('/time/days', { params: { userId, month } });
+      if (loadSeq.current !== myId) return; // veraltete Antwort (Nutzer/Monat gewechselt) verwerfen
       setDays(r.data.days || []);
       setLoadError('');
     } catch {
+      if (loadSeq.current !== myId) return;
       setLoadError(t('manage.detailLoadError'));
     } finally {
-      setLoading(false);
+      if (loadSeq.current === myId) setLoading(false);
     }
   }, [userId, month, t]);
 

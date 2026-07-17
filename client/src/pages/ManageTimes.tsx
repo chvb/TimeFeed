@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -76,16 +76,20 @@ export default function ManageTimes() {
   // Blockierende Tage aus einem gescheiterten Firmen-Abschluss (400 INCOMPLETE_DAYS).
   const [incompleteInfo, setIncompleteInfo] = useState<Array<{ userId: number; date: string }> | null>(null);
 
+  const loadSeq = useRef(0);
   const load = useCallback(async () => {
+    const myId = ++loadSeq.current;
     try {
       setLoading(true);
       const r = await api.get('/time/month-overview', { params: { month } });
+      if (loadSeq.current !== myId) return; // veraltete Antwort (Monat/Firma gewechselt) verwerfen
       setRows(r.data.users || []);
       setLoadError('');
     } catch {
+      if (loadSeq.current !== myId) return;
       setLoadError(t('manage.loadError'));
     } finally {
-      setLoading(false);
+      if (loadSeq.current === myId) setLoading(false);
     }
   }, [month, t]);
 

@@ -110,6 +110,12 @@ export class BrandingController {
       if (!decoded) return next(new AppError(500, 'Logo-Data-URL ungültig'));
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.setHeader('Content-Type', decoded.mime === 'image/svg+xml' ? 'image/svg+xml' : decoded.mime);
+      if (decoded.mime === 'image/svg+xml') {
+        // Gehärtet: hochgeladenes SVG als isoliertes, inaktives Dokument ausliefern —
+        // blockt eingebettete Skripte/Event-Handler unabhängig von der globalen CSP.
+        res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+      }
       return res.send(decoded.buffer);
     } catch (e) { return next(e); }
   }

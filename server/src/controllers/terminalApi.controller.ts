@@ -13,6 +13,7 @@ import {
   ymdLocal,
 } from '../services/timeCalcService';
 import { isMonthClosed, monthOf, MONTH_LOCKED_RESPONSE } from '../services/monthLockService';
+import { withUserLock } from '../services/userSerialize';
 
 /**
  * Terminal-API (/api/terminal) — Kiosk-Endpunkte OHNE User-JWT.
@@ -252,42 +253,47 @@ export class TerminalApiController {
         offlineSync = age > OFFLINE_SYNC_THRESHOLD_MS;
       }
 
-      // Sequenzvalidierung gegen den Zustand ZUM Stempel-Zeitpunkt.
-      const state = await getUserTimeState(user.id, ts);
-
-      // Monatsabschluss-Sperre: NUR wenn der Zieltag (Arbeitstag des Stempels)
-      // wirklich in einem abgeschlossenen Monat liegt → 423. Normale Stempel auf
-      // heute bleiben unberührt, solange der Monat offen ist.
-      const targetDay = type === 'in' || !state.shiftStartedAt ? ymdLocal(ts) : ymdLocal(state.shiftStartedAt);
-      if (await isMonthClosed(user.id, terminal.companyId, monthOf(targetDay))) {
-        return res.status(423).json(MONTH_LOCKED_RESPONSE);
-      }
-
-      const conflict = validateStampSequence(state.state, type as TimeEntryType);
-      let warning: string | undefined;
-      if (conflict) {
-        if (!offlineSync) {
-          return res.status(409).json({ error: conflict.code, code: conflict.code, message: conflict.message });
+      // Sequenzprüfung + Buchung pro Nutzer serialisieren (verhindert doppelte „in" bei
+      // gleichzeitigen Stempeln desselben Mitarbeiters). Sequenz-/Monatsprüfung gegen den
+      // Zustand ZUM Stempel-Zeitpunkt.
+      const outcome = await withUserLock(user.id, async () => {
+        const state = await getUserTimeState(user.id, ts);
+        // Monatsabschluss-Sperre: NUR wenn der Zieltag wirklich in einem abgeschlossenen
+        // Monat liegt → 423.
+        const targetDay = type === 'in' || !state.shiftStartedAt ? ymdLocal(ts) : ymdLocal(state.shiftStartedAt);
+        if (await isMonthClosed(user.id, terminal.companyId, monthOf(targetDay))) {
+          return { kind: 'locked' as const };
         }
-        warning = 'SEQUENCE_ADJUSTED'; // Offline-Stempel trotzdem speichern
-      }
-
-      await TimeEntry.create({
-        userId: user.id,
-        companyId: terminal.companyId,
-        type,
-        timestamp: ts,
-        source: 'terminal',
-        terminalId: terminal.id,
-        // Fester Gerätestandort des Terminals (kein Client-GPS im Kiosk-Modus).
-        lat: terminal.lat ?? null,
-        lng: terminal.lng ?? null,
-        note: offlineSync ? 'offline-sync' : null,
+        const conflict = validateStampSequence(state.state, type as TimeEntryType);
+        let warning: string | undefined;
+        if (conflict) {
+          if (!offlineSync) return { kind: 'conflict' as const, conflict };
+          warning = 'SEQUENCE_ADJUSTED'; // Offline-Stempel trotzdem speichern
+        }
+        await TimeEntry.create({
+          userId: user.id,
+          companyId: terminal.companyId,
+          type,
+          timestamp: ts,
+          source: 'terminal',
+          terminalId: terminal.id,
+          // Fester Gerätestandort des Terminals (kein Client-GPS im Kiosk-Modus).
+          lat: terminal.lat ?? null,
+          lng: terminal.lng ?? null,
+          note: offlineSync ? 'offline-sync' : null,
+        });
+        return { kind: 'ok' as const, warning, shiftStartedAt: state.shiftStartedAt };
       });
+
+      if (outcome.kind === 'locked') return res.status(423).json(MONTH_LOCKED_RESPONSE);
+      if (outcome.kind === 'conflict') {
+        return res.status(409).json({ error: outcome.conflict.code, code: outcome.conflict.code, message: outcome.conflict.message });
+      }
+      const warning = outcome.warning;
 
       // Betroffene(n) ARBEITSTAG(e) neu berechnen: bei 'in' der Kalendertag des
       // Stempels, sonst der Tag des zugehörigen Schichtbeginns (Nachtschicht!).
-      const shiftDay = type === 'in' || !state.shiftStartedAt ? ymdLocal(ts) : ymdLocal(state.shiftStartedAt);
+      const shiftDay = type === 'in' || !outcome.shiftStartedAt ? ymdLocal(ts) : ymdLocal(outcome.shiftStartedAt);
       await calcWorkDay(user.id, shiftDay);
       const tsDay = ymdLocal(ts);
       if (tsDay !== shiftDay) await calcWorkDay(user.id, tsDay);

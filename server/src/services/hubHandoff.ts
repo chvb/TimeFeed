@@ -16,7 +16,7 @@ export interface HubHandoff {
 export function verifyHubHandoff(token: string): HubHandoff {
   const secret = process.env.TIMEFEED_HANDOFF_SECRET;
   if (!secret) throw new Error('TIMEFEED_HANDOFF_SECRET nicht konfiguriert');
-  return jwt.verify(token, secret, { issuer: 'feedauth' }) as HubHandoff;
+  return jwt.verify(token, secret, { issuer: 'feedauth', algorithms: ['HS256'] }) as HubHandoff;
 }
 
 /**

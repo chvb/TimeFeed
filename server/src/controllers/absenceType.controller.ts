@@ -133,6 +133,10 @@ export class AbsenceTypeController {
         if (managed !== null && !managed.includes(type.companyId)) {
           return next(new AppError(403, 'Kein Zugriff auf diese Abwesenheitsart'));
         }
+      } else if (!req.user!.isSuperAdmin) {
+        // Globale Vorlagen (companyId=null) sind mandantenübergreifend sichtbar →
+        // nur der Super-Admin darf sie ändern/löschen (Multi-Mandant-Integrität).
+        return next(new AppError(403, 'Globale Abwesenheitsart-Vorlagen darf nur der Super-Admin bearbeiten.'));
       }
 
       const b = req.body || {};
@@ -212,6 +216,10 @@ export class AbsenceTypeController {
         if (managed !== null && !managed.includes(type.companyId)) {
           return next(new AppError(403, 'Kein Zugriff auf diese Abwesenheitsart'));
         }
+      } else if (!req.user!.isSuperAdmin) {
+        // Globale Vorlagen (companyId=null) sind mandantenübergreifend sichtbar →
+        // nur der Super-Admin darf sie ändern/löschen (Multi-Mandant-Integrität).
+        return next(new AppError(403, 'Globale Abwesenheitsart-Vorlagen darf nur der Super-Admin bearbeiten.'));
       }
 
       const used = await WorkDay.count({ where: { absence: type.key } });

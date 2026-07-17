@@ -12,7 +12,7 @@ export const nfcStampAuth = async (req: Request, res: Response, next: NextFuncti
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (!token) throw new Error();
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!, { algorithms: ['HS256'] }) as any;
     if (decoded.scope !== NFC_STAMP_SCOPE) throw new Error();
 
     const user = await User.findByPk(decoded.id);
