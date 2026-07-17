@@ -225,6 +225,19 @@ export class CorrectionController {
 
       const note = typeof req.body?.note === 'string' && req.body.note.trim() ? req.body.note.trim() : null;
       const dayStart = localDayStart(correction.date);
+      const decidedAt = new Date();
+
+      // ATOMAR beanspruchen (pending → approved): nur der erste von zwei gleichzeitigen
+      // Approves (Doppelklick/zwei Genehmiger) gewinnt. Verhindert doppelte manuelle Einträge.
+      const [claimed] = await CorrectionRequest.update(
+        { status: 'approved', decidedById: req.user!.id, decidedAt, decisionNote: note },
+        { where: { id: correction.id, status: 'pending' } },
+      );
+      if (!claimed) {
+        return next(new AppError(409, 'Dieser Antrag wurde bereits entschieden.'));
+      }
+      // In-Memory-Objekt für die Antwort auf den neuen Stand bringen (ohne erneutes Save).
+      correction.set({ status: 'approved', decidedById: req.user!.id, decidedAt, decisionNote: note });
 
       for (const p of correction.proposedEntries) {
         const [h, m] = p.time.split(':').map(Number);
@@ -240,13 +253,6 @@ export class CorrectionController {
           note: `Korrekturantrag #${correction.id}`,
         });
       }
-
-      await correction.update({
-        status: 'approved',
-        decidedById: req.user!.id,
-        decidedAt: new Date(),
-        decisionNote: note,
-      });
 
       // Betroffene Arbeitstage neu berechnen (Vortag/Folgetag wegen Nachtschicht-Paarung).
       await calcWorkDay(employee.id, ymdLocal(addDays(dayStart, -1)));

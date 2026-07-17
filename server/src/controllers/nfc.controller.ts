@@ -18,6 +18,20 @@ function keyIsGlobal(req: Request): boolean {
 const NFC_SESSION_MINUTES = 2;
 export const NFC_STAMP_SCOPE = 'nfc:stamp';
 
+// Einmal-Nutzung der Handoffs (Replay-Schutz): verbrauchte jtis kurz merken. In-Memory
+// genügt – der Handoff lebt nur 120 s (Hub-TTL) und TimeFeed läuft als Einzelprozess.
+const usedHandoffJti = new Map<string, number>();
+function consumeJti(jti: string, ttlMs = 130_000): boolean {
+  const now = Date.now();
+  if (usedHandoffJti.size > 1000) {
+    for (const [k, exp] of usedHandoffJti) if (exp <= now) usedHandoffJti.delete(k);
+  }
+  const exp = usedHandoffJti.get(jti);
+  if (exp && exp > now) return false; // bereits verwendet und noch nicht abgelaufen
+  usedHandoffJti.set(jti, now + ttlMs);
+  return true;
+}
+
 /** Nutzer-Filter des API-Key-Mandanten (wie /api/external/users). */
 function tenantWhere(tenantId: number) {
   return {
@@ -47,6 +61,13 @@ export class NfcController {
       }
       if (payload.act !== 'stamp') {
         return res.status(400).json({ error: 'WRONG_ACTION', message: 'Dieser Handoff ist nicht fürs Stempeln.' });
+      }
+      if (!payload.pid || typeof payload.pid !== 'string') {
+        return res.status(400).json({ error: 'INVALID_HANDOFF', message: 'Handoff ungültig.' });
+      }
+      // Einmal-Nutzung erzwingen: ein bereits eingelöster Handoff wird abgelehnt (Replay-Schutz).
+      if (!payload.jti || !consumeJti(payload.jti)) {
+        return res.status(401).json({ error: 'HANDOFF_USED', message: 'Dieser Zugang wurde bereits verwendet. Bitte Chip erneut scannen.' });
       }
 
       const user = await User.findOne({ where: { hubPersonId: payload.pid } });

@@ -168,9 +168,10 @@ export class TimeController {
         return res.status(423).json(MONTH_LOCKED_RESPONSE);
       }
 
-      // Selbst-Stempelung über die Web-App; 'api' nur für System-Kopplungen
-      // (dann mit Auditlog). 'manual' (Nachbuchung) läuft über POST /api/time/manual.
-      const source: 'web' | 'api' = req.body.source === 'api' ? 'api' : 'web';
+      // Selbst-Stempelung ist IMMER 'web' – der Client darf die Quelle nicht setzen.
+      // (Früher konnte req.body.source='api' die no_gps-Markierung im warn-Modus umgehen.)
+      // System-Kopplungen nutzen die externe API mit eigenem Schlüssel, nicht diesen Endpunkt.
+      const source: 'web' = 'web';
 
       const entry = await TimeEntry.create({
         userId,

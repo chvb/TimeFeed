@@ -35,6 +35,7 @@ interface AuthState {
   logout: () => void;
   fetchCurrentUser: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
+  setToken: (token: string) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -117,13 +118,13 @@ export const useAuthStore = create<AuthState>()(
           set({ user: response.data.user });
           // Firmen-Branding (Logo/Name) für Druck-/PDF-Ausgaben übernehmen.
           setCompanyBranding(response.data.user?.company || {});
-        } catch (error) {
-          set({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-          });
-          delete api.defaults.headers.common['Authorization'];
+        } catch (error: any) {
+          // Nur bei echtem 401 (Token ungültig/entwertet) abmelden. Netzwerk-/Server-
+          // Aussetzer (kein response, 5xx) dürfen eine gültige Sitzung NICHT verwerfen.
+          if (error?.response?.status === 401) {
+            set({ user: null, token: null, isAuthenticated: false });
+            delete api.defaults.headers.common['Authorization'];
+          }
         }
       },
 
@@ -131,6 +132,12 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user: state.user ? { ...state.user, ...userData } : null,
         }));
+      },
+
+      // Frisches Token nach Passwortänderung übernehmen (Gerät bleibt eingeloggt).
+      setToken: (token: string) => {
+        set({ token });
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       },
     }),
     {

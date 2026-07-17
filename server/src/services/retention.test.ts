@@ -121,7 +121,9 @@ describe('runRetentionCleanup', () => {
     expect(data.entriesDeleted).toBe(1);
     expect(data.workDaysDeleted).toBe(1);
     expect(data.correctionsDeleted).toBe(1);
-    expect(data.entriesCutoff).toBe('2024-07-01');
+    // Aufbewahrung ist jetzt pro Firma; der Sammel-Audit-Eintrag hält die Gesamtzahlen
+    // plus den Audit-Log-Schnitt fest (hier nichts Altes zu löschen).
+    expect(data.auditLogsDeleted).toBe(0);
   });
 
   it('zweiter Lauf ist idempotent (nichts mehr zu tun, kein weiterer Audit-Eintrag)', async () => {

@@ -95,6 +95,8 @@ MonthClosure.init(
     indexes: [
       { fields: ['company_id', 'month'] },
       { fields: ['user_id', 'month'] },
+      // Doppelte Abschlüsse verhindern (Einzelabschluss pro Nutzer/Monat/Firma).
+      { fields: ['company_id', 'user_id', 'month'], unique: true },
     ],
   }
 );

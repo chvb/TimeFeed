@@ -245,11 +245,21 @@ export class AuthController {
       }
 
       user.password = newPassword;
+      // tokenVersion erhöhen → alle ANDEREN bestehenden Sitzungen werden entwertet.
+      user.tokenVersion = (user.tokenVersion ?? 0) + 1;
       await user.save();
 
       await AuditService.logPasswordChange(user.id, req);
 
-      res.json({ message: 'Password changed successfully' });
+      // Frisches Token für DIESES Gerät, damit der Nutzer nach der Änderung eingeloggt bleibt.
+      const secret = process.env.JWT_SECRET as string;
+      const expiresIn = `${await resolveSessionHours(user.companyId ?? null)}h`;
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: user.role, tv: user.tokenVersion },
+        secret, { expiresIn } as jwt.SignOptions,
+      );
+
+      res.json({ message: 'Password changed successfully', token });
     } catch (error) {
       return next(error);
     }
@@ -280,14 +290,14 @@ export class AuthController {
         where: { userId: user.id }
       });
 
-      // Create new reset token
+      // Create new reset token — nur den HASH speichern (Klartext geht nur per Mail raus).
       await PasswordResetToken.create({
         userId: user.id,
-        token: resetToken,
+        token: crypto.createHash('sha256').update(resetToken).digest('hex'),
         expiresAt
       });
 
-      // Send reset email
+      // Send reset email (Klartext-Token im Link)
       try {
         await emailService.sendPasswordReset(user.email, resetToken);
       } catch (emailError) {
@@ -311,11 +321,12 @@ export class AuthController {
       }
 
       const { token, newPassword } = req.body;
+      const tokenHash = crypto.createHash('sha256').update(String(token || '')).digest('hex');
 
-      // Find valid, unused token
+      // Find valid, unused token (Abgleich über den gespeicherten Hash)
       const resetToken = await PasswordResetToken.findOne({
         where: {
-          token,
+          token: tokenHash,
           used: false,
           expiresAt: {
             [Op.gt]: new Date()
@@ -345,6 +356,9 @@ export class AuthController {
 
       // Update password (Token wurde bereits oben atomar entwertet)
       user.password = newPassword;
+      // Nach einem Reset ALLE bestehenden Sitzungen entwerten (Standard-Wiederherstellung
+      // nach Kompromittierung) – ein evtl. gestohlenes JWT wird dadurch ungültig.
+      user.tokenVersion = (user.tokenVersion ?? 0) + 1;
       await user.save();
 
       await AuditService.log({

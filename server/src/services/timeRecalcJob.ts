@@ -1,11 +1,14 @@
-import { Op } from 'sequelize';
+import { Op, fn, col } from 'sequelize';
 import { TimeEntry } from '../models/TimeEntry';
 import { WorkDay } from '../models/WorkDay';
 import { User } from '../models/User';
+import { Company } from '../models/Company';
 import { CorrectionRequest } from '../models/CorrectionRequest';
+import { SystemSettings } from '../models/SystemSettings';
 import { SettingsController } from '../controllers/settings.controller';
 import { AuditService } from './auditService';
-import { AuditAction, AuditCategory } from '../models/AuditLog';
+import { AuditLog, AuditAction, AuditCategory } from '../models/AuditLog';
+import { purgeExpiredTrash } from './trashService';
 import { calcWorkDay, pairShifts, ymdLocal, localDayStart, addDays } from './timeCalcService';
 import { ensureSecondaryAndRetentionColumns } from './secondarySchemaEnsure';
 import { runSecondarySync, SECONDARY_SYNC_INTERVAL_MS } from './secondarySyncService';
@@ -156,60 +159,77 @@ export interface RetentionResult {
  * bewusst daran vorbei — die Löschung nach Fristablauf ist datenschutzrechtlich
  * geboten und ersetzt keine fachliche Korrektur.
  */
+/** Sicherheits-Aufbewahrung für Audit-Logs (IP/User-Agent): Standard 12 Monate. */
+const AUDIT_LOG_RETENTION_MONTHS = 12;
+
+/** Aufbewahrungs-Einstellung eines Scopes lesen, OHNE eine Firmen-Zeile neu anzulegen. */
+async function retentionSettingsFor(companyId: number | null): Promise<{ entries: number; gps: number }> {
+  let s: SystemSettings | null = null;
+  if (companyId != null) s = await SystemSettings.findOne({ where: { companyId } });
+  if (!s) s = await settingsController.getOrCreateSettings(null); // globale Vorlage
+  return { entries: s.retentionMonthsEntries ?? 24, gps: s.retentionMonthsGps ?? 3 };
+}
+
+/** Alle Firmen-Scopes, die in den Daten vorkommen (inkl. null = ohne Firma). */
+async function retentionScopes(): Promise<Array<number | null>> {
+  const ids = new Set<number | null>([null]);
+  (await Company.findAll({ attributes: ['id'], raw: true })).forEach((c: any) => ids.add(c.id));
+  // Orphan-Sicherung: Firmen-IDs, die nur noch in Zeitdaten stehen (Firma evtl. gelöscht) —
+  // sonst würden deren Altdaten NIE gelöscht (Compliance).
+  (await TimeEntry.findAll({ attributes: [[fn('DISTINCT', col('company_id')), 'cid']], raw: true }) as any[])
+    .forEach((r) => ids.add(r.cid == null ? null : Number(r.cid)));
+  return Array.from(ids);
+}
+
 export async function runRetentionCleanup(now: Date = new Date()): Promise<RetentionResult> {
-  const settings = await settingsController.getOrCreateSettings(null);
-  const { entriesBefore, gpsBefore, entriesBeforeYmd } = retentionCutoffs(
-    now,
-    settings.retentionMonthsEntries ?? 24,
-    settings.retentionMonthsGps ?? 3
-  );
+  const total: RetentionResult = { gpsCleared: 0, entriesDeleted: 0, workDaysDeleted: 0, correctionsDeleted: 0 };
 
-  // (b zuerst) Abgelaufene Zeitdaten löschen (nur ganze Monate vor entriesBefore) —
-  // vor der GPS-Nullung, damit gleich zu löschende Zeilen nicht mitgezählt werden.
-  const entriesDeleted = await TimeEntry.destroy({ where: { timestamp: { [Op.lt]: entriesBefore } } });
+  // Pro Firma mit deren EIGENER Aufbewahrungsfrist löschen (globale Vorlage für Nutzer ohne
+  // Firma). Der 24-Monate-Boden (§ 16 ArbZG) greift in retentionCutoffs für jeden Scope.
+  for (const companyId of await retentionScopes()) {
+    const { entries: mEntries, gps: mGps } = await retentionSettingsFor(companyId);
+    const { entriesBefore, gpsBefore, entriesBeforeYmd } = retentionCutoffs(now, mEntries, mGps);
+    const scope: any = companyId == null ? { companyId: null } : { companyId };
 
-  // (a) GPS-Daten der verbleibenden alten Einträge nullen.
-  const [gpsCleared] = await TimeEntry.update(
-    { lat: null, lng: null, accuracy: null },
-    {
-      where: {
-        timestamp: { [Op.lt]: gpsBefore },
-        [Op.or]: [
-          { lat: { [Op.ne]: null } },
-          { lng: { [Op.ne]: null } },
-          { accuracy: { [Op.ne]: null } },
-        ],
-      } as any,
-    }
-  );
-  const workDaysDeleted = await WorkDay.destroy({ where: { date: { [Op.lt]: entriesBeforeYmd } } });
-  // "Abgelaufen" = bereits entschieden; offene (pending) Anträge bleiben bestehen.
-  const correctionsDeleted = await CorrectionRequest.destroy({
-    where: { date: { [Op.lt]: entriesBeforeYmd }, status: { [Op.ne]: 'pending' } },
-  });
+    // (b zuerst) Abgelaufene Zeitdaten löschen — vor der GPS-Nullung, damit gleich zu
+    // löschende Zeilen nicht mitgezählt werden.
+    total.entriesDeleted += await TimeEntry.destroy({ where: { ...scope, timestamp: { [Op.lt]: entriesBefore } } });
+    // (a) GPS-Daten der verbleibenden alten Einträge nullen.
+    const [gpsCleared] = await TimeEntry.update(
+      { lat: null, lng: null, accuracy: null },
+      { where: {
+          ...scope,
+          timestamp: { [Op.lt]: gpsBefore },
+          [Op.or]: [{ lat: { [Op.ne]: null } }, { lng: { [Op.ne]: null } }, { accuracy: { [Op.ne]: null } }],
+        } as any },
+    );
+    total.gpsCleared += gpsCleared;
+    total.workDaysDeleted += await WorkDay.destroy({ where: { ...scope, date: { [Op.lt]: entriesBeforeYmd } } });
+    // "Abgelaufen" = bereits entschieden; offene (pending) Anträge bleiben bestehen.
+    total.correctionsDeleted += await CorrectionRequest.destroy({
+      where: { ...scope, date: { [Op.lt]: entriesBeforeYmd }, status: { [Op.ne]: 'pending' } },
+    });
+  }
 
-  const result: RetentionResult = { gpsCleared, entriesDeleted, workDaysDeleted, correctionsDeleted };
+  // Audit-Logs beschneiden: IP/User-Agent/Login-Historie nicht unbegrenzt aufbewahren.
+  const auditBefore = new Date(now.getFullYear(), now.getMonth() - AUDIT_LOG_RETENTION_MONTHS, 1, 0, 0, 0, 0);
+  const auditLogsDeleted = await AuditLog.destroy({ where: { createdAt: { [Op.lt]: auditBefore } } });
 
-  if (gpsCleared + entriesDeleted + workDaysDeleted + correctionsDeleted > 0) {
+  const changed = total.gpsCleared + total.entriesDeleted + total.workDaysDeleted + total.correctionsDeleted + auditLogsDeleted;
+  if (changed > 0) {
     await AuditService.log({
       action: AuditAction.CLEANUP,
       category: AuditCategory.SYSTEM,
       entity: 'Retention',
-      additionalData: {
-        ...result,
-        entriesCutoff: entriesBeforeYmd,
-        gpsCutoff: ymdLocal(gpsBefore),
-        retentionMonthsEntries: settings.retentionMonthsEntries ?? 24,
-        retentionMonthsGps: settings.retentionMonthsGps ?? 3,
-      },
+      additionalData: { ...total, auditLogsDeleted, auditCutoff: ymdLocal(auditBefore) },
     });
     console.log(
-      `Retention: gpsCleared=${gpsCleared}, entriesDeleted=${entriesDeleted}, ` +
-      `workDaysDeleted=${workDaysDeleted}, correctionsDeleted=${correctionsDeleted} ` +
-      `(Grenzen: Einträge < ${entriesBeforeYmd}, GPS < ${ymdLocal(gpsBefore)}).`
+      `Retention: entriesDeleted=${total.entriesDeleted}, gpsCleared=${total.gpsCleared}, ` +
+      `workDaysDeleted=${total.workDaysDeleted}, correctionsDeleted=${total.correctionsDeleted}, ` +
+      `auditLogsDeleted=${auditLogsDeleted}.`
     );
   }
-  return result;
+  return total;
 }
 
 let recalcTimer: NodeJS.Timeout | null = null;
@@ -229,6 +249,9 @@ export function startTimeRecalcJob(): void {
       await runTimeRecalc();
       // Aufbewahrung nach dem Tagesabschluss; Fehler dürfen die Job-Kette nicht stoppen.
       await runRetentionCleanup().catch((e) => console.error('Retention-Job fehlgeschlagen:', e));
+      // Papierkorb endgültig leeren (gelöschte Mitarbeiter inkl. Passwort-/PIN-Hash nach
+      // Ablauf der Frist wirklich entfernen) — sonst blieben die Snapshots unbegrenzt liegen.
+      await purgeExpiredTrash().catch((e) => console.error('Papierkorb-Bereinigung fehlgeschlagen:', e));
       // GPS-Warn-Digest (gpsMode='warn'): eine Sammel-Mail pro Firma für den Vortag.
       const { runGpsWarnDigest } = await import('./gpsDigestService');
       await runGpsWarnDigest().catch((e) => console.error('GPS-Digest fehlgeschlagen:', e));

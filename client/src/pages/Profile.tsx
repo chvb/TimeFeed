@@ -199,11 +199,14 @@ export default function Profile() {
     
     setIsSubmitting(true);
     try {
-      await api.post('/auth/change-password', {
+      const res = await api.post('/auth/change-password', {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword
       });
-      
+      // Server entwertet andere Sitzungen (tokenVersion++) und liefert ein frisches
+      // Token für dieses Gerät – übernehmen, damit man hier eingeloggt bleibt.
+      if (res.data?.token) useAuthStore.getState().setToken(res.data.token);
+
       toast.success(t('profile.passwordChanged'));
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsChangingPassword(false);

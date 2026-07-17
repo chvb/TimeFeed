@@ -71,4 +71,14 @@ export async function ensureSecondaryAndRetentionColumns(): Promise<void> {
   await addIfMissing(SystemSettings, 'report_yearly_enabled', { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
   await addIfMissing(SystemSettings, 'report_recipients', { type: DataTypes.STRING, allowNull: true });
   await addIfMissing(SystemSettings, 'report_last_sent', { type: DataTypes.TEXT, allowNull: true });
+
+  // Doppelte Monatsabschlüsse verhindern (best-effort; bei evtl. Alt-Duplikaten scheitert
+  // die Index-Anlage stillschweigend, ohne den Start zu blockieren).
+  try {
+    await sequelize.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS month_closures_company_user_month ON month_closures (company_id, user_id, month)'
+    );
+  } catch (e) {
+    console.warn('Unique-Index month_closures nicht angelegt (evtl. Alt-Duplikate):', (e as Error).message);
+  }
 }

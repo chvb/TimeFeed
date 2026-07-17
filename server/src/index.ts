@@ -52,6 +52,15 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+// Sicherheitsnetz: unbehandelte Promise-Rejections / Ausnahmen protokollieren, statt sie
+// still zu verschlucken (bzw. den Prozess unkontrolliert beenden zu lassen).
+process.on('unhandledRejection', (reason) => {
+  console.error('UNHANDLED REJECTION:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3030;
 
@@ -67,6 +76,16 @@ else if (trustProxyRaw === 'false') trustProxy = false;
 else if (/^\d+$/.test(trustProxyRaw)) trustProxy = Number(trustProxyRaw);
 else trustProxy = trustProxyRaw; // 'loopback' oder IP/CIDR-Liste
 app.set('trust proxy', trustProxy);
+
+// Nur GENUIN server-lokale Aufrufe (e2e/health) von den Auth-/Terminal-Limitern ausnehmen:
+// Loopback-SOCKET UND kein X-Forwarded-For. Bewusst NICHT über req.ip (das ist bei
+// TRUST_PROXY=true per gefälschtem XFF beeinflussbar) und NICHT nur über den Socket
+// (hinter nginx-auf-localhost wäre sonst JEDE Anfrage 127.0.0.1 → Limiter unwirksam).
+function isServerLocalCall(req: express.Request): boolean {
+  const sock = (req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+  const loopback = sock === '127.0.0.1' || sock === '::1';
+  return loopback && !req.headers['x-forwarded-for'];
+}
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -86,7 +105,7 @@ const authLimiter = rateLimit({
   message: 'Too many authentication attempts, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip || ''),
+  skip: isServerLocalCall,
 });
 
 // Kiosk-Terminals stempeln viele Mitarbeiter über EINE Geräte-IP → eigener,
@@ -98,7 +117,7 @@ const terminalLimiter = rateLimit({
   message: 'Too many terminal requests, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip || ''),
+  skip: isServerLocalCall,
 });
 
 // Explizite Content-Security-Policy für BEIDE Umgebungen (vorher in Nicht-Prod

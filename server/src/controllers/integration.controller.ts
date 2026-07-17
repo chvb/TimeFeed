@@ -286,7 +286,8 @@ export class IntegrationController {
                 const token = crypto.randomBytes(32).toString('hex');
                 await PasswordResetToken.create({
                   userId: newUser.id,
-                  token,
+                  // Nur den Hash speichern; der Klartext-Token geht ausschließlich per Mail raus.
+                  token: crypto.createHash('sha256').update(token).digest('hex'),
                   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Tage
                 });
                 await emailService.sendWelcome(newUser.email, newUser.firstName, token);
