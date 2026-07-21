@@ -27,6 +27,9 @@
 - Review-Fixes (High): Tenant-Isolation, Gruppen-Gate, Feiertags-Projektion
 - Review-Fixes Batch 2 (High #6 + Medium + Low, TimeFeed)
 
+### Improved
+- E2E: verbleibende Custom-Select-Interaktionen auf chooseOption umgestellt
+
 ## [1.1.7] - 2026-07-17
 
 ### Added
