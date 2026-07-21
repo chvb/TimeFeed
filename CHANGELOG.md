@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.8] - 2026-07-21
+
+### Fixed
+- Review-Fixes (High): Tenant-Isolation, Gruppen-Gate, Feiertags-Projektion
+
 ## [1.1.7] - 2026-07-17
 
 ### Added
