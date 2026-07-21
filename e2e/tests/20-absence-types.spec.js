@@ -6,7 +6,7 @@
 //    Lohnarten-Aufschlüsselung und NO_LOHNART-Hinweise; LuG-Datei im
 //    kalendertäglichen Yellowfox-Referenzformat.
 const { test, expect } = require('@playwright/test');
-const { USERS, login, uiLogin, expectToast, ymd, prevMonth, fmtDayCell, pastSlotInCurrentMonth } = require('./helpers');
+const { USERS, login, uiLogin, expectToast, ymd, prevMonth, fmtDayCell, pastSlotInCurrentMonth, chooseOption } = require('./helpers');
 
 const slot = pastSlotInCurrentMonth();
 
@@ -100,13 +100,14 @@ test.describe('Abwesenheitsarten', () => {
 
     // Tag aufklappen → „Abwesenheit setzen"-Select erscheint (Desktop-Variante;
     // die Mobile-Karten sind parallel im DOM, aber per CSS ausgeblendet).
-    const absenceSelect = page.locator(`#absence-desktop-${slot.date}`);
     const dateRow = page.getByRole('row', { name: fmtDayCell(slot.date) }).first();
     await dateRow.click();
+    // Custom-Select „Abwesenheit setzen" (Desktop-Variante = erste, sichtbare Instanz).
+    const absenceSelect = page.getByLabel('Abwesenheit setzen').first();
     await expect(absenceSelect).toBeVisible();
 
     // „Urlaub" setzen → Toast + Chip in der Tageszeile.
-    await absenceSelect.selectOption({ label: 'Urlaub' });
+    await chooseOption(absenceSelect, 'Urlaub');
     await expectToast(page, 'Abwesenheit gespeichert.');
     await expect(page.locator('.status-badge').filter({ hasText: 'Urlaub' }).first()).toBeVisible();
 

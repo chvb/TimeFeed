@@ -1,7 +1,7 @@
 // @ts-check
 // Admin: Zeitmodell per UI anlegen, Gruppe zuordnen, Mitarbeiter-Override in Employees.
 const { test, expect } = require('@playwright/test');
-const { USERS, login, uiLogin, expectToast } = require('./helpers');
+const { USERS, login, uiLogin, expectToast, chooseOption } = require('./helpers');
 
 const MODEL_NAME = 'E2E Vollzeit 40h';
 
@@ -75,10 +75,7 @@ test.describe('Zeitmodelle', () => {
     await row.locator('button.text-primary-600').click();
 
     await expect(page.getByText('Gruppe bearbeiten')).toBeVisible();
-    const tmSelect = page.locator('select', {
-      has: page.locator('option', { hasText: 'Kein Zeitmodell' }),
-    });
-    await tmSelect.selectOption({ label: MODEL_NAME });
+    await chooseOption(page.getByRole('button').filter({ hasText: 'Kein Zeitmodell' }), MODEL_NAME);
     await page.getByRole('button', { name: 'Speichern', exact: true }).click();
     await expect(page.getByText('Gruppe bearbeiten')).toBeHidden();
 
@@ -102,10 +99,7 @@ test.describe('Zeitmodelle', () => {
     await expect(page.getByText('Mitarbeiter bearbeiten')).toBeVisible();
     await page.getByRole('button', { name: 'Erweitert' }).click();
 
-    const overrideSelect = page.locator('select', {
-      has: page.locator('option', { hasText: 'Gruppenmodell / Standard verwenden' }),
-    });
-    await overrideSelect.selectOption({ label: MODEL_NAME });
+    await chooseOption(page.getByRole('button').filter({ hasText: 'Gruppenmodell / Standard verwenden' }), MODEL_NAME);
     await page.getByRole('button', { name: 'Speichern', exact: true }).click();
     await expect(page.getByText('Mitarbeiter bearbeiten')).toBeHidden();
 

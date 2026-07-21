@@ -2,7 +2,7 @@
 // Stundenzettel-Versand (v1.1.0): globaler Firmen-Toggle in den Einstellungen und
 // Mitarbeiter-Select Standard/Immer/Nie — nur Settings-Roundtrip (kein SMTP im e2e).
 const { test, expect } = require('@playwright/test');
-const { USERS, login, uiLogin, expectToast } = require('./helpers');
+const { USERS, login, uiLogin, expectToast, chooseOption } = require('./helpers');
 
 const TS_ADMIN = { email: 'e2e-ts-admin@timefeed.de', password: 'E2eTsAdmin_123!' };
 const TOGGLE_LABEL = 'Monats-Stundenzettel beim Monatsabschluss automatisch per E-Mail an die Mitarbeiter senden';
@@ -71,9 +71,8 @@ test.describe('Stundenzettel-Versand', () => {
       await expect(page.getByText('Mitarbeiter bearbeiten')).toBeVisible();
       // Das Stundenzettel-Select liegt auf dem Tab „Erweitert".
       await page.getByRole('button', { name: 'Erweitert' }).click();
-      return page.locator('select', {
-        has: page.locator('option', { hasText: 'Standard (globale Einstellung)' }),
-      });
+      // Custom-Select über sein aria-label ansteuern.
+      return page.getByLabel('Monats-Stundenzettel per E-Mail');
     };
     const saveModal = async () => {
       await page.getByRole('button', { name: 'Speichern', exact: true }).click();
@@ -83,19 +82,19 @@ test.describe('Stundenzettel-Versand', () => {
     // „Immer" → 'on'
     let select = await openModal();
     await expect(page.getByText('Monats-Stundenzettel per E-Mail')).toBeVisible();
-    await select.selectOption({ label: 'Immer' });
+    await chooseOption(select, 'Immer');
     await saveModal();
     expect(await readMode()).toBe('on');
 
     // „Nie" → 'off'
     select = await openModal();
-    await select.selectOption({ label: 'Nie' });
+    await chooseOption(select, 'Nie');
     await saveModal();
     expect(await readMode()).toBe('off');
 
     // Zurück auf „Standard (globale Einstellung)" → 'inherit'
     select = await openModal();
-    await select.selectOption({ label: 'Standard (globale Einstellung)' });
+    await chooseOption(select, 'Standard (globale Einstellung)');
     await saveModal();
     expect(await readMode()).toBe('inherit');
   });

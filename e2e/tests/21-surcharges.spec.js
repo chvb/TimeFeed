@@ -4,7 +4,7 @@
 // Nachtschicht per API stempeln, Export-Vorschau zeigt die Zuschlags-Zeile
 // (source 'surcharge:<label>') und der LuG-Export die Zusatzzeile.
 const { test, expect } = require('@playwright/test');
-const { login, uiLogin, expectToast, prevMonth } = require('./helpers');
+const { login, uiLogin, expectToast, prevMonth, chooseOption } = require('./helpers');
 
 const PROFILE_NAME = 'E2E Nachtzuschlag';
 const GROUP_NAME = 'E2E Nachtschicht';
@@ -102,10 +102,8 @@ test.describe('Zuschlagsprofile (Nachtarbeit)', () => {
     await row.locator('button.text-primary-600').click();
 
     await expect(page.getByText('Gruppe bearbeiten')).toBeVisible();
-    const spSelect = page.locator('select', {
-      has: page.locator('option', { hasText: 'Kein Zuschlagsprofil' }),
-    });
-    await spSelect.selectOption({ label: PROFILE_NAME });
+    // Custom-Select: Trigger-Button zeigt den aktuellen Wert ("Kein Zuschlagsprofil").
+    await chooseOption(page.getByRole('button').filter({ hasText: 'Kein Zuschlagsprofil' }), PROFILE_NAME);
     await page.getByRole('button', { name: 'Speichern', exact: true }).click();
     await expect(page.getByText('Gruppe bearbeiten')).toBeHidden();
 
