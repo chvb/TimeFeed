@@ -312,10 +312,10 @@ export async function sendTimesheetsForClosedMonth(
           undefined,
           [{ filename: `Stundenzettel-${month}.pdf`, content: pdf, contentType: 'application/pdf' }]
         );
-        console.log(`Stundenzettel ${month} an ${user.email} gesendet.`);
+        console.log(`Stundenzettel ${month} an User #${user.id} gesendet.`);
       } catch (e) {
         // Einzelfehler schlucken — die übrigen Empfänger sollen ihre Mail trotzdem bekommen.
-        console.error(`Stundenzettel-Versand an ${user.email} fehlgeschlagen:`, (e as any)?.message || e);
+        console.error(`Stundenzettel-Versand an User #${user.id} fehlgeschlagen:`, (e as any)?.message || e);
       }
     }
   } catch (e) {

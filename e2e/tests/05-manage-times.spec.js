@@ -3,7 +3,7 @@
 // Ziel-Mitarbeiter ist der Verwalter selbst (Thomas Müller, Manager der Gruppe
 // „Entwicklung") — so bleiben Lisas Stempel-Zustände für andere Specs unberührt.
 const { test, expect } = require('@playwright/test');
-const { USERS, uiLogin, expectToast, pastSlotInCurrentMonth } = require('./helpers');
+const { USERS, uiLogin, expectToast, pastSlotInCurrentMonth, chooseOption } = require('./helpers');
 
 const slot = pastSlotInCurrentMonth();
 
@@ -29,7 +29,7 @@ async function bookManual(page, { time, typeLabel }) {
   await expect(page.getByText('Stempelung nachbuchen')).toBeVisible();
   await page.getByLabel('Datum').fill(slot.date);
   await page.getByLabel('Uhrzeit').fill(time);
-  await page.getByLabel('Typ').selectOption({ label: typeLabel });
+  await chooseOption(page.getByLabel('Typ'), typeLabel);
   // Nicht getByLabel('Notiz'): der Stundenzettel-Bereich der Detailseite hat
   // ebenfalls ein „Notiz"-Feld → gezielt das Feld des Nachbuchen-Modals.
   await page.locator('#manual-note').fill('e2e Nachbuchung');

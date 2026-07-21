@@ -136,9 +136,18 @@ export default function Terminals() {
   // + Ticker für die relative „Zuletzt gemeldet"-Anzeige.
   const [nowTs, setNowTs] = useState(() => Date.now());
   useEffect(() => {
-    const tick = window.setInterval(() => setNowTs(Date.now()), 5_000);
-    const refresh = window.setInterval(() => { load(true); }, 5_000);
-    return () => { window.clearInterval(tick); window.clearInterval(refresh); };
+    const tick = window.setInterval(() => setNowTs(Date.now()), 10_000);
+    // Netzwerk-Refresh nur alle 30s und nur bei sichtbarem Tab (kein Dauer-Polling im Hintergrund).
+    const refresh = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load(true);
+    }, 30_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') load(true); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(tick);
+      window.clearInterval(refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [load]);
 
   const openCreate = () => { setEditing(null); setForm(emptyForm()); setShowModal(true); };

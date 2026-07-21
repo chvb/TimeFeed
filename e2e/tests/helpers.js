@@ -179,8 +179,19 @@ function pastSlotInCurrentMonth() {
   return { date: ymd(day), t1: '01:00', t2: '02:00' };
 }
 
+/**
+ * Wählt eine Option aus der Custom-Select-Komponente (kein natives <select>).
+ * `trigger` ist ein Locator auf den Auslöser-Button (z. B. page.getByLabel('Typ')).
+ * Ersetzt das früher genutzte locator.selectOption({ label }).
+ */
+async function chooseOption(trigger, label) {
+  await trigger.click();
+  await trigger.page().getByRole('option', { name: label }).first().click();
+}
+
 module.exports = {
   USERS,
+  chooseOption,
   login,
   uiLogin,
   newRolePage,

@@ -135,8 +135,15 @@ router.get('/times', apiKeyAuth(API_SCOPE_TIMES_READ), async (req: Request, res:
         attributes: ['userId', 'date', 'workedMinutes', 'targetMinutes', 'balanceMinutes', 'status', 'absence'],
         order: [['date', 'ASC'], ['userId', 'ASC']],
       });
+      // Datenminimierung: gesundheitsbezogene Abwesenheitsgründe (Art. 9 DSGVO) standardmäßig
+      // zu 'absent' generalisieren; die konkrete Art nur bei explizitem Opt-in (?absenceDetail=true).
+      const HEALTH_ABSENCE = new Set(['sick', 'child_sick', 'doctor']);
+      const wantAbsenceDetail = String(req.query.absenceDetail || '') === 'true';
       for (const wd of workDays) {
         const user = userById.get(wd.userId)!;
+        const absence = wd.absence == null
+          ? null
+          : (!wantAbsenceDetail && HEALTH_ABSENCE.has(wd.absence) ? 'absent' : wd.absence);
         times.push({
           email: user.email,
           employeeNumber: user.employeeNumber,
@@ -145,7 +152,7 @@ router.get('/times', apiKeyAuth(API_SCOPE_TIMES_READ), async (req: Request, res:
           targetMinutes: wd.targetMinutes,
           balanceMinutes: wd.balanceMinutes,
           status: wd.status,
-          absence: wd.absence ?? null,
+          absence,
         });
       }
     }

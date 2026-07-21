@@ -68,9 +68,13 @@ export async function runTimeRecalc(now: Date = new Date()): Promise<void> {
 
       for (const shift of openOld) {
         const shiftDay = ymdLocal(shift.inAt);
-        const [h, m] = String(settings.autoCapTime || '23:00').split(':').map(Number);
+        const [rawH, rawM] = String(settings.autoCapTime || '23:00').split(':').map(Number);
+        // Kein Falsy-Fallback: 00:xx (h=0) bzw. :00 (m=0) sind gültig und dürfen nicht
+        // auf 23:xx/:.. verfälscht werden.
+        const h = Number.isFinite(rawH) ? rawH : 23;
+        const m = Number.isFinite(rawM) ? rawM : 0;
         let capAt = localDayStart(shiftDay);
-        capAt.setHours(h || 23, m || 0, 0, 0);
+        capAt.setHours(h, m, 0, 0);
         // Einstempeln NACH der Kappungszeit (z. B. 23:30 bei Kappung 23:00):
         // dann direkt am 'in' kappen (keine negative Schichtdauer erzeugen).
         if (capAt <= shift.inAt) capAt = new Date(shift.inAt);
@@ -204,7 +208,20 @@ export async function runRetentionCleanup(now: Date = new Date()): Promise<Reten
         } as any },
     );
     total.gpsCleared += gpsCleared;
-    total.workDaysDeleted += await WorkDay.destroy({ where: { ...scope, date: { [Op.lt]: entriesBeforeYmd } } });
+    // Vor dem Löschen alter WorkDays deren Netto-Saldo je Nutzer in openingBalanceMinutes
+    // aufnehmen — sonst „springt" das kumulierte Zeitkonto (Saldo = Summe der WorkDays).
+    const wdScope: any = { ...scope, date: { [Op.lt]: entriesBeforeYmd } };
+    const balances = await WorkDay.findAll({
+      where: wdScope,
+      attributes: ['userId', [fn('SUM', col('balance_minutes')), 'saldo']],
+      group: ['userId'],
+      raw: true,
+    }) as any[];
+    for (const b of balances) {
+      const add = Math.round(Number(b.saldo) || 0);
+      if (add !== 0) await User.increment({ openingBalanceMinutes: add }, { where: { id: b.userId } });
+    }
+    total.workDaysDeleted += await WorkDay.destroy({ where: wdScope });
     // "Abgelaufen" = bereits entschieden; offene (pending) Anträge bleiben bestehen.
     total.correctionsDeleted += await CorrectionRequest.destroy({
       where: { ...scope, date: { [Op.lt]: entriesBeforeYmd }, status: { [Op.ne]: 'pending' } },

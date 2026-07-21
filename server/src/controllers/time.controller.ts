@@ -100,6 +100,8 @@ async function buildTimeStatus(userId: number, companyId: number | null) {
   const today = await WorkDay.findOne({ where: { userId, date: day } });
   const yesterday = ymdLocal(new Date(Date.now() - 24 * 3600 * 1000));
   const total = await WorkDay.sum('balanceMinutes', { where: { userId, date: { [Op.lte]: yesterday } } });
+  // Anfangssaldo (Saldo bereits gelöschter Alt-WorkDays) einbeziehen, sonst springt das Zeitkonto.
+  const opening = (await User.findByPk(userId, { attributes: ['openingBalanceMinutes'] }))?.openingBalanceMinutes || 0;
   return {
     state: st.state,
     since: st.since,
@@ -108,7 +110,7 @@ async function buildTimeStatus(userId: number, companyId: number | null) {
     // 'off' → Client fragt gar keinen Standort ab (kein Berechtigungs-Popup).
     gpsMode: settings.gpsMode || 'optional',
     gpsMaxAccuracy: Number(settings.gpsMaxAccuracy) > 0 ? Number(settings.gpsMaxAccuracy) : MAX_GPS_ACCURACY_METERS,
-    balanceMinutes: Number(total) || 0,
+    balanceMinutes: (Number(total) || 0) + opening,
   };
 }
 
@@ -276,7 +278,8 @@ export class TimeController {
       const total = await WorkDay.sum('balanceMinutes', {
         where: { userId, date: { [Op.lte]: yesterday } },
       });
-      res.json({ userId, upToDate: yesterday, balanceMinutes: Number(total) || 0 });
+      const opening = (await User.findByPk(userId, { attributes: ['openingBalanceMinutes'] }))?.openingBalanceMinutes || 0;
+      res.json({ userId, upToDate: yesterday, balanceMinutes: (Number(total) || 0) + opening });
     } catch (error) {
       next(error);
     }
@@ -657,8 +660,13 @@ export class TimeController {
         }
       }
 
-      // 1) Alle Tage des Monats (bis heute) neu berechnen.
-      const days = daysOfMonth(month);
+      // 1) Alle Tage des Monats bis HEUTE neu berechnen (zukünftige Tage im laufenden Monat
+      //    nicht mitberechnen/sperren — sonst würden noch nicht eingetretene Tage mit vollem
+      //    Soll als 'locked' eingefroren, was den Saldo verfälscht).
+      const todayYmd = ymdLocal(new Date());
+      const monthEnd = monthEndDate(month);
+      const rangeEnd = monthEnd <= todayYmd ? monthEnd : todayYmd;
+      const days = daysOfMonth(month).filter((d) => d <= rangeEnd);
       for (const u of targets) {
         for (const day of days) {
           await calcWorkDay(u.id, day);
@@ -667,7 +675,7 @@ export class TimeController {
 
       // 2) Keine incomplete-Tage zulassen.
       const targetIds = targets.map((u) => u.id);
-      const dateRange = { [Op.gte]: `${month}-01`, [Op.lte]: monthEndDate(month) };
+      const dateRange = { [Op.gte]: `${month}-01`, [Op.lte]: rangeEnd };
       const incomplete = await WorkDay.findAll({
         where: { userId: { [Op.in]: targetIds }, date: dateRange, status: 'incomplete' },
         attributes: ['userId', 'date'],
@@ -705,6 +713,15 @@ export class TimeController {
         { status: 'locked' },
         { where: { userId: { [Op.in]: targetIds }, date: dateRange } }
       );
+
+      // Race-Fenster verkleinern: unmittelbar vor dem Anlegen erneut prüfen, ob inzwischen
+      // (paralleler Abschluss) bereits geschlossen wurde. (SQLite: userId=NULL ist im
+      // Unique-Index nicht abgedeckt, daher zusätzliche Prüfung.)
+      for (const u of targets) {
+        if (await isMonthClosed(u.id, companyId, month)) {
+          return res.status(409).json({ error: 'ALREADY_CLOSED', code: 'ALREADY_CLOSED', message: `Monat ${month} ist bereits abgeschlossen.` });
+        }
+      }
 
       const closure = await MonthClosure.create({
         companyId,
@@ -748,8 +765,13 @@ export class TimeController {
       const singleUserId = req.body?.userId != null && req.body.userId !== '' ? Number(req.body.userId) : null;
 
       const where: any = { month, userId: singleUserId };
-      if (req.user!.companyId) where.companyId = req.user!.companyId;
-      else if (req.body?.companyId != null) where.companyId = Number(req.body.companyId);
+      const companyId = req.user!.companyId ?? (req.body?.companyId != null ? Number(req.body.companyId) : null);
+      // Firmenweite Wiedereröffnung (kein Einzelnutzer): companyId ist zwingend — sonst würde
+      // ein Super-Admin ohne Firmenangabe einen beliebigen Firmen-Abschluss desselben Monats treffen.
+      if (singleUserId == null && (!companyId || !Number.isFinite(companyId))) {
+        return next(new AppError(400, 'companyId ist erforderlich (Wiedereröffnung der ganzen Firma)'));
+      }
+      if (companyId) where.companyId = companyId;
       const closure = await MonthClosure.findOne({ where });
       if (!closure) return next(new AppError(404, 'Kein Monatsabschluss gefunden'));
 

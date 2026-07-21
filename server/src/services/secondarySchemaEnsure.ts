@@ -2,6 +2,7 @@ import { DataTypes } from 'sequelize';
 import { sequelize } from '../db/database';
 import { StorageSettings } from '../models/StorageSettings';
 import { SystemSettings } from '../models/SystemSettings';
+import { User } from '../models/User';
 
 /**
  * Idempotente Spalten-Migration für die Sekundär-S3- und Retention-Features.
@@ -34,6 +35,9 @@ export async function ensureSecondaryAndRetentionColumns(): Promise<void> {
   await addIfMissing(StorageSettings, 'secondary_secret_key', { type: DataTypes.STRING, allowNull: true });
   await addIfMissing(StorageSettings, 'secondary_prefix', { type: DataTypes.STRING, allowNull: true, defaultValue: 'timefeed-mirror/' });
   await addIfMissing(StorageSettings, 'secondary_failover_timeout_ms', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 3000 });
+
+  // users — Anfangssaldo Zeitkonto (nimmt Saldo alter WorkDays vor deren Löschung auf).
+  await addIfMissing(User, 'opening_balance_minutes', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 });
 
   // system_settings — Aufbewahrung (§ 16 Abs. 2 ArbZG: min. 2 Jahre → Default/Minimum 24 Monate)
   await addIfMissing(SystemSettings, 'retention_months_entries', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 24 });

@@ -293,7 +293,7 @@ export class IntegrationController {
                 await emailService.sendWelcome(newUser.email, newUser.firstName, token);
               } catch (mailErr: any) {
                 // Fehler beim Mail-Versand bewusst schlucken — der Import selbst gilt als erfolgreich.
-                console.error(`Willkommens-Mail an ${newUser.email} fehlgeschlagen:`, mailErr?.message || mailErr);
+                console.error(`Willkommens-Mail an User #${newUser.id} fehlgeschlagen:`, mailErr?.message || mailErr);
               }
             }
           }

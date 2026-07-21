@@ -64,6 +64,9 @@ interface UserAttributes {
   // Monats-Stundenzettel per E-Mail beim Monatsabschluss:
   // 'inherit' = Firmen-Default (SystemSettings.sendTimesheetOnClose), 'on' = immer, 'off' = nie.
   timesheetEmailMode?: string;
+  // Anfangssaldo des Zeitkontos (Minuten): nimmt den Netto-Saldo alter WorkDays auf,
+  // bevor diese per Aufbewahrungsfrist gelöscht werden → kumulierter Saldo bleibt korrekt.
+  openingBalanceMinutes?: number;
   isActive: boolean;
   phoneNumber?: string;
   department?: string;
@@ -101,6 +104,7 @@ export class User extends Model<UserAttributes, UserCreationAttributes> implemen
   public nfcTagUid?: string | null;
   public pin?: string | null;
   public timesheetEmailMode?: string;
+  public openingBalanceMinutes?: number;
   public isActive!: boolean;
   public phoneNumber?: string;
   public department?: string;
@@ -264,6 +268,11 @@ User.init(
       type: DataTypes.STRING,
       allowNull: true,
       unique: true,
+    },
+    openingBalanceMinutes: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
   },
   {

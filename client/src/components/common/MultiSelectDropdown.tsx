@@ -66,7 +66,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     <div className={`relative ${className}`} ref={dropdownRef}>
       {/* Selected Items Display */}
       <div
-        className="min-h-[42px] w-full px-3 py-2 border border-gray-300 rounded-lg bg-white cursor-pointer hover:border-gray-400 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500"
+        className="min-h-[42px] w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex flex-wrap items-center justify-between">
@@ -116,16 +116,16 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-hidden">
+        <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-64 overflow-hidden">
           {/* Search Input */}
-          <div className="p-3 border-b border-gray-200">
+          <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <div className="relative">
               <input
                 type="text"
                 placeholder={searchPlaceholder ?? t('ui.search')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-md text-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                className="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-slate-900 dark:text-gray-100 focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
                 onClick={(e) => e.stopPropagation()}
               />
               {searchTerm && (
@@ -152,16 +152,16 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
               filteredOptions.map(option => (
                 <label
                   key={option.id}
-                  className="flex items-center px-3 py-2 hover:bg-slate-50 cursor-pointer"
+                  className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-gray-700 cursor-pointer"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <input
                     type="checkbox"
                     checked={selectedValues.includes(option.id)}
                     onChange={() => toggleOption(option.id)}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 mr-2"
+                    className="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 mr-2"
                   />
-                  <span className="text-sm text-slate-900 flex-1">
+                  <span className="text-sm text-slate-900 dark:text-gray-100 flex-1">
                     {option.label}
                   </span>
                 </label>
@@ -171,8 +171,8 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
           {/* Footer */}
           {selectedValues.length > 0 && (
-            <div className="px-3 py-2 border-t border-gray-200 bg-slate-50">
-              <div className="flex items-center justify-between text-xs text-slate-600">
+            <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900/40">
+              <div className="flex items-center justify-between text-xs text-slate-600 dark:text-gray-400">
                 <span>{t('ui.selectedCount', { n: selectedValues.length })}</span>
                 <button
                   type="button"

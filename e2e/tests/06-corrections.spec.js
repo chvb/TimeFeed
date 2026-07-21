@@ -3,7 +3,7 @@
 // die vorgeschlagenen Stempel erscheinen als Nachbuchungen im Journal.
 const { test, expect } = require('@playwright/test');
 const {
-  USERS, uiLogin, newRolePage, expectToast, ymd, hhmm, fmtDayCell,
+  USERS, uiLogin, newRolePage, expectToast, ymd, hhmm, fmtDayCell, chooseOption,
 } = require('./helpers');
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -38,7 +38,7 @@ test.describe('Korrekturanträge', () => {
     await page.getByLabel('Uhrzeit').first().fill(t1);
     // Zeile 2: Gehen um t2
     await page.getByRole('button', { name: 'Stempelung hinzufügen' }).click();
-    await page.getByLabel('Typ').nth(1).selectOption({ label: 'Gehen' });
+    await chooseOption(page.getByLabel('Typ').nth(1), 'Gehen');
     await page.getByLabel('Uhrzeit').nth(1).fill(t2);
 
     await page.getByRole('button', { name: 'Antrag senden' }).click();

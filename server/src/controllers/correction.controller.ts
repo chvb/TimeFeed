@@ -295,12 +295,17 @@ export class CorrectionController {
       const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
       if (!note) return next(new AppError(400, 'note (Ablehnungsgrund) ist erforderlich'));
 
-      await correction.update({
-        status: 'rejected',
-        decidedById: req.user!.id,
-        decidedAt: new Date(),
-        decisionNote: note,
-      });
+      // ATOMAR beanspruchen (pending → rejected): verhindert die Race mit einem gleichzeitigen
+      // approve (das Stempel anlegt) — sonst bliebe der Antrag 'rejected', die Stempel aber bestehen.
+      const decidedAt = new Date();
+      const [claimed] = await CorrectionRequest.update(
+        { status: 'rejected', decidedById: req.user!.id, decidedAt, decisionNote: note },
+        { where: { id: correction.id, status: 'pending' } },
+      );
+      if (!claimed) {
+        return next(new AppError(409, 'Dieser Antrag wurde bereits entschieden.'));
+      }
+      correction.set({ status: 'rejected', decidedById: req.user!.id, decidedAt, decisionNote: note });
 
       await AuditService.log({
         userId: req.user!.id,
