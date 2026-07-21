@@ -7,9 +7,11 @@ import { UserRole } from '../models/User';
 const router = Router();
 const groupController = new GroupController();
 
-router.get('/', authenticate, groupController.getAllGroups);
+// Lesen nur für Verwalter-Rollen (wie /:id/members) — sonst läse jeder Mitarbeiter
+// firmenweit alle Gruppen inkl. Kollegen-E-Mails und -Rollen.
+router.get('/', authenticate, authorize(UserRole.ADMIN, UserRole.BUCHHALTUNG, UserRole.VERWALTUNG), groupController.getAllGroups);
 
-router.get('/:id', authenticate, groupController.getGroupById);
+router.get('/:id', authenticate, authorize(UserRole.ADMIN, UserRole.BUCHHALTUNG, UserRole.VERWALTUNG), groupController.getGroupById);
 
 router.post(
   '/',

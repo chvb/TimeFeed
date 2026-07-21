@@ -92,7 +92,40 @@ export class HolidayService {
       endDate: { [Op.gte]: startDate },
     };
     if (companyId) where[Op.or] = [{ companyId: null }, { companyId }];
-    return await Holiday.findAll({ where, order: [['startDate', 'ASC']] });
+    const direct = await Holiday.findAll({ where, order: [['startDate', 'ASC']] });
+
+    // Wiederkehrende gesetzliche Feiertage zusätzlich in die betroffenen Jahre projizieren
+    // (wie holiday.controller.getAllHolidays für den Kalender). Sonst erkennt die
+    // Zeitberechnung Feiertage in Jahren nicht, für die noch keine API-Zeile existiert,
+    // und schreibt dort fälschlich volles Soll/Minus-Saldo.
+    const recWhere: any = { isRecurring: true };
+    if (companyId) recWhere[Op.or] = [{ companyId: null }, { companyId }];
+    const recurring = await Holiday.findAll({ where: recWhere });
+
+    const have = new Set(direct.map((h) => `${this.ymd(h.startDate)}|${h.name}|${h.companyId ?? ''}`));
+    const projected: Holiday[] = [];
+    const startY = startDate.getFullYear();
+    const endY = endDate.getFullYear();
+    for (const h of recurring) {
+      // Bewegliche (oster-/datumsabhängige) Feiertage NIE per Monat+Tag projizieren.
+      if (HolidayService.MOVABLE_HOLIDAYS.has(h.name)) continue;
+      for (let y = startY; y <= endY; y++) {
+        const s = new Date(h.startDate); s.setFullYear(y);
+        const e = new Date(h.endDate); e.setFullYear(y);
+        if (s > endDate || e < startDate) continue; // projizierte Instanz nicht im Bereich
+        const key = `${this.ymd(s)}|${h.name}|${h.companyId ?? ''}`;
+        if (have.has(key)) continue; // physische Zeile existiert schon
+        have.add(key);
+        projected.push(Holiday.build({
+          name: h.name, startDate: s, endDate: e,
+          type: (h as any).type, companyId: h.companyId ?? null, isRecurring: true,
+        }));
+      }
+    }
+
+    const all = projected.length ? [...direct, ...projected] : direct;
+    all.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+    return all;
   }
 
   // Lokales YYYY-MM-DD (ohne UTC-Shift) für robuste Tagesvergleiche.

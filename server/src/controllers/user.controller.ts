@@ -6,7 +6,7 @@ import { Group } from '../models/Group';
 import { GroupManager } from '../models/GroupManager';
 import { sequelize } from '../db/database';
 import { AppError } from '../middleware/errorHandler';
-import { getEffectiveActor, getAccessibleUserIds, canActorAccessUser, canManageCompanyRecord, resolveWritableCompanyId, getManagedCompanyIds } from '../services/accessScope';
+import { getEffectiveActor, getAccessibleUserIds, canActorAccessUser, canManageCompanyRecord, resolveWritableCompanyId, getManagedCompanyIds, getCompanyScopeWhere } from '../services/accessScope';
 import { AuditService } from '../services/auditService';
 import { AuditAction, AuditCategory } from '../models/AuditLog';
 import { moveToTrash } from '../services/trashService';
@@ -38,9 +38,10 @@ export class UserController {
     try {
       const me = await User.findByPk(req.user!.id, { attributes: ['id', 'groupId', 'companyId'] });
       const where: any = { isActive: true, id: { [Op.ne]: req.user!.id } };
-      // Nie firmenübergreifend (nur eigene Firma).
-      if (me?.companyId) where.companyId = me.companyId;
-      // Mit Gruppe: nur eigenes Team. Ohne Gruppe: Fallback = alle aktiven der eigenen Firma.
+      // Firmen-/Mandanten-Scope aus der Identität (tenant-sicher: Mandanten-Admin ohne
+      // companyId wird über die tenantId-Subquery begrenzt, nicht auf alle Mandanten).
+      Object.assign(where, getCompanyScopeWhere(req.user!));
+      // Mit Gruppe: nur eigenes Team. Ohne Gruppe: Fallback = alle aktiven der eigenen Firma/des Tenants.
       if (me?.groupId) where.groupId = me.groupId;
       const colleagues = await User.findAll({
         where,
@@ -110,8 +111,9 @@ export class UserController {
       const actor = getEffectiveActor(req.user!, req.query.companyId, req.query.tenantId);
       const where: any = { isActive: true, birthDate: { [Op.ne]: null } };
       if (actor.role === 'admin' || actor.role === 'buchhaltung' || actor.isSuperAdmin) {
-        // Admin/Buchhaltung: eigene Firma (bzw. gewählte Firma); Super-Admin ohne Wahl = alle.
-        if (actor.companyId) where.companyId = actor.companyId;
+        // Admin/Buchhaltung: eigene Firma bzw. eigener Mandant (tenant-sicher — Mandanten-Admin
+        // ohne companyId wird über die tenantId-Subquery begrenzt); Super-Admin ohne Wahl = alle.
+        Object.assign(where, getCompanyScopeWhere(actor));
       } else {
         const me = await User.findByPk(req.user!.id, { attributes: ['id', 'groupId'] });
         if (me?.groupId) where.groupId = me.groupId; else where.id = req.user!.id;
