@@ -25,6 +25,7 @@
 
 ### Fixed
 - Review-Fixes (High): Tenant-Isolation, Gruppen-Gate, Feiertags-Projektion
+- Review-Fixes Batch 2 (High #6 + Medium + Low, TimeFeed)
 
 ## [1.1.7] - 2026-07-17
 
