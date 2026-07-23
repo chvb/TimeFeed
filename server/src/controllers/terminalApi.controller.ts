@@ -14,6 +14,7 @@ import {
 } from '../services/timeCalcService';
 import { isMonthClosed, monthOf, MONTH_LOCKED_RESPONSE } from '../services/monthLockService';
 import { withUserLock } from '../services/userSerialize';
+import { resolveHubToken, reportNfcActionToHub } from '../services/hubHandoff';
 
 /**
  * Terminal-API (/api/terminal) — Kiosk-Endpunkte OHNE User-JWT.
@@ -37,7 +38,7 @@ const DUMMY_PIN_HASH = bcrypt.hashSync('timefeed-terminal-dummy-pin', 10);
 
 interface IdentifyFailure {
   status: number;
-  code: 'IDENTIFIER_REQUIRED' | 'UNKNOWN_CODE' | 'PIN_REQUIRED' | 'PIN_INVALID';
+  code: 'IDENTIFIER_REQUIRED' | 'UNKNOWN_CODE' | 'PIN_REQUIRED' | 'PIN_INVALID' | 'PIN_NOT_SET' | 'NOT_LINKED' | 'HUB_UNAVAILABLE';
   message: string;
 }
 
@@ -50,9 +51,35 @@ type IdentifyResult = { user: User; failure?: undefined } | { user?: undefined; 
  * 404 UNKNOWN_CODE (kein Enumeration-Leak über den Wortlaut).
  */
 async function identifyUser(terminal: TerminalDevice, body: any): Promise<IdentifyResult> {
+  const hubToken = typeof body?.hubToken === 'string' ? body.hubToken.trim() : '';
   const stampCode = typeof body?.stampCode === 'string' || typeof body?.stampCode === 'number' ? String(body.stampCode).trim() : '';
   const nfcTagUid = typeof body?.nfcTagUid === 'string' ? body.nfcTagUid.trim() : '';
   const pin = body?.pin != null ? String(body.pin) : '';
+
+  // --- NFC-Chip über den FeedAuth-Hub auflösen (Chips werden nur zentral im Hub gepflegt) ---
+  // Der Chip trägt die NDEF-URL https://auth.feedapps.de/t/<TOKEN>; das Terminal liefert den
+  // Token als hubToken. TimeFeed löst ihn server-zu-server auf → hubPersonId → Mitarbeiter.
+  if (hubToken) {
+    const r = await resolveHubToken(hubToken, pin || undefined);
+    if (!r.ok) {
+      switch (r.code) {
+        case 'PIN_REQUIRED': return { failure: { status: 401, code: 'PIN_REQUIRED', message: 'PIN erforderlich.' } };
+        case 'PIN_INVALID': return { failure: { status: 401, code: 'PIN_INVALID', message: 'PIN ungültig.' } };
+        case 'PIN_NOT_SET': return { failure: { status: 400, code: 'PIN_NOT_SET', message: 'Für diesen Chip ist keine PIN hinterlegt. Bitte an die Verwaltung wenden.' } };
+        case 'HUB_UNAVAILABLE': return { failure: { status: 503, code: 'HUB_UNAVAILABLE', message: 'Zentrale NFC-Prüfung nicht erreichbar.' } };
+        case 'NOT_LINKED': return { failure: { status: 404, code: 'NOT_LINKED', message: 'Dieser Chip ist keinem Mitarbeiter zugeordnet.' } };
+        default: return { failure: { status: 404, code: 'UNKNOWN_CODE', message: 'Unbekannter Chip.' } };
+      }
+    }
+    const hubUser = await User.findOne({ where: { companyId: terminal.companyId, isActive: true, hubPersonId: r.pid } });
+    const hubExited = !!hubUser?.exitDate && new Date(hubUser.exitDate) <= new Date();
+    if (!hubUser || hubExited) {
+      return { failure: { status: 404, code: 'NOT_LINKED', message: 'Kein aktiver Mitarbeiter zu diesem Chip in dieser Firma.' } };
+    }
+    // PIN wurde ggf. bereits zentral im Hub geprüft (SystemSettings.nfcPinRequired) —
+    // keine zusätzliche lokale User-PIN im Hub-Pfad.
+    return { user: hubUser };
+  }
 
   if (!stampCode && !nfcTagUid) {
     return { failure: { status: 400, code: 'IDENTIFIER_REQUIRED', message: 'stampCode oder nfcTagUid ist erforderlich.' } };
@@ -300,6 +327,12 @@ export class TerminalApiController {
       // Nachsync kann die Paarung des heutigen Tages verändert haben.
       const today = ymdLocal(now);
       if (offlineSync && today !== shiftDay && today !== tsDay) await calcWorkDay(user.id, today);
+
+      // Zentrales Hub-Audit: tatsächliche Aktion melden — nur bei Chip-Stempel über den Hub
+      // (best-effort, blockiert das Stempeln nicht).
+      if (typeof req.body?.hubToken === 'string' && req.body.hubToken.trim() && user.hubPersonId) {
+        reportNfcActionToHub(user.hubPersonId, type, ts.toTimeString().slice(0, 5));
+      }
 
       const after = await getUserTimeState(user.id);
       return res.status(201).json({

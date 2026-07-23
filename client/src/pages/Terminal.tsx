@@ -78,6 +78,18 @@ function Numpad({ onDigit, onDelete, onOk, okDisabled, deleteLabel }: {
   );
 }
 
+// NFC-Chips tragen die zentrale Hub-URL https://auth.feedapps.de/t/<TOKEN>. Aus einem
+// gescannten Wert (Web-NFC-URL/-Text, native Brücke, QR-Code) die passende Kennung ableiten:
+// Hub-Token bevorzugt (zentrale Auflösung im FeedAuth-Hub), sonst manueller Stempel-Code.
+// Nicht verankert: URL-NDEF-Records können ein Präfix-Byte tragen — überall im String suchen.
+const HUB_URL_RE = /https?:\/\/auth\.feedapps?\.de\/t\/([A-Za-z0-9_-]{6,})/i;
+function credFromScan(value: string): StampCredential {
+  const v = (value || '').trim();
+  const m = v.match(HUB_URL_RE);
+  if (m) return { hubToken: m[1] };
+  return { stampCode: v };
+}
+
 /**
  * Kiosk-Terminal-Modus (/terminal): Vollbild-Stempeluhr ohne Login.
  * Auth per Geräte-Token (localStorage), Identifikation via NFC/Code/QR,
@@ -401,6 +413,12 @@ export default function Terminal() {
         // Geräte-Token abgelehnt: NICHT abmelden — Hinweis, Token bleibt gespeichert.
         setTokenInvalid(true);
         showError(t('terminal.tokenInvalidBanner'));
+      } else if (e instanceof TerminalApiError && e.code === 'NOT_LINKED') {
+        showError(t('terminal.nfcNotLinked'));
+      } else if (e instanceof TerminalApiError && e.code === 'HUB_UNAVAILABLE') {
+        showError(t('terminal.nfcHubUnavailable'));
+      } else if (e instanceof TerminalApiError && e.code === 'PIN_NOT_SET') {
+        showError(t('terminal.nfcPinNotSet'));
       } else if (e instanceof TerminalApiError && e.status === 404) {
         showError(t('terminal.unknownCode'));
       } else {
@@ -450,14 +468,18 @@ export default function Terminal() {
   }, [screen, methods, pendingCred, handleIdentify]);
 
   /* ---------- Native NFC-Brücke (TimeFeed-Terminal-App) ----------
-     Die Android-App liest Tags nativ und ruft window.__tfNativeNfc({text, uid})
-     auf: Text-Record = Stempel-Code, sonst Tag-UID als nfcTagUid. */
+     Die Android-App liest Tags nativ und ruft window.__tfNativeNfc({url?, text?, uid?})
+     auf. Hub-Chips tragen eine NDEF-URL (auth.feedapps.de/t/<TOKEN>) → zentrale Auflösung;
+     eine Hub-URL kann auch als text ankommen. Sonst Text-Record = Stempel-Code, zuletzt
+     die Tag-UID als nfcTagUid (Altbestand). */
   useEffect(() => {
-    (window as any).__tfNativeNfc = (payload: { text?: string | null; uid?: string | null }) => {
+    (window as any).__tfNativeNfc = (payload: { url?: string | null; text?: string | null; uid?: string | null }) => {
       if (busyRef.current || screenRef.current !== 'idle') return;
+      const url = typeof payload?.url === 'string' ? payload.url.trim() : '';
       const text = typeof payload?.text === 'string' ? payload.text.trim() : '';
       const uid = typeof payload?.uid === 'string' ? payload.uid.trim() : '';
-      if (text) handleIdentify({ stampCode: text });
+      if (url) handleIdentify(credFromScan(url));
+      else if (text) handleIdentify(credFromScan(text));
       else if (uid) handleIdentify({ nfcTagUid: uid });
     };
     return () => { delete (window as any).__tfNativeNfc; };
@@ -468,7 +490,7 @@ export default function Terminal() {
   const identifyRef = useRef(handleIdentify);
   useEffect(() => { identifyRef.current = handleIdentify; });
   const onScan = useCallback((cred: StampCredential) => {
-    const key = cred.stampCode || cred.nfcTagUid || '';
+    const key = cred.hubToken || cred.stampCode || cred.nfcTagUid || '';
     const ts = Date.now();
     if (!key || (lastScanRef.current.v === key && ts - lastScanRef.current.ts < 4000)) return;
     lastScanRef.current = { v: key, ts };
@@ -489,17 +511,19 @@ export default function Terminal() {
     try {
       const reader = new (window as any).NDEFReader();
       reader.onreading = (ev: any) => {
-        let text = '';
+        // Hub-Chips tragen einen URL-Record (auth.feedapps.de/t/<TOKEN>); ältere Chips einen
+        // Text-Record (Stempel-Code). Beides einlesen und über den Parser zur Kennung machen.
+        let scanned = '';
         try {
           for (const rec of ev.message?.records || []) {
-            if (rec.recordType === 'text' && rec.data) {
-              text = new TextDecoder(rec.encoding || 'utf-8').decode(rec.data).trim();
-              if (text) break;
+            if ((rec.recordType === 'url' || rec.recordType === 'text') && rec.data) {
+              scanned = new TextDecoder(rec.encoding || 'utf-8').decode(rec.data).trim();
+              if (scanned) break;
             }
           }
         } catch { /* unlesbarer Record → Seriennummer nutzen */ }
         const serial = String(ev.serialNumber || '').trim();
-        if (text) scanRef.current({ stampCode: text });
+        if (scanned) scanRef.current(credFromScan(scanned));
         else if (serial) scanRef.current({ nfcTagUid: serial });
       };
       reader.scan({ signal: ctrl.signal })
@@ -534,7 +558,7 @@ export default function Terminal() {
           try {
             const codes = await detector.detect(v);
             const value = String(codes?.[0]?.rawValue || '').trim();
-            if (value) scanRef.current({ stampCode: value });
+            if (value) scanRef.current(credFromScan(value));
           } catch { /* Frame nicht auswertbar */ }
         }, 500);
       } catch {

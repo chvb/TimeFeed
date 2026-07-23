@@ -34,6 +34,8 @@ export interface IdentifyResult {
 export interface StampCredential {
   stampCode?: string;
   nfcTagUid?: string;
+  /** Token aus der NFC-Chip-URL (auth.feedapps.de/t/<TOKEN>) — zentrale Auflösung im Hub. */
+  hubToken?: string;
 }
 
 export interface StampPayload extends StampCredential {

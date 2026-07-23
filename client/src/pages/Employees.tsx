@@ -35,6 +35,8 @@ interface Employee {
   surchargeProfileId?: number | null;
   stampCode?: string | null;
   nfcTagUid?: string | null;
+  // Verknüpfung mit einem zentral im FeedAuth-Hub gepflegten NFC-Chip (read-only).
+  hubPersonId?: string | null;
   timesheetEmailMode?: 'inherit' | 'on' | 'off';
   group?: {
     name: string;
@@ -1864,14 +1866,21 @@ const Employees: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm text-slate-600 mb-1">{t('employees.nfcTagUid')}</label>
-                        <input
-                          type="text"
-                          value={formData.nfcTagUid || ''}
-                          onChange={(e) => setFormData({ ...formData, nfcTagUid: e.target.value })}
-                          className="input-field"
-                          placeholder={t('employees.nfcTagUidPlaceholder')}
-                        />
+                        <label className="block text-sm text-slate-600 mb-1">{t('employees.nfcChip')}</label>
+                        {/* NFC-Chips werden zentral im FeedAuth-Hub (auth.feedapps.de) gepflegt und
+                            dort Mitarbeitern zugeordnet — hier nur der Verknüpfungsstatus (read-only). */}
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          {editingEmployee?.hubPersonId ? (
+                            <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" /> {t('employees.nfcLinked')}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-sm text-slate-500">
+                              <span className="h-2 w-2 rounded-full bg-slate-300 inline-block" /> {t('employees.nfcNotLinked')}
+                            </span>
+                          )}
+                          <p className="mt-1 text-xs text-slate-400">{t('employees.nfcCentralHint')}</p>
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">{t('employees.pin')}</label>
