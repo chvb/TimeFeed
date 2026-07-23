@@ -28,6 +28,7 @@
 
 ### Improved
 - Terminal-NFC über den FeedAuth-Hub (Chips zentral gepflegt)
+- NFC-Stempelseite: irreführenden „Fenster schließen"-Button ausblenden
 
 ## [1.1.8] - 2026-07-21
 
