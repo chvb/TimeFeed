@@ -97,11 +97,15 @@ export default function NfcStamp() {
     }
   }
 
-  // Best-effort: Fenster/Tab schließen. Klappt zuverlässig nur in der installierten
-  // App (PWA); ein per NFC geöffneter Browser-Tab lässt sich per Skript oft nicht schließen.
+  // window.close() darf ein Skript NUR bei selbst per window.open() geöffneten Fenstern
+  // aufrufen. Der per NFC geöffnete Tab bzw. die installierte PWA (Standalone) hat keinen
+  // opener → close() ist dort wirkungslos. Deshalb den Button nur zeigen, wenn er wirklich
+  // schließen kann; sonst genügt die Fertig-Meldung.
+  const canClose = typeof window !== 'undefined' && !!window.opener;
+  const standalone = typeof window !== 'undefined'
+    && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true);
   function tryClose() {
     try { window.close(); } catch { /* ignore */ }
-    try { window.open('', '_self'); window.close(); } catch { /* ignore */ }
   }
 
   const btn = 'w-full py-4 mt-3 rounded-2xl text-white text-lg font-bold disabled:opacity-60';
@@ -145,8 +149,14 @@ export default function NfcStamp() {
 
             {phase === 'done' && (
               <>
-                <button onClick={tryClose} className={`${btn} bg-slate-700 mt-4`}>Fenster schließen</button>
-                <p className="text-slate-400 text-sm mt-3">Du kannst das Fenster jetzt schließen.</p>
+                {canClose && (
+                  <button onClick={tryClose} className={`${btn} bg-slate-700 mt-4`}>Fenster schließen</button>
+                )}
+                <p className="text-slate-400 text-sm mt-3">
+                  {standalone
+                    ? 'Fertig – du kannst die App jetzt schließen.'
+                    : 'Fertig – du kannst das Fenster jetzt schließen.'}
+                </p>
               </>
             )}
             {phase === 'ready' && message && <p className="text-red-600 text-sm mt-3">{message}</p>}
