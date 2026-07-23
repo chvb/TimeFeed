@@ -21,6 +21,11 @@
 - API-Schlüssel-Verwaltung + externe API (/api/external/times), UrlaubsFeed-Kopplung (täglicher Abwesenheits-Import)
 - Web-Push-Benachrichtigungen (Korrektur-Entscheidungen, vergessenes Ausstempeln), neue E2E-Testsuite
 
+## [1.1.9] - 2026-07-23
+
+### Improved
+- Terminal-NFC über den FeedAuth-Hub (Chips zentral gepflegt)
+
 ## [1.1.8] - 2026-07-21
 
 ### Fixed
