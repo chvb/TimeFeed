@@ -23,6 +23,9 @@
 
 ## [1.1.9] - 2026-07-23
 
+### Added
+- Terminal-APK: NDEF-URI-Records lesen (Hub-Chips) + neu gebaut
+
 ### Improved
 - Terminal-NFC über den FeedAuth-Hub (Chips zentral gepflegt)
 
