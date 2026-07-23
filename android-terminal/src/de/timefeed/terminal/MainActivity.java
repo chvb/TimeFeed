@@ -318,10 +318,12 @@ public class MainActivity extends Activity {
         Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
         String uid = (tag != null) ? bytesToHex(tag.getId()) : "";
 
-        // (a) NDEF-Text-Record lesen, falls vorhanden — (b) sonst nur UID.
+        // (a) NDEF-URI-Record (FeedAuth-Hub-Chips: auth.feedapps.de/t/<TOKEN>),
+        // (b) sonst NDEF-Text-Record (Alt-Chip = Stempel-Code), (c) sonst nur UID.
+        String url = readNdefUri(intent, tag);
         String text = readNdefText(intent, tag);
 
-        dispatchNfcToPage(text, uid);
+        dispatchNfcToPage(url, text, uid);
     }
 
     private String readNdefText(Intent intent, Tag tag) {
@@ -348,6 +350,56 @@ public class MainActivity extends Activity {
             }
         } catch (Exception e) {
             Log.e(TAG, "NDEF-Lesen fehlgeschlagen", e);
+        }
+        return null;
+    }
+
+    /** Liest den ersten URI-Record (Hub-Chip-URL). Parallel zu readNdefText. */
+    private String readNdefUri(Intent intent, Tag tag) {
+        try {
+            Parcelable[] raw = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
+            if (raw != null) {
+                for (Parcelable p : raw) {
+                    String u = extractUriRecord((NdefMessage) p);
+                    if (u != null) {
+                        return u;
+                    }
+                }
+            }
+            if (tag != null) {
+                Ndef ndef = Ndef.get(tag);
+                if (ndef != null) {
+                    NdefMessage cached = ndef.getCachedNdefMessage();
+                    if (cached != null) {
+                        return extractUriRecord(cached);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "NDEF-URI-Lesen fehlgeschlagen", e);
+        }
+        return null;
+    }
+
+    /** Extrahiert den ersten URI-Record (RTD_URI oder TNF_ABSOLUTE_URI) einer Message. */
+    private static String extractUriRecord(NdefMessage message) {
+        if (message == null) {
+            return null;
+        }
+        for (NdefRecord record : message.getRecords()) {
+            try {
+                // toUri() deckt Well-Known-URI (RTD_URI, inkl. Schema-Praefixbyte) und
+                // absolute-URI-Records ab und liefert die vollstaendige URL zurueck.
+                Uri uri = record.toUri();
+                if (uri != null) {
+                    String s = uri.toString();
+                    if (s != null && !s.isEmpty()) {
+                        return s;
+                    }
+                }
+            } catch (Exception ignore) {
+                // Kein URI-Record — naechsten pruefen.
+            }
         }
         return null;
     }
@@ -380,14 +432,16 @@ public class MainActivity extends Activity {
 
     /**
      * Uebergibt den NFC-Scan an die Seite.
-     * Contract (fixiert): window.__tfNativeNfc({"text": <string|null>, "uid": <hex>})
+     * Contract: window.__tfNativeNfc({"url": <string|null>, "text": <string|null>, "uid": <hex>})
+     * url = NDEF-URI (Hub-Chip), text = NDEF-Text (Alt-Stempel-Code), uid = Tag-Seriennummer.
      */
-    private void dispatchNfcToPage(String text, String uid) {
+    private void dispatchNfcToPage(String url, String text, String uid) {
         if (webView == null) {
             return;
         }
         try {
             JSONObject json = new JSONObject();
+            json.put("url", url != null ? url : JSONObject.NULL);
             json.put("text", text != null ? text : JSONObject.NULL);
             json.put("uid", uid);
             webView.evaluateJavascript(
